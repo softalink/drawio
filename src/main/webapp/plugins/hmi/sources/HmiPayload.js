@@ -436,7 +436,7 @@
 				continue;
 			}
 
-			updates.push({ tag: tag, value: attrs.value, xml: true });
+			updates.push({ tag: tag, value: attrs.value, xml: true, attrs: attrs });
 		}
 
 		return updates;

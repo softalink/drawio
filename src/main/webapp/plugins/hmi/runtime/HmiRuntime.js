@@ -686,6 +686,16 @@
 		{
 			self.fire('status', self.sources.status());
 		});
+		this.sources.on('updates', function(updates)
+		{
+			for (var i = 0; i < updates.length; i++)
+			{
+				if (updates[i].xml)
+				{
+					self.applyUpdateXml(updates[i]);
+				}
+			}
+		});
 		this.sources.on('hostWrite', function(req)
 		{
 			self.fire('hostWrite', req);
@@ -764,6 +774,67 @@
 			this.graph.container.style.backgroundColor = this.themeBackup;
 			this.themeBackup = null;
 		}
+	};
+
+	/**
+	 * Applies a plugins/update.js style <update id value style/> transiently
+	 * (HMI-IMP-2): attributes of the value XML become runtime attributes (the
+	 * label attribute becomes the label) and style entries are overlaid.
+	 */
+	Runtime.prototype.applyUpdateXml = function(update)
+	{
+		var cell = this.getCell(update.tag);
+		var attrs = update.attrs || {};
+
+		if (cell == null)
+		{
+			return;
+		}
+
+		if (attrs.value != null && attrs.value !== '')
+		{
+			try
+			{
+				var node = mxUtils.parseXml(attrs.value).documentElement;
+
+				for (var i = 0; node != null && i < node.attributes.length; i++)
+				{
+					var name = node.attributes[i].nodeName;
+					var value = node.attributes[i].nodeValue;
+
+					if (name == 'label')
+					{
+						this.overlay.setLabel(cell.id, value, 'binding');
+					}
+					else if (name != 'replace-value')
+					{
+						this.overlay.setAttribute(cell.id, name, value, 'binding');
+					}
+				}
+			}
+			catch (e)
+			{
+				this.log('warn', 'source', 'Invalid update value for ' + cell.id + ': ' + e.message);
+			}
+		}
+
+		if (attrs.style != null)
+		{
+			var pairs = attrs.style.split(';');
+
+			for (var i = 0; i < pairs.length; i++)
+			{
+				var eq = pairs[i].indexOf('=');
+
+				if (eq > 0)
+				{
+					this.overlay.setStyle(cell.id, pairs[i].substring(0, eq),
+						pairs[i].substring(eq + 1), 'binding');
+				}
+			}
+		}
+
+		this.requestFlush();
 	};
 
 	/**

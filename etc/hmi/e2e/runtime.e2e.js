@@ -537,3 +537,35 @@ test('security: script sandbox has no network or DOM access', async function()
 	assert.match(result.loop, /timeout/i);
 	await page.close();
 });
+
+test('plugins/update.js XML updates apply transiently', async function()
+{
+	var page = await util.openEditor(browser, web.url);
+
+	var result = await page.evaluate(async function()
+	{
+		var ui = Hmi.ui;
+		var graph = ui.editor.graph;
+		var cell = graph.insertVertex(graph.getDefaultParent(), 'server1', 'Server', 20, 20, 120, 40);
+		Hmi.Model.setDocConfig(graph, {version: 1, sim: 'off', sources: [], tags: [], triggers: []});
+		var xmlBefore = mxUtils.getXml(ui.editor.getGraphXml());
+		var rt = ui.hmi.run({mode: 'run'});
+		var updates = Hmi.Payload.map('<updates><update id="server1" ' +
+			'value="&lt;object label=&quot;Load 42%&quot;/&gt;" style="fillColor=#ff0000;"/></updates>',
+			{kind: 'drawio-update-xml'}, {});
+		rt.applyUpdateXml(updates[0]);
+		rt.frame();
+		var state = graph.view.getState(cell);
+		var running = {label: state.text.value, fill: state.style.fillColor};
+		ui.hmi.stop();
+
+		return {running: running, same: xmlBefore == mxUtils.getXml(ui.editor.getGraphXml()),
+			after: graph.view.getState(cell).style.fillColor};
+	});
+
+	assert.strictEqual(result.running.label, 'Load 42%');
+	assert.strictEqual(result.running.fill, '#ff0000');
+	assert.strictEqual(result.same, true);
+	assert.notStrictEqual(result.after, '#ff0000');
+	await page.close();
+});
