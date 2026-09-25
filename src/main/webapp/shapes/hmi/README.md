@@ -5,6 +5,9 @@ Three DOM-free shape files, loaded lazily by `mxStencilRegistry.libraries['hmi']
 rendered:
 
 - `mxHmiWidgets.js` — value/operator widgets (HMI-WGT-1..10, 14, 17, 18).
+- `mxHmiTable.js` — data table (HMI-WGT-13) and the design-time/export
+  placeholders for the runtime-only iframe, video and ECharts widgets
+  (HMI-WGT-19, 20); loads after `mxHmiWidgets.js`.
 - `mxHmiCharts.js` — trend/bar/pie charts (HMI-WGT-11, 12).
 - `mxHmiEquipment.js` — state-aware equipment symbols and pipe fittings (HMI-WGT-15, 16).
 
@@ -222,6 +225,78 @@ via `rt.requestFlush()` on a 1 Hz tick) — at design time it simply shows
 `state` of `active-ack` or `cleared-unack` dims the row and shows an `ACK`
 tag. **Blinking of unacknowledged alarms is a runtime style-overlay concern**,
 not painted here.
+
+## mxHmiTable.js
+
+### `mxgraph.hmi.table` — Data table (HMI-WGT-13)
+
+Reads rows from `hmiValue` (JSON): either an array of objects (columns come
+from `hmiColumns`, or are inferred from the keys of the first row, in
+insertion order) or an array of arrays (columns come from `hmiColumns`, or
+default to `Col 1, Col 2, ...`). Falls back to a 5-row design-time sample
+when `hmiValue` is empty or fails to parse.
+
+| Style key | Type | Default | Meaning |
+|---|---|---|---|
+| `hmiValue` | string, JSON rows | sample data, see shape source | |
+| `hmiColumns` | `"key:Header:width:format,..."` | `''` (inferred) | `width` (px) and `format` (a decimals pattern, e.g. `0.1`) are optional |
+| `hmiHeader` | bool | `1` | show a header row |
+| `hmiStripe` | bool | `1` | alternate row background |
+| `stripeColor` | color | `#f5f7f8` | |
+| `headerColor` | color | `#eceff1` | |
+| `fontSize` | int | `12` | falls back to the shape's own font size style |
+| `rowHeight` | int | `~1.8x fontSize` | |
+| `hmiMaxRows` | int | `8` | rows visible at once (the rest scroll in) |
+| `hmiAutoScroll` | bool | `0` | see below |
+| `hmiScrollInterval` | int, ms | `1500` | how often the runtime advances one row when `hmiAutoScroll` is on |
+
+**Auto-scroll.** When `hmiAutoScroll=1`, `Hmi.DomWidgets` (see
+`plugins/hmi/runtime/HmiDomWidgets.js`) advances the style key
+`hmiScrollOffset` (an integer row index, wrapped modulo the row count) every
+`hmiScrollInterval` ms via the overlay's `anim` layer, and the shape simply
+starts painting from that row -- it has no timer of its own, so it also
+scrolls correctly when driven manually (e.g. from a trigger action writing
+`style:hmiScrollOffset`).
+
+No column truncation uses canvas clipping (`mxAbstractCanvas2D` has none,
+see above); long cell text is truncated to its column width with an
+ellipsis instead.
+
+## Runtime-only widgets (HMI-WGT-19, HMI-WGT-20)
+
+`mxgraph.hmi.iframe`, `mxgraph.hmi.video` and `mxgraph.hmi.echarts` are only
+live inside the HMI runtime: `plugins/hmi/runtime/HmiDomWidgets.js` overlays
+a real `<iframe>`, `<video>` or ECharts canvas on top of the cell while the
+runtime is running (see that file's own doc comment for the binding and
+security rules -- sandboxing, URL sanitising, lazy-loading ECharts). Outside
+the runtime (design time, Live preview off, and SVG/PNG/PDF export) these
+three shapes below paint a plain placeholder -- a frame, a small icon and
+the configured URL/caption -- so the screen still looks meaningful and never
+embeds live third-party content into an export.
+
+### `mxgraph.hmi.iframe`
+
+| Style key | Type | Default | Meaning |
+|---|---|---|---|
+| `hmiUrl` | string, `${}` allowed | `https://www.example.com/` | only `http:`/`https:` are ever loaded |
+| `hmiRefresh` | int, seconds, `0` = never | `0` | periodic reload |
+| `hmiSandbox` | string, `<iframe sandbox>` tokens | `allow-scripts allow-forms` | `allow-same-origin` is always stripped by the runtime |
+
+### `mxgraph.hmi.video`
+
+| Style key | Type | Default |
+|---|---|---|
+| `hmiUrl` | string, `${}` allowed | `''` |
+| `hmiAutoplay` | bool | `1` (requires `hmiMuted=1` per browser autoplay policy) |
+| `hmiMuted` | bool | `1` |
+| `hmiLoop` | bool | `1` |
+
+### `mxgraph.hmi.echarts`
+
+| Style key | Type | Default | Meaning |
+|---|---|---|---|
+| `hmiOption` | string, ECharts option JSON | a minimal time/value line option, see shape source | edited via Edit Style; also bindable via `target: 'prop:option'` |
+| `hmiMaxPoints` | int | `300` | cap on points kept per series when a `target: 'prop:series'` binding streams data in |
 
 ## mxHmiCharts.js
 

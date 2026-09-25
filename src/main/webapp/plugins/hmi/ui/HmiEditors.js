@@ -58,8 +58,12 @@
 
 		if (labelText != null)
 		{
+			// Field labels use the regular label style (hints are for
+			// explanatory text only, see docs/dialog-style-guide.md)
 			var lbl = document.createElement('span');
-			lbl.className = 'geDialogHint';
+			lbl.className = 'geDialogFormLabel';
+			lbl.style.minWidth = '0';
+			lbl.style.marginRight = '6px';
 			mxUtils.write(lbl, labelText);
 			field.appendChild(lbl);
 		}

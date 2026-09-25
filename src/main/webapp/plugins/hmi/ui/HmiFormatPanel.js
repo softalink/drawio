@@ -165,6 +165,7 @@
 			}
 		});
 		btn1.className = 'geFullWidthElement';
+		btn1.style.display = 'block';
 		div.appendChild(btn1);
 
 		var btn2 = mxUtils.button(mxResources.get('hmiTags') + '...', function()
@@ -175,6 +176,7 @@
 			}
 		});
 		btn2.className = 'geFullWidthElement';
+		btn2.style.display = 'block';
 		btn2.style.marginTop = '4px';
 		div.appendChild(btn2);
 
@@ -186,6 +188,7 @@
 			}
 		});
 		btn3.className = 'geFullWidthElement';
+		btn3.style.display = 'block';
 		btn3.style.marginTop = '4px';
 		div.appendChild(btn3);
 
@@ -198,6 +201,7 @@
 				previewAction.funct();
 			});
 			btn4.className = 'geFullWidthElement';
+			btn4.style.display = 'block';
 			btn4.style.marginTop = '10px';
 			div.appendChild(btn4);
 		}
@@ -304,6 +308,7 @@
 		{
 			var btn = mxUtils.button(label, fn);
 			btn.className = 'geFullWidthElement';
+			btn.style.display = 'block';
 			btn.style.marginBottom = '2px';
 			content.appendChild(btn);
 		};
@@ -343,6 +348,9 @@
 			{value: 'fadeInOut', label: 'Fade in/out'},
 			{value: 'colorCycle', label: 'Color cycle'}
 		], 'blink');
+		presetSelect.style.display = 'block';
+		presetSelect.style.position = 'static';
+		presetSelect.style.width = '212px';
 		presetSelect.style.marginTop = '4px';
 		content.appendChild(presetSelect);
 
@@ -397,6 +405,8 @@
 		var style = graph.getCurrentCellStyle(cells[0]) || {};
 		var typeSelect = Hmi.Editors.select(['dash', 'dots', 'beads', 'arrows', 'liquid'],
 			style.flowAnimationType || 'dash');
+		typeSelect.style.position = 'static';
+		typeSelect.style.marginLeft = '6px';
 		typeRow.appendChild(typeSelect);
 
 		mxEvent.addListener(typeSelect, 'change', function()
@@ -799,7 +809,7 @@
 		var label = document.createElement('div');
 		label.className = 'geFormatTitle';
 		label.setAttribute('title', mxResources.get('hmi'));
-		mxUtils.write(label, mxResources.get('hmi'));
+		mxUtils.write(label, mxResources.get('hmiTab'));
 		titleContainer.appendChild(label);
 
 		var panel = document.createElement('div');

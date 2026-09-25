@@ -12,6 +12,7 @@
 
 	Resources.DEFAULTS = {
 		hmi: 'HMI / SCADA',
+		hmiTab: 'HMI',
 		hmiRun: 'Run Screen',
 		hmiLivePreview: 'Live Preview',
 		hmiInteractive: 'Interactive Preview',
@@ -195,6 +196,7 @@
 		hmiNav: 'Navigation',
 		hmiMaxRate: 'Max update rate',
 		hmiQuality: 'Bad/stale indication',
+		hmiValueQuality: 'Quality',
 		hmiPanZoom: 'Allow pan/zoom',
 		hmiImportCsv: 'Import CSV',
 		hmiExportCsv: 'Export CSV',

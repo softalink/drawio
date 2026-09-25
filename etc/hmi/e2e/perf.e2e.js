@@ -123,7 +123,23 @@ async function bench(page, cells, rate, seconds, mix, zoom)
 			visible[i] = st != null && mxUtils.intersects(rect, st);
 		}
 
-		var heapStart = (performance.memory != null) ? performance.memory.usedJSHeapSize : 0;
+		var heap = function()
+		{
+			if (window.gc != null)
+			{
+				window.gc();
+			}
+
+			return (performance.memory != null) ? performance.memory.usedJSHeapSize : 0;
+		};
+
+		// Warm-up so caches and JIT settle before the baseline
+		await new Promise(function(r)
+		{
+			setTimeout(r, 1000);
+		});
+		var heapStart = heap();
+		var heapSamples = [];
 		var tick = 50;
 		var perTick = Math.max(1, Math.round(args.rate * tick / 1000));
 		var next = 0;
@@ -148,6 +164,11 @@ async function bench(page, cells, rate, seconds, mix, zoom)
 				}
 
 				rt.setValues(values);
+
+				if (args.seconds > 60 && Math.floor((now - start) / 30000) > heapSamples.length)
+				{
+					heapSamples.push(Math.round((heap() - heapStart) / 10485.76) / 100);
+				}
 
 				if (now - start > args.seconds * 1000)
 				{
@@ -175,8 +196,8 @@ async function bench(page, cells, rate, seconds, mix, zoom)
 			p50: latencies[Math.floor(latencies.length * 0.5)],
 			p95: latencies[Math.floor(latencies.length * 0.95)],
 			busyPct: 100 * busy / elapsed,
-			heapDeltaMb: (performance.memory != null) ?
-				(performance.memory.usedJSHeapSize - heapStart) / 1048576 : null,
+			heapDeltaMb: (heap() - heapStart) / 1048576,
+			heapSamples: heapSamples,
 			frames: rt.diag.counters.frames,
 			rate: rt.diag.counters.rate,
 			updates: rt.diag.counters.updates

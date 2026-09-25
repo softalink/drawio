@@ -101,7 +101,7 @@
 
 			var head = document.createElement('tr');
 
-			[mxResources.get('name'), mxResources.get('hmiValue'), mxResources.get('hmiQuality'),
+			[mxResources.get('name'), mxResources.get('hmiValue'), mxResources.get('hmiValueQuality'),
 				''].forEach(function(t)
 			{
 				var th = document.createElement('th');

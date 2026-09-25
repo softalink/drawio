@@ -662,7 +662,19 @@
 					continue;
 				}
 
-				this.redrawState(state);
+				try
+				{
+					this.redrawState(state);
+				}
+				catch (e)
+				{
+					// A failing shape must not block other cells
+					if (this.onError != null)
+					{
+						this.onError(state.cell, e);
+					}
+				}
+
 				count++;
 			}
 		}
@@ -680,7 +692,8 @@
 	{
 		var container = this.graph.container;
 
-		if (container == null)
+		// No culling for hidden or unsized containers
+		if (container == null || container.clientWidth == 0 || container.clientHeight == 0)
 		{
 			return null;
 		}

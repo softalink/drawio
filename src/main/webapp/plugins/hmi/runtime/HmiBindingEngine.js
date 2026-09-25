@@ -203,6 +203,21 @@
 						});
 					})(this, b, cell);
 				}
+				else if (b.targetCells != null)
+				{
+					// Group-level binding applied to descendants (HMI-BND-10)
+					var targets = this.resolveTargetCells(cell, b.targetCells);
+
+					for (var j = 0; j < targets.length; j++)
+					{
+						var g = this.applyTarget(targets[j], b, value, null);
+
+						if (g != null)
+						{
+							overlay.setGeo(targets[j].id, g, LAYER);
+						}
+					}
+				}
 				else
 				{
 					geo = this.applyTarget(cell, b, value, geo);
@@ -221,6 +236,69 @@
 		}
 
 		overlay.setQuality(id, worst);
+	};
+
+	/**
+	 * Resolves targetCells = {cells: [ids], tags: [cellTags], path: 'i/j'}
+	 * relative to the bound cell (tags and paths are searched among the
+	 * cell's descendants).
+	 */
+	BindingEngine.prototype.resolveTargetCells = function(cell, spec)
+	{
+		var rt = this.rt;
+		var model = rt.graph.model;
+		var result = [];
+		var i;
+
+		if (spec.cells != null)
+		{
+			for (i = 0; i < spec.cells.length; i++)
+			{
+				var c = rt.getCell(spec.cells[i]);
+
+				if (c != null)
+				{
+					result.push(c);
+				}
+			}
+		}
+
+		if (spec.path != null)
+		{
+			var current = cell;
+			var parts = String(spec.path).split('/');
+
+			for (i = 0; i < parts.length && current != null; i++)
+			{
+				current = model.getChildAt(current, parseInt(parts[i]));
+			}
+
+			if (current != null)
+			{
+				result.push(current);
+			}
+		}
+
+		if (spec.tags != null && rt.graph.getTagsForCell != null)
+		{
+			var descendants = model.getDescendants(cell);
+
+			for (i = 0; i < descendants.length; i++)
+			{
+				var cellTags = rt.graph.getTagsForCell(descendants[i]).split(' ');
+
+				for (var j = 0; j < spec.tags.length; j++)
+				{
+					if (descendants[i] != cell && cellTags.indexOf(spec.tags[j]) >= 0)
+					{
+						result.push(descendants[i]);
+						break;
+					}
+				}
+			}
+		}
+
+		return result;
 	};
 
 	/**

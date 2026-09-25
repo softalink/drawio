@@ -41,6 +41,8 @@
 		'runtime/HmiActions.js',
 		'runtime/HmiAnimator.js',
 		'runtime/HmiEventDispatcher.js',
+		'runtime/HmiSystem.js',
+		'runtime/HmiDomWidgets.js',
 		'runtime/HmiRuntime.js',
 		'runtime/HmiEmbed.js',
 		'ui/HmiResources.js',

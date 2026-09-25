@@ -86,7 +86,7 @@
 		};
 		proxy.requestFlush = function()
 		{
-			overlay.flush(true);
+			overlay.flush(false);
 		};
 		proxy.log = function(level, category, message, data)
 		{
@@ -110,14 +110,14 @@
 			}
 
 			proxy.bindings.update(names);
-			overlay.flush(true);
+			overlay.flush(false);
 		};
 		updateAll();
 
 		var tagsListener = function(names)
 		{
 			proxy.bindings.update(names);
-			overlay.flush(true);
+			overlay.flush(false);
 		};
 		rt.on('tags', tagsListener);
 

@@ -1947,7 +1947,10 @@
 		for (var i = 0; i < alarms.length; i++)
 		{
 			var a = alarms[i] || {};
-			var sev = (a.severity || 'info').toLowerCase();
+			// Numeric runtime severities (1 = highest) map to names
+			var sevNames = {1: 'critical', 2: 'warning', 3: 'medium', 4: 'info'};
+			var sev = (typeof a.severity === 'number') ? (sevNames[a.severity] || 'info') :
+				String(a.severity || 'info').toLowerCase();
 			var color = this.sevColors[sev] || '#1565c0';
 			var y = i * rowH;
 			var acked = (a.state == 'active-ack' || a.state == 'cleared-unack');
@@ -1960,7 +1963,7 @@
 			c.setFontColor('#ffffff');
 			c.setFontStyle(acked ? 0 : mxConstants.FONT_BOLD);
 			c.setFontSize(Math.max(9, Math.min(rowH * 0.55, h * 0.28)));
-			var text = (a.severity ? ('[' + a.severity.toUpperCase() + '] ') : '') + (a.message || '');
+			var text = (a.severity ? ('[' + sev.toUpperCase() + '] ') : '') + (a.message || '');
 			c.text(12, y + rowH / 2, w - 24, rowH, text, mxConstants.ALIGN_LEFT, mxConstants.ALIGN_MIDDLE, 0);
 
 			if (acked)

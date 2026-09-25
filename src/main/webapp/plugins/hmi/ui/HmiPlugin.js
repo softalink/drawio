@@ -121,6 +121,46 @@
 	};
 
 	/**
+	 * Shows the safety notice once per browser before the first run (SRS
+	 * §6.4), then invokes fn.
+	 */
+	Plugin.confirmSafety = function(ui, fn)
+	{
+		var key = '.hmi-safety-ack';
+		var acked = false;
+
+		try
+		{
+			acked = localStorage.getItem(key) == '1';
+		}
+		catch (e)
+		{
+			// ignore
+		}
+
+		if (acked || Hmi.Runtime.getGlobalConfig().hideSafetyNotice)
+		{
+			fn();
+		}
+		else
+		{
+			ui.confirm(mxResources.get('hmiSafetyNotice'), function()
+			{
+				try
+				{
+					localStorage.setItem(key, '1');
+				}
+				catch (e)
+				{
+					// ignore
+				}
+
+				fn();
+			}, null, mxResources.get('ok'), mxResources.get('cancel'));
+		}
+	};
+
+	/**
 	 * Returns the URL that opens the current diagram in runtime mode.
 	 */
 	Plugin.getRunUrl = function(ui)
@@ -164,13 +204,19 @@
 
 		ui.actions.addAction('hmiRun', function()
 		{
-			var wnd = window.open(Plugin.getRunUrl(ui), '_blank');
+			// Opens the window synchronously (popup blockers), then confirms
+			var url = Plugin.getRunUrl(ui);
 
-			if (wnd == null)
+			Plugin.confirmSafety(ui, function()
 			{
-				ui.showError(mxResources.get('error'), mxResources.get('hmiPopupBlocked'),
-					mxResources.get('ok'));
-			}
+				var wnd = window.open(url, '_blank');
+
+				if (wnd == null)
+				{
+					ui.showError(mxResources.get('error'), mxResources.get('hmiPopupBlocked'),
+						mxResources.get('ok'));
+				}
+			});
 		}, null, null, Editor.ctrlKey + '+Shift+F5');
 
 		var preview = ui.actions.addAction('hmiLivePreview', function()
@@ -181,7 +227,11 @@
 			}
 			else
 			{
-				api.run({mode: 'preview', interactive: Plugin.interactivePreview});
+				Plugin.confirmSafety(ui, function()
+				{
+					api.run({mode: 'preview', interactive: Plugin.interactivePreview});
+					ui.fireEvent(new mxEventObject('hmiPreviewChanged'));
+				});
 			}
 
 			ui.fireEvent(new mxEventObject('hmiPreviewChanged'));

@@ -418,3 +418,122 @@ test('HMI files open in draw.io without the plugin', async function()
 	assert.deepStrictEqual(errors, []);
 	await plain.close();
 });
+
+test('alarms: indicator preset, system tags and acknowledgement', async function()
+{
+	var page = await util.openEditor(browser, web.url);
+
+	var result = await page.evaluate(async function()
+	{
+		var ui = Hmi.ui;
+		var graph = ui.editor.graph;
+		var parent = graph.getDefaultParent();
+		var tank = graph.insertVertex(parent, 'tank', '', 50, 50, 80, 120,
+			'shape=cylinder3;hmiAlarmIndicator=1;');
+		var banner = graph.insertVertex(parent, 'banner', '', 200, 50, 300, 60,
+			'shape=mxgraph.hmi.alarmBanner;');
+		var count = graph.insertVertex(parent, 'count', '', 200, 150, 80, 30, 'text;html=1;');
+		Hmi.Model.setDocConfig(graph, {version: 1, sim: 'off', triggers: [],
+			sources: [{id: 'h', name: 'Host', type: 'host', enabled: true}],
+			tags: [{name: 'Level', type: 'number', alarms: {hi: 80, deadband: 2,
+				messages: {hi: 'Tank level high'}}}]});
+		Hmi.Model.setCellConfig(graph, [tank], 'bindings', [{tag: 'Level', target: 'style:hmiLevel'}]);
+		Hmi.Model.setCellConfig(graph, [banner], 'bindings', [{tag: '$alarms', target: 'prop:value'}]);
+		Hmi.Model.setCellConfig(graph, [count], 'bindings', [{tag: '$alarmCount', target: 'label'}]);
+		var rt = ui.hmi.run({mode: 'run', interactive: true});
+		var wait = function(ms)
+		{
+			return new Promise(function(r)
+			{
+				setTimeout(r, ms);
+			});
+		};
+
+		rt.setValues({Level: 90});
+		await wait(200);
+		rt.frame();
+		var st = graph.view.getState(tank);
+		var active = {stroke: st.style.strokeColor, blink: st.shape.node.style.animation,
+			banner: graph.view.getState(banner).style.hmiValue,
+			count: graph.view.getState(count).text.value};
+
+		rt.alarms.ack();
+		await wait(100);
+		rt.frame();
+		st = graph.view.getState(tank);
+		var acked = {stroke: st.style.strokeColor, blink: st.shape.node.style.animation};
+
+		rt.setValues({Level: 50});
+		await wait(200);
+		rt.frame();
+		st = graph.view.getState(tank);
+		var cleared = {stroke: st.style.strokeColor, count: graph.view.getState(count).text.value};
+		ui.hmi.stop();
+
+		return {active: active, acked: acked, cleared: cleared};
+	});
+
+	assert.strictEqual(result.active.stroke, '#F57C00');
+	assert.match(result.active.blink, /hmi-blink/);
+	assert.match(result.active.banner, /Tank level high/);
+	assert.strictEqual(result.active.count, '1');
+	assert.strictEqual(result.acked.stroke, '#F57C00');
+	assert.strictEqual(result.acked.blink, '');
+	assert.notStrictEqual(result.cleared.stroke, '#F57C00');
+	assert.strictEqual(result.cleared.count, '0');
+	await page.close();
+});
+
+test('security: script sandbox has no network or DOM access', async function()
+{
+	var page = await util.openEditor(browser, web.url);
+
+	var result = await page.evaluate(async function()
+	{
+		var host = new Hmi.ScriptHost({policy: 'on', timeout: 500});
+		var probes = {
+			fetch: 'return typeof fetch',
+			xhr: 'return typeof XMLHttpRequest',
+			ws: 'return typeof WebSocket',
+			importScripts: 'return typeof importScripts',
+			document: 'return typeof document',
+			viaFunction: 'return (new Function("return typeof fetch"))()',
+			viaPrototype: 'var o = self; while (o) { if (o.fetch) return "found"; ' +
+				'o = Object.getPrototypeOf(o); } return "undefined"',
+			works: 'return args.x * 2'
+		};
+		var out = {};
+
+		for (var key in probes)
+		{
+			try
+			{
+				out[key] = await host.run(probes[key], {x: 21}, {});
+			}
+			catch (e)
+			{
+				out[key] = 'error: ' + e.message;
+			}
+		}
+
+		try
+		{
+			await host.run('while (true) {}', {}, {});
+		}
+		catch (e)
+		{
+			out.loop = e.message;
+		}
+
+		out.afterLoop = await host.run('return 1', {}, {});
+		host.terminate();
+
+		return out;
+	});
+
+	assert.deepStrictEqual(result, {fetch: 'undefined', xhr: 'undefined', ws: 'undefined',
+		importScripts: 'undefined', document: 'undefined', viaFunction: 'undefined',
+		viaPrototype: 'undefined', works: 42, loop: result.loop, afterLoop: 1});
+	assert.match(result.loop, /timeout/i);
+	await page.close();
+});

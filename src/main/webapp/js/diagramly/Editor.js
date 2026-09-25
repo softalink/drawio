@@ -12205,7 +12205,7 @@
 	mxStencilRegistry.libraries['veeam'] = [STENCIL_PATH + '/veeam/2d.xml', STENCIL_PATH + '/veeam/3d.xml', STENCIL_PATH + '/veeam/veeam.xml'];
 	mxStencilRegistry.libraries['veeam2'] = [STENCIL_PATH + '/veeam/2d.xml', STENCIL_PATH + '/veeam/3d.xml', STENCIL_PATH + '/veeam/veeam2.xml'];
 	// HMI: begin
-	mxStencilRegistry.libraries['hmi'] = [SHAPES_PATH + '/hmi/mxHmiWidgets.js', SHAPES_PATH + '/hmi/mxHmiCharts.js', SHAPES_PATH + '/hmi/mxHmiEquipment.js'];
+	mxStencilRegistry.libraries['hmi'] = [SHAPES_PATH + '/hmi/mxHmiWidgets.js', SHAPES_PATH + '/hmi/mxHmiTable.js', SHAPES_PATH + '/hmi/mxHmiCharts.js', SHAPES_PATH + '/hmi/mxHmiEquipment.js'];
 	// HMI: end
 	mxStencilRegistry.libraries['pid2inst'] = [SHAPES_PATH + '/pid2/mxPidInstruments.js'];
 	mxStencilRegistry.libraries['pid2misc'] = [SHAPES_PATH + '/pid2/mxPidMisc.js', STENCIL_PATH + '/pid/misc.xml'];

@@ -81,7 +81,7 @@ var APP_PARAMS = 'splash=0&gapi=0&db=0&od=0&gh=0&gl=0&tr=0&mode=device&sync=none
 async function launch()
 {
 	var pw = loadPlaywright();
-	var opts = {};
+	var opts = {args: ['--js-flags=--expose-gc', '--enable-precise-memory-info']};
 	var exe = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
 	if (fs.existsSync(exe))

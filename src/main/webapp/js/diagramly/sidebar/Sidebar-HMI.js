@@ -54,6 +54,8 @@
 		this.addHmiControlsPalette();
 		this.setCurrentSearchEntryLibrary('hmi', 'hmiCharts');
 		this.addHmiChartsPalette();
+		this.setCurrentSearchEntryLibrary('hmi', 'hmiMedia');
+		this.addHmiMediaPalette();
 		this.setCurrentSearchEntryLibrary('hmi', 'hmiEquipment');
 		this.addHmiEquipmentPalette();
 		this.setCurrentSearchEntryLibrary('hmi', 'hmiPipes');
@@ -175,7 +177,31 @@
 			this.createVertexTemplateEntry(s + 'pieChart;fillColor=#ffffff;strokeColor=none;fontColor=#455a64;',
 				200, 150, '', 'Pie Chart (Donut)', null, null, dt + 'pie chart donut graph proportion'),
 			this.createVertexTemplateEntry(s + 'pieChart;fillColor=#ffffff;strokeColor=none;fontColor=#455a64;hmiDonut=0;',
-				200, 150, '', 'Pie Chart', null, null, dt + 'pie chart graph proportion')
+				200, 150, '', 'Pie Chart', null, null, dt + 'pie chart graph proportion'),
+			this.createVertexTemplateEntry(s + 'table;fillColor=#ffffff;strokeColor=#cfd8dc;fontColor=#263238;' +
+				'headerColor=#eceff1;stripeColor=#f5f7f8;hmiHeader=1;hmiStripe=1;', 260, 150, '', 'Data Table',
+				null, null, dt + 'table data grid rows columns list'),
+			this.createVertexTemplateEntry(s + 'echarts;fillColor=#ffffff;strokeColor=#cfd8dc;fontColor=#546e7a;',
+				240, 160, '', 'ECharts Widget', null, null, dt + 'echarts chart graph advanced custom')
+		]);
+	};
+
+	//======================================================================
+	// Media (HMI-WGT-19)
+	//======================================================================
+
+	Sidebar.prototype.addHmiMediaPalette = function()
+	{
+		var s = 'html=1;whiteSpace=wrap;shadow=0;' + mxConstants.STYLE_SHAPE + '=mxgraph.hmi.';
+
+		this.addPaletteFunctions('hmiMedia', 'HMI / Media', false,
+		[
+			this.createVertexTemplateEntry(s + 'iframe;fillColor=#f5f7f8;strokeColor=#90a4ae;fontColor=#546e7a;' +
+				'hmiUrl=https://www.example.com/;hmiSandbox=allow-scripts allow-forms;', 240, 160, '',
+				'Embedded Web Content (iframe)', null, null, dt + 'iframe web embed browser content'),
+			this.createVertexTemplateEntry(s + 'video;fillColor=#263238;strokeColor=#546e7a;fontColor=#eceff1;' +
+				'hmiAutoplay=1;hmiMuted=1;hmiLoop=1;', 240, 160, '', 'Video Stream', null, null,
+				dt + 'video stream camera feed player')
 		]);
 	};
 

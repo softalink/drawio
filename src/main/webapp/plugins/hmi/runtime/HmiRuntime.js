@@ -518,8 +518,20 @@
 				names = names.concat(stale);
 			}
 
-			if (names.length > 0)
+			// Tags written while processing (system tags, writes by actions)
+			// are handled in further passes of the same frame
+			for (var pass = 0; pass < 3 && names.length > 0; pass++)
 			{
+				if (pass > 0)
+				{
+					names = this.tags.takeDirty();
+
+					if (names.length == 0)
+					{
+						break;
+					}
+				}
+
 				this.diag.counters.updates += names.length;
 				this.bindings.update(names);
 
@@ -599,6 +611,16 @@
 		this.overlay.clear();
 		this.overlay.flush(false);
 		this.overlay.qualityMode = this.config.runtime.quality || 'outline';
+		this.renderErrors = {};
+		this.overlay.onError = function(cell, e)
+		{
+			// Logs each failing cell once
+			if (!self.renderErrors[cell.id])
+			{
+				self.renderErrors[cell.id] = true;
+				self.log('error', 'render', 'Rendering ' + cell.id + ' failed: ' + e.message);
+			}
+		};
 		this.overlay.tagResolver = function(name)
 		{
 			return self.tags.get(name);
@@ -689,9 +711,19 @@
 			this.simulator.start(250);
 		}
 
+		this.applyTheme();
 		this.buildPage();
 		this.events.install();
 		this.installListeners();
+		this.system = new Hmi.System(this);
+		this.system.install();
+
+		// DOM overlay widgets (iframe, video, ECharts)
+		if (Hmi.DomWidgets != null)
+		{
+			this.dom = new Hmi.DomWidgets(this);
+			this.dom.install();
+		}
 
 		// Initial trigger evaluation after first data or timeout (HMI-TRG-5)
 		var initTimeout = (gcfg.initialTimeout != null) ? gcfg.initialTimeout : 1000;
@@ -705,6 +737,33 @@
 		this.fire('start', this);
 		this.fire('status', this.sources.status());
 		this.requestFlush();
+	};
+
+	/**
+	 * ISA-101 high-performance theme (HMI-USA-3): neutral grey background for
+	 * the runtime view. Colour is reserved for abnormal states.
+	 */
+	Runtime.THEMES = {isa101: {background: '#D4D4D4'}};
+
+	Runtime.prototype.applyTheme = function()
+	{
+		var theme = Runtime.THEMES[this.config.runtime.theme];
+		var container = this.graph.container;
+
+		if (theme != null && container != null && this.mode == 'run')
+		{
+			this.themeBackup = container.style.backgroundColor;
+			container.style.backgroundColor = theme.background;
+		}
+	};
+
+	Runtime.prototype.restoreTheme = function()
+	{
+		if (this.themeBackup != null && this.graph.container != null)
+		{
+			this.graph.container.style.backgroundColor = this.themeBackup;
+			this.themeBackup = null;
+		}
 	};
 
 	/**
@@ -760,6 +819,17 @@
 		this.triggers.build(index, docCfg.triggers || []);
 		this.applyRoles();
 		this.bindings.updateAll();
+
+		if (this.system != null)
+		{
+			this.system.alarmsChanged(null);
+		}
+
+		if (this.dom != null)
+		{
+			this.dom.refresh();
+		}
+
 		this.overlay.flush(false);
 		this.events.decorate();
 		this.requestFlush();
@@ -1032,6 +1102,13 @@
 		}
 
 		this.removeListeners();
+		this.system.uninstall();
+
+		if (this.dom != null)
+		{
+			this.dom.uninstall();
+			this.dom = null;
+		}
 		this.events.uninstall();
 		this.sources.stop();
 		this.simulator.stop();
@@ -1045,6 +1122,7 @@
 			this.writer.dispose();
 		}
 
+		this.restoreTheme();
 		this.overlay.clear();
 		this.overlay.suspended = {};
 		this.overlay.tagResolver = null;

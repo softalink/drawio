@@ -128,6 +128,10 @@
 <template url="flowcharts/flowchart_1.xml" name="Flowchart 1" libs="general;flowchart" tags="Flowchart"/>
 <template url="flowcharts/flowchart_2.xml" name="Flowchart 2" libs="general;flowchart" tags="Flowchart"/>
 <template url="flowcharts/workflow_1.xml" name="Workflow 1" libs="general;flowchart" tags="Workflow"/>
+<template url="hmi/water_treatment.xml" name="Water Treatment Plant" tags="Hmi;Scada;Water;Treatment;Plant;Process;Pump;Tank"/>
+<template url="hmi/tank_farm.xml" name="Tank Farm" tags="Hmi;Scada;Tank;Farm;Storage;Level;Valve;Alarm"/>
+<template url="hmi/motor_control_center.xml" name="Motor Control Center" tags="Hmi;Scada;Motor;Control;Center;Mcc;Starter;Faceplate"/>
+<template url="hmi/building_hvac.xml" name="Building HVAC" tags="Hmi;Scada;Building;Hvac;Ahu;Isa101;Fan;Damper"/>
 <template url="maps/concept_map_1.xml" name="Concept map 1" libs="general" tags="Concept;map"/>
 <template url="maps/concept_map_2.xml" name="Concept map 2" libs="general" tags="Concept;map"/>
 <template url="maps/living_beings_mind_map.xml" name="Living beings mind map" libs="general" tags="Living;beings;mind;map"/>

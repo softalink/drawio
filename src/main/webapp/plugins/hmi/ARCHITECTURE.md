@@ -113,6 +113,8 @@ This file is the binding contract between the HMI modules. The requirements are 
 - In general, `prop:<name>` is `style:hmi<Name>`, with the first letter upper-cased.
 - `prop:series` appends `(ts, value)` to the overlay series buffer of that cell (used by the trend chart).
 
+Optional `targetCells: {cells: [ids], tags: [cellTags], path: 'i/j'}` applies a group's binding to other cells. Tags and paths are resolved among the bound cell's descendants (HMI-BND-10). `maxPoints` and `name` apply to `prop:series`.
+
 `Transform`:
 
 ```js
@@ -322,6 +324,27 @@ Hmi.Writer(rt):         write(tag, value, {cell, confirm}) → Promise; auditLog
 Hmi.Alarms(rt):         evaluate(changedTags); list() → [{tag, level, severity, message, state: 'active-unack'|'active-ack'|'cleared-unack', ts}]; ack(tag?)
 Hmi.ScriptHost({policy: 'off'|'prompt'|'on', timeout: 50}): run(code, args, api) → Promise<result>; terminate()
 ```
+
+### 3.7 System tags, alarms presentation, DOM widgets, viewer
+
+- **`Hmi.System(rt)`** (runtime/HmiSystem.js) publishes read-only system tags:
+  - `$alarms` (alarm list)
+  - `$alarmCount`
+  - `$alarmUnack`
+  - `$status/<sourceId>`
+
+  It also:
+  - applies `hmiAlarmIndicator=1` styling (severity colour, blinking while unacknowledged)
+  - plays the optional alarm sound (`runtime.alarmSound` or `DRAWIO_CONFIG.hmi.alarmSound`: `true` or a maximum severity number)
+  - publishes acknowledgements to `runtime.ackTarget = {source, topic, payload, url, method}`
+- **`Hmi.DomWidgets(rt)`** (runtime/HmiDomWidgets.js) positions runtime-only DOM elements over `mxgraph.hmi.iframe|video|echarts` cells. Its lifecycle is `install()`, `refresh()` (after each page build) and `uninstall()`.
+- **`Hmi.Viewer`** (viewer/HmiViewer.js, only in `js/hmi-viewer.min.js`) adapts a `GraphViewer` to the runtime. It supplies `ViewerUi`, which provides the subset of `EditorUi` the runtime uses:
+  - `editor.graph`, `editor.addListener`
+  - `pages`, `currentPage`, `selectPage`, `updatePageRoot`
+  - `confirm`, `getCurrentFile`
+
+  It starts for `data-mxgraph` configs that contain `"hmi"`.
+- **Adaptive frame rate.** `Runtime.frame` lowers the effective rate (down to 2 Hz) when frames are late or work takes more than 60% of the frame budget, and recovers gradually. `rt.diag.counters.rate` reports the current rate.
 
 ## 4. Isolation rules (SRS HMI-BND-7, C-5)
 
