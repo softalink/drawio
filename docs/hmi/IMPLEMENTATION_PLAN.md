@@ -391,3 +391,36 @@ M0 ──► M1 ──► M2 (overlay H3/H4 is the pivot) ──► M3 ──►
 - The user guide, gateway guide, hardening guide and JSON schemas are published in `docs/hmi/`.
 - Four templates are available in the template dialog.
 - The demo screen runs for 24 h against the simulator with heap growth < 10 MB/h.
+
+---
+
+## 11. Implementation status
+
+All milestones M0–M7 are implemented on branch `claude/confident-gates-rqzs24`. The developer contract is in `src/main/webapp/plugins/hmi/ARCHITECTURE.md`.
+
+| Milestone | Delivered |
+|---|---|
+| M0 Foundations | `NOTICE` with meta2d attribution. `// HMI:` markers and `etc/hmi/check-hooks.sh`. Dev servers `etc/hmi/dev` (MQTT/WS/HTTP/SSE plus plant simulator, and Docker Compose with Mosquitto). Plugin skeleton `plugins/hmi/hmi.js`. Node unit tests `plugins/hmi/test` and Playwright end-to-end tests `etc/hmi/e2e`. |
+| M1 Data core | `core/*`: expression language, conditions, transforms, formatting, tag store with derived tags, simulator, schemas (`docs/hmi/schema/*.json`). `sources/*`: MQTT (lazy MQTT.js), WebSocket, HTTP, SSE and host sources, the source manager (backoff, allow-list, redaction, parser/pre-connect scripts) and payload mapping. |
+| M2 Bindings & overlay | Hooks H3/H4 and the transient overlay (`runtime/HmiOverlay.js`) with viewport culling, binding engine, level fill (H6), live preview, `?hmi=run` runtime mode, and the Run action. The HMI Format tab and the isolation test are in place. Adaptive frame rate was added after benchmarking. |
+| M3 Events/actions/triggers/writes | Event dispatcher (mouse, hover, keyboard, long press, context menu, bubbling, confirmation), all action types, the writer (confirmed/optimistic, audit), the trigger engine (edges, deadband, delays, state machines), screen variables and `${var}`, and the custom-action hook H7. |
+| M4 Animation & widgets | Animator: CSS presets, keyframes, spin at RPM or from a tag, reduced motion. Flow types dots/beads/arrows/liquid (H5). Shapes in `shapes/hmi/`: 13 widgets, 3 charts, 9 equipment symbols, a data table, and iframe/video/ECharts placeholders with runtime DOM widgets. `Sidebar-HMI.js` palettes and the More Shapes entry. |
+| M5 Security, embedding, diagnostics, alarms | Worker script sandbox with network lockdown and watchdog. Embed messages (H8), the `ui.hmi` API, roles, credential modes, diagnostics, validator, alarms with system tags, indicator preset, sound and acknowledgement publishing, and faceplates. |
+| M6 Packaging & docs | Ant `hmi` / `hmi-viewer` targets (H11), generated from `Hmi.FILES` by `etc/hmi/update-build-lists.py`. CSP hook for dev and Electron (H9). Four templates in `templates/hmi`. `USER_GUIDE.md`, `GATEWAY_GUIDE.md`, `HARDENING.md`. Performance and soak tests. Compatibility test against draw.io without the plugin. |
+| M7 Optional | meta2d JSON importer and HTML export (`ui/HmiImport.js`), standalone viewer (`viewer/HmiViewer.js` → `js/hmi-viewer.min.js`), ECharts, iframe and video widgets, data table, audible alarms, CSV import. |
+
+### Measured results (Chromium, this container)
+
+| Metric | Target | Result |
+|---|---|---|
+| p95 update latency, 500 cells at 200 updates/s | ≤ 100 ms | ~13–64 ms |
+| Main-thread long tasks, 2,000 cells (typical mix) at 1,000 updates/s | < 50% | ~25–32% |
+| Heap growth over a 3-minute soak with forced GC | < 10 MB/h | none (flat) |
+| `plugins/hmi.min.js` size | < 150 KB gzip | ~77 KB (MQTT.js and ECharts are loaded lazily) |
+
+### Deviations from the plan
+
+- H4 is split into `getLabel` and `replacePlaceholders` hooks. Geometry offsets and tooltips are wrapped from the plugin (`HmiOverlay.install`) instead of being core edits.
+- H10 also adds a `Devel.js` entry for `Sidebar-HMI.js`.
+- **Stress case.** 2,000 cells all visible at 25% zoom, a third of them radial gauges, is paint-bound (around 95% busy). The adaptive rate keeps updates flowing (p50 < 200 ms), but at a reduced frame rate. Typical screens with viewport culling meet HMI-PERF-4.
+- **Electron.** The desktop main process is in a separate repository. This fork contains only the renderer-side CSP hook.

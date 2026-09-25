@@ -59,7 +59,11 @@ OUTPUT FILES (in src/main/webapp/js/):
 	-->
 	<target name="merge">
     	<concat destfile="${basedir}/../../build/shapes.js" fixlastline="yes" append="no">
-    		<fileset dir="${war.dir}/shapes" includes="**/*.js"/>
+    		<fileset dir="${war.dir}/shapes" includes="**/*.js" excludes="hmi/**"/>
+    		<!-- HMI: begin -->
+    		<!-- Explicit order: the other files use Hmi.ShapeUtil from mxHmiWidgets.js -->
+    		<filelist dir="${war.dir}/shapes/hmi" files="mxHmiWidgets.js,mxHmiTable.js,mxHmiCharts.js,mxHmiEquipment.js"/>
+    		<!-- HMI: end -->
     		<fileset dir="${war.dir}/stencils" includes="**/*.js"/>
     	</concat>
     	

@@ -161,6 +161,40 @@
 	};
 
 	/**
+	 * HMI-SEC-7: with DRAWIO_CONFIG.hmi.trustedFiles (URL prefixes), runtime
+	 * mode starts automatically only for files loaded from those locations
+	 * (#U<url>); any other file asks the user before connecting.
+	 */
+	Plugin.checkTrustedRun = function(ui, fn)
+	{
+		var trusted = Hmi.Runtime.getGlobalConfig().trustedFiles;
+
+		if (trusted == null)
+		{
+			fn();
+
+			return;
+		}
+
+		var file = ui.getCurrentFile();
+		var hash = (file != null && file.getHash != null) ? file.getHash() : '';
+		var url = (hash != null && hash.charAt(0) == 'U') ? decodeURIComponent(hash.substring(1)) : null;
+
+		for (var i = 0; url != null && i < trusted.length; i++)
+		{
+			if (url.substring(0, trusted[i].length) == trusted[i])
+			{
+				fn();
+
+				return;
+			}
+		}
+
+		ui.confirm(mxResources.get('hmiUntrustedRun'), fn, null,
+			mxResources.get('hmiRun'), mxResources.get('cancel'));
+	};
+
+	/**
 	 * Returns the URL that opens the current diagram in runtime mode.
 	 */
 	Plugin.getRunUrl = function(ui)
@@ -379,12 +413,16 @@
 				}
 
 				started = true;
-				var rt = ui.hmi.run({mode: 'run', interactive: true});
 
-				if (Hmi.RunChrome != null)
+				Plugin.checkTrustedRun(ui, function()
 				{
-					Hmi.RunChrome.install(ui, rt);
-				}
+					var rt = ui.hmi.run({mode: 'run', interactive: true});
+
+					if (Hmi.RunChrome != null)
+					{
+						Hmi.RunChrome.install(ui, rt);
+					}
+				});
 
 				// Restarts runtime state on file reload (e.g. hmi-reload)
 				ui.hmi.onStart(function(rt)

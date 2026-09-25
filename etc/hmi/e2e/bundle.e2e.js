@@ -35,7 +35,7 @@ test('production app loads the minified plugin bundle', {skip: !hasBundle}, asyn
 		var graph = ui.editor.graph;
 		var cell = graph.insertVertex(graph.getDefaultParent(), 'v', '', 20, 20, 80, 40);
 		Hmi.Model.setDocConfig(graph, {version: 1, sim: 'only', sources: [], triggers: [],
-			tags: [{name: 'A', type: 'number', sim: {kind: 'constant', min: 7, interval: 100}}]});
+			tags: [{name: 'A', type: 'number', sim: {kind: 'constant', value: 7, interval: 100}}]});
 		Hmi.Model.setCellConfig(graph, [cell], 'bindings', [{tag: 'A', target: 'label'}]);
 		ui.hmi.run({mode: 'preview', sim: 'only'});
 		await new Promise(function(r)
@@ -59,7 +59,7 @@ test('standalone viewer runs HMI screens from data-mxgraph', {skip: !hasViewer},
 	var xml = '<mxGraphModel><root><object id="0" hmi="' +
 		'{&quot;version&quot;:1,&quot;sim&quot;:&quot;only&quot;,&quot;sources&quot;:[],&quot;triggers&quot;:[],' +
 		'&quot;tags&quot;:[{&quot;name&quot;:&quot;L&quot;,&quot;type&quot;:&quot;number&quot;,' +
-		'&quot;sim&quot;:{&quot;kind&quot;:&quot;constant&quot;,&quot;min&quot;:42,&quot;interval&quot;:100}}]}">' +
+		'&quot;sim&quot;:{&quot;kind&quot;:&quot;constant&quot;,&quot;value&quot;:42,&quot;interval&quot;:100}}]}">' +
 		'<mxCell/></object><mxCell id="1" parent="0"/>' +
 		'<object id="t" label="" hmiBindings="[{&quot;tag&quot;:&quot;L&quot;,&quot;target&quot;:&quot;label&quot;}]">' +
 		'<mxCell style="text;html=1;" vertex="1" parent="1"><mxGeometry x="10" y="10" width="80" height="30" as="geometry"/></mxCell></object>' +

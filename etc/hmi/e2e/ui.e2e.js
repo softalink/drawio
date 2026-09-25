@@ -44,6 +44,25 @@ test('dialogs, windows and the HMI format tab open without errors', async functi
 		graph.setSelectionCell(cell);
 		await wait(300);
 
+		// Page triggers section of the HMI tab (empty selection)
+		graph.clearSelection();
+		await wait(300);
+		var hmiTab = Array.prototype.filter.call(document.querySelectorAll('.geFormatTitle'),
+			function(e)
+			{
+				return e.textContent == 'HMI';
+			})[0];
+
+		if (hmiTab != null)
+		{
+			hmiTab.click();
+		}
+
+		await wait(200);
+		var pageTriggers = document.body.textContent.indexOf('Page Triggers') >= 0;
+		graph.setSelectionCell(cell);
+		await wait(300);
+
 		var tabs = Array.prototype.map.call(document.querySelectorAll('.geFormatTitle'),
 			function(e)
 			{
@@ -67,11 +86,12 @@ test('dialogs, windows and the HMI format tab open without errors', async functi
 		await wait(300);
 		ui.hmi.stop();
 
-		return {tabs: tabs, opened: opened};
+		return {tabs: tabs, opened: opened, pageTriggers: pageTriggers};
 	});
 
 	assert.ok(result.tabs.indexOf('HMI') >= 0, 'HMI tab present: ' + result.tabs);
 	assert.strictEqual(result.opened.length, 5);
+	assert.strictEqual(result.pageTriggers, true, 'page triggers section');
 	assert.deepStrictEqual(page.hmiErrors, []);
 	await page.close();
 });
@@ -185,5 +205,39 @@ test('meta2d import creates a runnable page', async function()
 	assert.ok(result.cells > 5);
 	assert.strictEqual(result.errors, 0);
 	assert.deepStrictEqual(page.hmiErrors, []);
+	await page.close();
+});
+
+test('DOM widgets are created in runtime and removed on stop', async function()
+{
+	var page = await util.openEditor(browser, web.url);
+
+	var result = await page.evaluate(async function()
+	{
+		var ui = Hmi.ui;
+		var graph = ui.editor.graph;
+		var parent = graph.getDefaultParent();
+		graph.insertVertex(parent, 'frame', '', 20, 20, 200, 120,
+			'shape=mxgraph.hmi.iframe;hmiUrl=/clear.html;hmiSandbox=allow-scripts allow-same-origin;');
+		graph.insertVertex(parent, 'video', '', 240, 20, 200, 120, 'shape=mxgraph.hmi.video;');
+		Hmi.Model.setDocConfig(graph, {version: 1, sim: 'off', sources: [], tags: [], triggers: []});
+		ui.hmi.run({mode: 'run', interactive: true});
+		await new Promise(function(r)
+		{
+			setTimeout(r, 1500);
+		});
+		var iframe = graph.container.querySelector('iframe');
+		var running = {iframes: graph.container.querySelectorAll('iframe').length,
+			videos: graph.container.querySelectorAll('video').length,
+			sandbox: (iframe != null) ? iframe.getAttribute('sandbox') : null};
+		ui.hmi.stop();
+
+		return {running: running, after: graph.container.querySelectorAll('iframe,video').length};
+	});
+
+	assert.strictEqual(result.running.iframes, 1);
+	assert.strictEqual(result.running.videos, 1);
+	assert.ok(result.running.sandbox.indexOf('allow-same-origin') < 0, 'same-origin stripped');
+	assert.strictEqual(result.after, 0);
 	await page.close();
 });

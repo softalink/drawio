@@ -85,7 +85,7 @@ This file is the binding contract between the HMI modules. The requirements are 
   write: { source, topic, payload /* template, default '{"value":${value}}' */, qos, retain,
            method, url, headers, body, message, mode: 'confirmed'|'optimistic', timeout },
   sim: { kind: 'random'|'sine'|'ramp'|'list'|'toggle'|'constant'|'script',
-         min, max, period, step, values: [], interval, integer: false, code },
+         min, max, period, step, values: [], value /* constant */, interval, integer: false, code },
   alarms: { hihi, hi, lo, lolo, bool /* true|false alarm value */, deadband, severity: {hihi:1,hi:2,lo:2,lolo:1,bool:1},
             messages: {hihi:'…',…} },
   roles: [] /* roles required to write */ }

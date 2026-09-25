@@ -177,6 +177,13 @@ public class EmbedServlet2 extends HttpServlet
 				STENCIL_PATH + "/networks.xml" });
 		libraries.put("aws3d", new String[] { SHAPES_PATH + "/mxAWS3D.js",
 				STENCIL_PATH + "/aws3d.xml" });
+		// HMI: begin
+		libraries.put("hmi",
+				new String[] { SHAPES_PATH + "/hmi/mxHmiWidgets.js",
+						SHAPES_PATH + "/hmi/mxHmiTable.js",
+						SHAPES_PATH + "/hmi/mxHmiCharts.js",
+						SHAPES_PATH + "/hmi/mxHmiEquipment.js" });
+		// HMI: end
 		libraries.put("pid2inst",
 				new String[] { SHAPES_PATH + "/pid2/mxPidInstruments.js" });
 		libraries.put("pid2misc",

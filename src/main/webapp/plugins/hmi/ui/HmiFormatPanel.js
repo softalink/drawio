@@ -192,6 +192,8 @@
 		btn3.style.marginTop = '4px';
 		div.appendChild(btn3);
 
+		this.addDocTriggersSection(div);
+
 		var previewAction = ui.actions.get('hmiLivePreview');
 
 		if (previewAction != null)
@@ -207,6 +209,52 @@
 		}
 
 		this.container.appendChild(div);
+	};
+
+	/**
+	 * Document-level triggers of the current page (HMI-TRG-4).
+	 */
+	HmiFormatPanel.prototype.addDocTriggersSection = function(div)
+	{
+		var ui = this.editorUi;
+		var graph = ui.editor.graph;
+		var section = this.createCollapsibleSection(mxResources.get('hmiDocTriggers'), true);
+		section.wrapper.style.marginTop = '8px';
+		div.appendChild(section.wrapper);
+		var listDiv = document.createElement('div');
+		section.contentDiv.appendChild(listDiv);
+		var items = (Hmi.Model.getDocConfig(graph).triggers || []).slice();
+
+		var renderList = function()
+		{
+			Hmi.Editors.renderItemList({
+				ui: ui, container: listDiv, items: items, kind: 'triggers',
+				itemLabel: function(t)
+				{
+					return t.name || mxResources.get('hmiTriggers');
+				},
+				buildEditor: function(ui2, value)
+				{
+					return FormatPanel.buildTriggerEditor(ui2, value);
+				},
+				newItem: function()
+				{
+					return {name: '', conditions: [], conditionType: 'and', actions: []};
+				},
+				emptyText: mxResources.get('hmiNoItems'),
+				addTitle: mxResources.get('hmiAddItem'), editTitle: mxResources.get('edit'),
+				onChange: function(newItems)
+				{
+					var cfg = Hmi.Model.getDocConfig(graph);
+					cfg.triggers = newItems;
+					Hmi.Model.setDocConfig(graph, cfg);
+					items = newItems;
+					renderList();
+				}
+			});
+		};
+
+		renderList();
 	};
 
 	HmiFormatPanel.prototype.renderCellConfig = function(cells)

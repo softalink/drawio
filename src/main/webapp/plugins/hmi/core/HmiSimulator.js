@@ -140,7 +140,8 @@
 				break;
 
 			case 'constant':
-				value = (sim.values && sim.values.length > 0) ? sim.values[0] : def.initial;
+				value = (sim.value != null) ? sim.value : ((sim.values && sim.values.length > 0) ?
+					sim.values[0] : def.initial);
 				break;
 
 			case 'script':

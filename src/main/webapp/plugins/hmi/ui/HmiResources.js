@@ -13,6 +13,8 @@
 	Resources.DEFAULTS = {
 		hmi: 'HMI / SCADA',
 		hmiTab: 'HMI',
+		hmiDocTriggers: 'Page Triggers',
+		hmiUntrustedRun: 'This screen was not loaded from a trusted location. Run it and connect to its data sources?',
 		hmiRun: 'Run Screen',
 		hmiLivePreview: 'Live Preview',
 		hmiInteractive: 'Interactive Preview',
