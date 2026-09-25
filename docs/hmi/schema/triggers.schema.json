@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://drawio.example/hmi/triggers.schema.json",
+  "title": "HMI triggers (cell attribute hmiTriggers, or document-level triggers)",
+  "type": "array",
+  "items": { "$ref": "#/$defs/trigger" },
+  "$defs": {
+    "condition": {
+      "type": "object",
+      "properties": {
+        "tag": { "type": "string" },
+        "expr": { "type": "string" },
+        "operator": {
+          "enum": ["==", "!=", ">", "<", ">=", "<=", "range", "!range", "in", "!in", "changed", "isBad", "true"]
+        },
+        "value": {},
+        "valueTag": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "action": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": ["setProps", "writeTag", "toggleTag", "pulseTag", "navigate", "openUrl", "dialog",
+            "startAnimation", "pauseAnimation", "stopAnimation", "emit", "send", "notify",
+            "postMessage", "script", "drawioAction", "ackAlarms", "playMedia"]
+        },
+        "delay": { "type": "number" }
+      },
+      "additionalProperties": true
+    },
+    "trigger": {
+      "type": "object",
+      "oneOf": [
+        {
+          "properties": {
+            "name": { "type": "string" },
+            "conditions": { "type": "array", "items": { "$ref": "#/$defs/condition" }, "default": [] },
+            "conditionType": { "enum": ["and", "or"], "default": "and" },
+            "actions": { "type": "array", "items": { "$ref": "#/$defs/action" }, "default": [] },
+            "elseActions": { "type": "array", "items": { "$ref": "#/$defs/action" } },
+            "deadband": { "type": "number", "default": 0 },
+            "onDelay": { "type": "number", "default": 0 },
+            "offDelay": { "type": "number", "default": 0 }
+          }
+        },
+        {
+          "properties": {
+            "name": { "type": "string" },
+            "states": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "conditions": { "type": "array", "items": { "$ref": "#/$defs/condition" }, "default": [] },
+                  "conditionType": { "enum": ["and", "or"], "default": "and" },
+                  "actions": { "type": "array", "items": { "$ref": "#/$defs/action" }, "default": [] }
+                }
+              }
+            }
+          },
+          "required": ["states"]
+        }
+      ]
+    }
+  }
+}

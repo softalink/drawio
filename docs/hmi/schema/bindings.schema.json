@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://drawio.example/hmi/bindings.schema.json",
+  "title": "HMI bindings (cell attribute hmiBindings)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "tag": { "type": "string" },
+      "expr": { "type": "string" },
+      "target": {
+        "type": "string",
+        "pattern": "^(label|tooltip|visible)$|^(attr|style|geo|prop):.+$"
+      },
+      "transform": { "$ref": "#/$defs/transform" },
+      "format": {
+        "type": "object",
+        "properties": {
+          "decimals": { "type": "integer" },
+          "pattern": { "type": "string" },
+          "unit": { "type": "boolean" }
+        }
+      }
+    },
+    "required": ["target"],
+    "additionalProperties": true
+  },
+  "$defs": {
+    "transform": {
+      "type": "object",
+      "oneOf": [
+        {
+          "properties": {
+            "kind": { "const": "scale" },
+            "inMin": { "type": "number" }, "inMax": { "type": "number" },
+            "outMin": { "type": "number" }, "outMax": { "type": "number" },
+            "clamp": { "type": "boolean" }
+          },
+          "required": ["kind"]
+        },
+        {
+          "properties": {
+            "kind": { "const": "map" },
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "operator": { "type": "string" }, "value": {}, "output": {} }
+              }
+            },
+            "default": {}
+          },
+          "required": ["kind"]
+        },
+        { "properties": { "kind": { "const": "invert" } }, "required": ["kind"] },
+        { "properties": { "kind": { "const": "expr" }, "expr": { "type": "string" } }, "required": ["kind", "expr"] },
+        { "properties": { "kind": { "const": "script" }, "code": { "type": "string" } }, "required": ["kind", "code"] }
+      ]
+    }
+  }
+}

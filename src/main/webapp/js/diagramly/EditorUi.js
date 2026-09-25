@@ -26024,6 +26024,14 @@
 						// Ignore
 						return;
 					}
+					// HMI: begin
+					// Handles hmi* actions (see plugins/hmi/runtime/HmiEmbed.js)
+					else if (this.hmi != null && typeof data.action === 'string' &&
+						data.action.substring(0, 3) == 'hmi' && this.hmi.handleMessage(data))
+					{
+						return;
+					}
+					// HMI: end
 					else if (data.action == 'dialog')
 					{
 						this.showError((data.titleKey != null) ? mxResources.get(data.titleKey) :

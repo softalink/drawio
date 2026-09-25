@@ -9162,7 +9162,17 @@
 	var graphPostProcessCellStyle = Graph.prototype.postProcessCellStyle;
 	Graph.prototype.postProcessCellStyle = function(cell, style)
 	{
-		return Graph.processFontStyle(graphPostProcessCellStyle.apply(this, arguments));
+		style = Graph.processFontStyle(graphPostProcessCellStyle.apply(this, arguments));
+
+		// HMI: begin
+		// Merges transient runtime values (see plugins/hmi/runtime/HmiOverlay.js)
+		if (this.hmiOverlay != null && style != null)
+		{
+			style = this.hmiOverlay.applyStyle(cell, style);
+		}
+		// HMI: end
+
+		return style;
 	};
 
 	/**
@@ -10771,6 +10781,14 @@
 					var action = actions[index++];
 					var animations = [];
 
+					// HMI: begin
+					// Delegates {"hmi": {...}} actions to plugins/hmi (fire-and-forget)
+					if (action.hmi != null && Graph.customActionHandler != null)
+					{
+						Graph.customActionHandler(this, action.hmi, cell);
+					}
+					// HMI: end
+
 					// Executes open actions before starting transaction
 					if (action.open != null)
 					{
@@ -12186,6 +12204,9 @@
 	mxStencilRegistry.libraries['uml25'] = [SHAPES_PATH + '/mxUML25.js'];
 	mxStencilRegistry.libraries['veeam'] = [STENCIL_PATH + '/veeam/2d.xml', STENCIL_PATH + '/veeam/3d.xml', STENCIL_PATH + '/veeam/veeam.xml'];
 	mxStencilRegistry.libraries['veeam2'] = [STENCIL_PATH + '/veeam/2d.xml', STENCIL_PATH + '/veeam/3d.xml', STENCIL_PATH + '/veeam/veeam2.xml'];
+	// HMI: begin
+	mxStencilRegistry.libraries['hmi'] = [SHAPES_PATH + '/hmi/mxHmiWidgets.js', SHAPES_PATH + '/hmi/mxHmiCharts.js', SHAPES_PATH + '/hmi/mxHmiEquipment.js'];
+	// HMI: end
 	mxStencilRegistry.libraries['pid2inst'] = [SHAPES_PATH + '/pid2/mxPidInstruments.js'];
 	mxStencilRegistry.libraries['pid2misc'] = [SHAPES_PATH + '/pid2/mxPidMisc.js', STENCIL_PATH + '/pid/misc.xml'];
 	mxStencilRegistry.libraries['pid2valves'] = [SHAPES_PATH + '/pid2/mxPidValves.js'];

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://drawio.example/hmi/animations.schema.json",
+  "title": "HMI animations (cell attribute hmiAnimations)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": { "type": "string" },
+      "preset": { "enum": ["blink", "pulse", "spin", "shake", "colorCycle", "fadeInOut", null] },
+      "params": {
+        "type": "object",
+        "properties": {
+          "rate": { "type": "number" },
+          "rpm": { "type": "number" },
+          "rpmTag": { "type": "string" },
+          "colors": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": true
+      },
+      "autoPlay": { "type": "boolean", "default": false },
+      "cycles": { "type": "integer", "default": 0, "description": "0 = infinite" },
+      "duration": { "type": "number", "default": 1000 },
+      "easing": { "enum": ["linear", "ease-in", "ease-out", "ease-in-out"], "default": "linear" },
+      "keepState": { "type": "boolean", "default": false },
+      "next": {
+        "type": "object",
+        "properties": { "target": {}, "name": { "type": "string" } }
+      },
+      "frames": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "duration": { "type": "number" },
+            "props": {
+              "type": "object",
+              "properties": {
+                "rotation": { "type": "number" },
+                "opacity": { "type": "number" },
+                "fillColor": { "type": "string" },
+                "strokeColor": { "type": "string" },
+                "fontColor": { "type": "string" },
+                "dx": { "type": "number" },
+                "dy": { "type": "number" },
+                "scale": { "type": "number" },
+                "visible": { "type": "boolean" },
+                "hmiLevel": { "type": "number" }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "default": []
+      }
+    },
+    "additionalProperties": true
+  }
+}

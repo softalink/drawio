@@ -11026,6 +11026,19 @@ Graph.prototype.isSplitTarget = function(target, cells, evt)
  */
 Graph.prototype.getLabel = function(cell)
 {
+	// HMI: begin
+	// Runtime label from plugins/hmi/runtime/HmiOverlay.js
+	if (this.hmiOverlay != null)
+	{
+		var hmiLabel = this.hmiOverlay.getLabel(cell);
+
+		if (hmiLabel != null)
+		{
+			return hmiLabel;
+		}
+	}
+	// HMI: end
+
 	var result = mxGraph.prototype.getLabel.apply(this, arguments);
 	
 	if (result != null && this.isReplacePlaceholders(cell) && cell.getAttribute('placeholder') == null)
@@ -11381,6 +11394,17 @@ Graph.prototype.replacePlaceholders = function(cell, str, vars, translate)
 						'm': mxConstants.METERS,
 						'current': this.view.unit};
 					
+					// HMI: begin
+					// Resolves %tag:Name|fmt% and runtime attribute overrides
+					tmp = (this.hmiOverlay != null) ?
+						this.hmiOverlay.resolvePlaceholder(cell, name) : null;
+
+					if (tmp != null)
+					{
+						// Value from HMI runtime overlay
+					}
+					else
+					// HMI: end
 					// Workaround for invalid char for getting attribute in older versions of IE
 					if (name == 'id')
 					{
@@ -14278,6 +14302,21 @@ Graph.prototype.getTooltip = function(state, node, x, y)
  */
 Graph.prototype.addFlowAnimationToNode = function(node, style, scale, id)
 {
+	// HMI: begin
+	// Pluggable flow animation types (see plugins/hmi/runtime/HmiFlow.js)
+	if (node != null && id != null && Graph.flowAnimationRenderers != null)
+	{
+		var flowRenderer = Graph.flowAnimationRenderers[
+			mxUtils.getValue(style, 'flowAnimationType', 'dash')];
+
+		if (flowRenderer != null && flowRenderer.call(this,
+			node, style, scale, id) !== false)
+		{
+			return;
+		}
+	}
+	// HMI: end
+
 	if (node != null && id != null)
 	{
 		var dashArray = node.getAttribute('stroke-dasharray');
@@ -14330,6 +14369,14 @@ Graph.prototype.addFlowAnimationToNode = function(node, style, scale, id)
 				style, 'flowAnimationDuration', 500)));
 			var tf = mxUtils.getValue(style, 'flowAnimationTimingFunction', 'linear');
 			var ad = mxUtils.getValue(style, 'flowAnimationDirection', 'normal');
+
+			// HMI: begin
+			if (mxUtils.getValue(style, 'flowAnimationReverse', '0') == '1')
+			{
+				ad = (ad == 'reverse') ? 'normal' : 'reverse';
+			}
+			// HMI: end
+
 			node.style.animation = id + ' ' + d + 'ms ' + mxUtils.htmlEntities(tf) +
 				' infinite ' + mxUtils.htmlEntities(ad);
 			node.style.strokeDashoffset = sum;
@@ -16822,7 +16869,21 @@ TableLayout.prototype.execute = function(parent)
 	
 	mxShape.prototype.paint = function(canvas)
 	{
+		// HMI: begin
+		// Level fill painter is installed by plugins/hmi/runtime/HmiLevelFill.js
+		var hmiNodeCount = (mxShape.levelFillPainter != null && canvas != null &&
+			canvas.root != null && this.style != null && this.style.hmiLevel != null) ?
+			canvas.root.childNodes.length : null;
+		// HMI: end
+
 		mxShapePaint.apply(this, arguments);
+
+		// HMI: begin
+		if (hmiNodeCount != null)
+		{
+			mxShape.levelFillPainter(this, canvas, hmiNodeCount);
+		}
+		// HMI: end
 
 		if (this.isFlowAnimationEnabled())
 		{

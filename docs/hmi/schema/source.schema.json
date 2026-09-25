@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://drawio.example/hmi/source.schema.json",
+  "title": "HMI data source",
+  "type": "object",
+  "required": ["id", "type"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string" },
+    "type": { "enum": ["mqtt", "ws", "http", "sse", "host"] },
+    "enabled": { "type": "boolean", "default": true },
+    "scope": { "enum": ["file", "page"], "default": "file" },
+    "url": { "type": "string" },
+    "prefix": { "type": "string", "default": "" },
+    "format": {
+      "type": "object",
+      "properties": {
+        "kind": { "enum": ["auto", "flat", "array", "topic", "jsonpath", "drawio-update-xml"], "default": "auto" },
+        "template": { "type": "string" },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "tag": { "type": "string" }, "path": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "parser": { "type": "string" },
+    "preConnect": { "type": "string" },
+    "credentials": {
+      "type": "object",
+      "properties": {
+        "mode": { "enum": ["none", "save", "prompt", "param"], "default": "none" },
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "token": { "type": "string" },
+        "param": { "type": "string" }
+      }
+    },
+    "reconnect": {
+      "type": "object",
+      "properties": {
+        "maxAttempts": { "type": "integer", "default": 0, "description": "0 = unlimited" }
+      }
+    },
+    "clientId": { "type": "string" },
+    "cleanSession": { "type": "boolean", "default": true },
+    "keepalive": { "type": "integer", "default": 30 },
+    "protocolVersion": { "enum": [4, 5], "default": 4 },
+    "topics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": { "filter": { "type": "string" }, "qos": { "type": "integer", "enum": [0, 1, 2] } }
+      }
+    },
+    "protocols": { "type": "array", "items": { "type": "string" } },
+    "initMessage": { "type": "string" },
+    "heartbeat": {
+      "type": "object",
+      "properties": { "message": { "type": "string" }, "interval": { "type": "number" } }
+    },
+    "method": { "type": "string", "default": "GET" },
+    "headers": { "type": "object" },
+    "body": { "type": "string" },
+    "interval": { "type": "number", "default": 1000 },
+    "withCredentials": { "type": "boolean", "default": false },
+    "once": { "type": "boolean", "default": false },
+    "skipFirst": { "type": "boolean", "default": false },
+    "timeout": { "type": "number", "default": 10000 },
+    "events": { "type": "array", "items": { "type": "string" }, "default": ["message"] }
+  },
+  "additionalProperties": true
+}

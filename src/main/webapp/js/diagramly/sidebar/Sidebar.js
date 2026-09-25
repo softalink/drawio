@@ -167,6 +167,9 @@
            	                           {id: 'aws4', prefix: 'aws4', libs: Sidebar.prototype.aws4},
            	                           {id: 'aws4r', libs: ['aws4r']},
            	                           {id: 'pid', prefix: 'pid', libs: Sidebar.prototype.pids},
+           	                           // HMI: begin
+           	                           {id: 'hmi', prefix: 'hmi', libs: ['Displays', 'Controls', 'Charts', 'Equipment', 'Pipes']},
+           	                           // HMI: end
            	                           {id: 'cisco', prefix: 'cisco', libs: Sidebar.prototype.cisco},
            	                           {id: 'cisco_safe', prefix: 'cisco_safe', libs: Sidebar.prototype.cisco_safe},
            	                           {id: 'office', prefix: 'office', libs: Sidebar.prototype.office},
@@ -571,6 +574,9 @@
 								{title: 'Fluid Power (ISO 1219)', id: 'fluid_power', image: IMAGE_PATH + '/sidebar-fluid_power.png'},
 								{title: mxResources.get('gmdl'), id: 'gmdl', image: IMAGE_PATH + '/sidebar-gmdl.png'},
 								{title: mxResources.get('procEng'), id: 'pid', image: IMAGE_PATH + '/sidebar-pid.png'},
+								// HMI: begin
+								{title: 'HMI / SCADA', id: 'hmi', image: IMAGE_PATH + '/sidebar-hmi.png'},
+								// HMI: end
 								{title: 'Threat Modeling', id: 'threatModeling', image: IMAGE_PATH + '/sidebar-threatmodeling.png'},
 								{title: 'Web Icons', id: 'webicons', image: IMAGE_PATH + '/sidebar-webIcons.png'},
 								{title: mxResources.get('signs'), id: 'signs', image: IMAGE_PATH + '/sidebar-signs.png'}]}];
@@ -1646,6 +1652,12 @@
 		this.addFluidPowerPalette();
 		this.addGMDLPalette();
 		this.addPidPalette(pids, dir);
+		// HMI: begin
+		if (this.addHmiPalette != null)
+		{
+			this.addHmiPalette();
+		}
+		// HMI: end
 		this.addThreatModelingPalette();
 		this.addWebIconsPalette();
 		this.addWebLogosPalette();

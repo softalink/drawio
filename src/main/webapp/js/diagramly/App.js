@@ -337,7 +337,12 @@ App.pluginRegistry = {'4xAKTrabTpTzahoLthkwPNUn': 'plugins/explore.js',
 	'replay': 'plugins/replay.js', 'anon': 'plugins/anonymize.js',
 	'tr': 'plugins/trello.js', 'f5': 'plugins/rackF5.js',
 	'webcola': 'plugins/webcola/webcola.js', 'rnd': 'plugins/random.js',
-	'page': 'plugins/page.js', 'tags': 'plugins/tags.js'};
+	'page': 'plugins/page.js', 'tags': 'plugins/tags.js',
+	// HMI: begin
+	'hmi': (urlParams['dev'] == '1' || typeof HMI_BUNDLE_PATH === 'undefined') ?
+		'plugins/hmi/hmi.js' : HMI_BUNDLE_PATH
+	// HMI: end
+	};
 
 App.publicPlugin = [
 	'ex',
@@ -354,7 +359,10 @@ App.publicPlugin = [
 	'anon',
 	'webcola',
 //	'rnd', 'page',
-	'tags'
+	'tags',
+	// HMI: begin
+	'hmi'
+	// HMI: end
 ];
 
 /**
@@ -1132,6 +1140,14 @@ App.main = function(callback, createUi)
 
 				var temp = urlParams['p'];
 				App.initPluginCallback();
+
+				// HMI: begin
+				// Loads the HMI plugin for ?hmi=... or DRAWIO_CONFIG.hmi (see Init.js)
+				if (HMI_ENABLED && (temp == null || temp.split(';').indexOf('hmi') < 0))
+				{
+					temp = (temp != null && temp != '') ? temp + ';hmi' : 'hmi';
+				}
+				// HMI: end
 
 				if (temp != null)
 				{

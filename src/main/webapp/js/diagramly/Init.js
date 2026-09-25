@@ -78,6 +78,13 @@ window.PLUGINS_BASE_PATH = window.PLUGINS_BASE_PATH || '';
 // Allows third-party plugins to run
 window.ALLOW_CUSTOM_PLUGINS = window.ALLOW_CUSTOM_PLUGINS || false;
 
+// HMI: begin
+// Enables the HMI/SCADA plugin (plugins/hmi) via ?hmi=... or DRAWIO_CONFIG.hmi
+window.HMI_ENABLED = window.HMI_ENABLED || urlParams['hmi'] != null ||
+	(window.DRAWIO_CONFIG != null && window.DRAWIO_CONFIG.hmi != null);
+window.HMI_BUNDLE_PATH = window.HMI_BUNDLE_PATH || 'plugins/hmi.min.js';
+// HMI: end
+
 // Directory for i18 files and basename for main i18n file
 window.RESOURCES_PATH = window.RESOURCES_PATH || 'resources';
 window.RESOURCE_BASE = window.RESOURCE_BASE || RESOURCES_PATH + '/dia';
@@ -261,6 +268,14 @@ if (window.location.hostname == 'viewer.diagrams.net')
 {
 	urlParams['lightbox'] = '1';
 }	
+
+// HMI: begin
+// HMI runtime mode is a lightbox view (see plugins/hmi/ui/HmiRunChrome.js)
+if (urlParams['hmi'] == 'run')
+{
+	urlParams['lightbox'] = '1';
+}
+// HMI: end
 
 // Lightbox enables chromeless mode
 if (urlParams['lightbox'] == '1')

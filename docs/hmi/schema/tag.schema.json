@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://drawio.example/hmi/tag.schema.json",
+  "title": "HMI tag definition",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "type": { "enum": ["number", "integer", "boolean", "string", "object"], "default": "number" },
+    "unit": { "type": "string" },
+    "description": { "type": "string" },
+    "min": { "type": "number" },
+    "max": { "type": "number" },
+    "decimals": { "type": "integer" },
+    "format": { "type": "string" },
+    "access": { "enum": ["r", "rw"], "default": "r" },
+    "initial": {},
+    "staleMs": { "type": "number" },
+    "local": { "type": "boolean", "default": false },
+    "expr": { "type": "string" },
+    "write": {
+      "type": "object",
+      "properties": {
+        "source": { "type": "string" },
+        "topic": { "type": "string" },
+        "payload": { "type": "string", "default": "{\"value\":${value}}" },
+        "qos": { "type": "integer" },
+        "retain": { "type": "boolean" },
+        "method": { "type": "string" },
+        "url": { "type": "string" },
+        "headers": { "type": "object" },
+        "body": { "type": "string" },
+        "message": { "type": "string" },
+        "mode": { "enum": ["confirmed", "optimistic"], "default": "confirmed" },
+        "timeout": { "type": "number", "default": 5000 }
+      }
+    },
+    "sim": {
+      "type": "object",
+      "properties": {
+        "kind": { "enum": ["random", "sine", "ramp", "list", "toggle", "constant", "script"] },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "period": { "type": "number" },
+        "step": { "type": "number" },
+        "values": { "type": "array" },
+        "interval": { "type": "number" },
+        "integer": { "type": "boolean" },
+        "code": { "type": "string" }
+      }
+    },
+    "alarms": {
+      "type": "object",
+      "properties": {
+        "hihi": { "type": "number" },
+        "hi": { "type": "number" },
+        "lo": { "type": "number" },
+        "lolo": { "type": "number" },
+        "bool": { "type": "boolean" },
+        "deadband": { "type": "number", "default": 0 },
+        "severity": {
+          "type": "object",
+          "properties": {
+            "hihi": { "type": "integer" }, "hi": { "type": "integer" },
+            "lo": { "type": "integer" }, "lolo": { "type": "integer" }, "bool": { "type": "integer" }
+          }
+        },
+        "messages": { "type": "object" }
+      }
+    },
+    "roles": { "type": "array", "items": { "type": "string" }, "default": [] }
+  },
+  "additionalProperties": true
+}

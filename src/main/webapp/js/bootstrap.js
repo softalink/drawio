@@ -217,9 +217,18 @@ function mxinclude(src)
     {
         mxmeta(null, 'default-src \'self\'; script-src \'self\' \'sha256-6g514VrT/cZFZltSaKxIVNFF46+MFaTSDTPB8WfYK+c=\' ' +
             (urlParams['dev'] != '1' ? '' : ' \'unsafe-eval\'') + '; ' +
-            'connect-src \'self\' https://*.draw.io https://*.diagrams.net https://fonts.googleapis.com https://fonts.gstatic.com; ' +
+            'connect-src \'self\' https://*.draw.io https://*.diagrams.net https://fonts.googleapis.com https://fonts.gstatic.com' +
+            // HMI: begin
+            ((window.DRAWIO_CONFIG != null && window.DRAWIO_CONFIG.hmi != null &&
+                window.DRAWIO_CONFIG.hmi.connectSrc != null) ? ' ' +
+                String(window.DRAWIO_CONFIG.hmi.connectSrc).replace(/[;,]/g, ' ') : '') + '; ' +
+            // HMI: end
             'img-src * data:; media-src *; font-src * data:; frame-src \'self\'; style-src \'self\' \'unsafe-inline\' ' +
-            'https://fonts.googleapis.com; base-uri \'none\';child-src \'self\';object-src \'none\';', 'Content-Security-Policy');
+            'https://fonts.googleapis.com; base-uri \'none\';child-src \'self\'' +
+            // HMI: begin
+            ((window.DRAWIO_CONFIG != null && window.DRAWIO_CONFIG.hmi != null) ? ' blob:' : '') +
+            // HMI: end
+            ';object-src \'none\';', 'Content-Security-Policy');
     }
 })();
 

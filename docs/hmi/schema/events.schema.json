@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://drawio.example/hmi/events.schema.json",
+  "title": "HMI event handlers (cell attribute hmiEvents)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["on"],
+    "properties": {
+      "on": {
+        "enum": ["click", "dblclick", "mousedown", "mouseup", "enter", "leave", "valueChange",
+          "pageOpen", "pageClose", "message", "change", "contextmenu", "longpress"]
+      },
+      "message": { "type": "string" },
+      "conditions": { "type": "array", "items": { "$ref": "triggers.schema.json/$defs/condition" } },
+      "conditionType": { "enum": ["and", "or"], "default": "and" },
+      "actions": { "type": "array", "items": { "$ref": "triggers.schema.json/$defs/action" }, "default": [] },
+      "confirm": {
+        "oneOf": [
+          { "type": "boolean" },
+          { "type": "object", "properties": { "title": { "type": "string" }, "text": { "type": "string" } } }
+        ]
+      },
+      "delay": { "type": "number", "default": 0 },
+      "stopOnError": { "type": "boolean", "default": false }
+    },
+    "additionalProperties": true
+  }
+}

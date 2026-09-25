@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://drawio.example/hmi/doc.schema.json",
+  "title": "HMI document config",
+  "description": "Attribute `hmi` on the model root cell (id 0) of each page. See plugins/hmi/ARCHITECTURE.md §2.1.",
+  "type": "object",
+  "properties": {
+    "version": { "type": "integer", "default": 1 },
+    "sources": { "type": "array", "items": { "$ref": "source.schema.json" }, "default": [] },
+    "tags": { "type": "array", "items": { "$ref": "tag.schema.json" }, "default": [] },
+    "triggers": { "type": "array", "items": { "$ref": "triggers.schema.json/$defs/trigger" }, "default": [] },
+    "sim": { "enum": ["off", "on", "only"], "default": "off" },
+    "runtime": {
+      "type": "object",
+      "properties": {
+        "fit": { "enum": ["none", "page", "width", "stretch"], "default": "page" },
+        "panZoom": { "type": "boolean", "default": true },
+        "nav": { "enum": ["tabs", "none"], "default": "tabs" },
+        "maxRate": { "type": "number", "default": 30 },
+        "quality": { "enum": ["outline", "none"], "default": "outline" },
+        "theme": { "enum": ["default", "isa101"], "default": "default" },
+        "width": { "type": "number" },
+        "height": { "type": "number" }
+      },
+      "additionalProperties": true
+    },
+    "scripts": { "enum": ["inherit", "off"], "default": "inherit" }
+  },
+  "additionalProperties": true
+}

@@ -29,6 +29,35 @@ if (!mxIsElectron)
 			'object-src \'none\';';
 			
 		var csp = hashes + directives;
+
+		// HMI: begin
+		// Data source endpoints and blob: script workers for plugins/hmi
+		var hmiCsp = function(value)
+		{
+			var hmi = (window.DRAWIO_CONFIG != null) ? window.DRAWIO_CONFIG.hmi : null;
+
+			if (urlParams['hmi'] != null || hmi != null ||
+				(urlParams['p'] != null && urlParams['p'].split(';').indexOf('hmi') >= 0))
+			{
+				var extra = (hmi != null && hmi.connectSrc != null) ? String(hmi.connectSrc) :
+					'ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:*';
+
+				if (urlParams['hmi-connect-src'] != null)
+				{
+					extra += ' ' + urlParams['hmi-connect-src'];
+				}
+
+				value = value.replace('connect-src ', 'connect-src ' +
+					extra.replace(/[;,]/g, ' ') + ' ').
+					replace('child-src \'self\';', 'child-src \'self\' blob:;');
+			}
+
+			return value;
+		};
+
+		csp = hmiCsp(csp);
+		// HMI: end
+
 		var devCsp = csp.
 			// Adds script tags and loads shapes with eval
 			replace(/%script-src%/g, 'https://www.dropbox.com https://api.trello.com \'unsafe-eval\'').
@@ -176,6 +205,9 @@ mxscript(drawDevUrl + 'js/diagramly/sidebar/Sidebar-Network2.js');
 mxscript(drawDevUrl + 'js/diagramly/sidebar/Sidebar-Office.js');
 mxscript(drawDevUrl + 'js/diagramly/sidebar/Sidebar-OpenStack.js');
 mxscript(drawDevUrl + 'js/diagramly/sidebar/Sidebar-PID.js');
+// HMI: begin
+mxscript(drawDevUrl + 'js/diagramly/sidebar/Sidebar-HMI.js');
+// HMI: end
 mxscript(drawDevUrl + 'js/diagramly/sidebar/Sidebar-Rack.js');
 mxscript(drawDevUrl + 'js/diagramly/sidebar/Sidebar-Salesforce.js');
 mxscript(drawDevUrl + 'js/diagramly/sidebar/Sidebar-SAP.js');

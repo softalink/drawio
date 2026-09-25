@@ -1,0 +1,24 @@
+# Docker-based alternative to `node server.js` for MQTT-over-WebSocket
+# testing, using eclipse-mosquitto instead of the bundled aedes broker.
+# Untested in this sandbox (no Docker available here) - please verify
+# locally before relying on it.
+#
+# Usage:
+#   docker compose -f etc/hmi/dev/docker-compose.yml up
+#
+# Then point an MQTT source at ws://localhost:9001/mqtt (or
+# mqtt://localhost:1883 for plain TCP). This does not provide the JSON
+# WebSocket, HTTP/SSE endpoints or the plant/* data generator that
+# `node server.js` provides - use `node server.js` for those, or run both
+# side by side on different ports.
+version: '3.8'
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: hmi-dev-mosquitto
+    ports:
+      - '1883:1883'   # plain MQTT (TCP)
+      - '9001:9001'   # MQTT over WebSocket
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
