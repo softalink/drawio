@@ -294,7 +294,11 @@
 			return result;
 		}
 
-		states.visit(function(id, state)
+		// mxDictionary keys by object identity, not by cell.id (see
+		// mxObjectIdentity), so the real cell id -- the key the overlay,
+		// bindings and every other HMI module use -- has to come from
+		// state.cell.id, not from the visitor's own key argument.
+		states.visit(function(objectId, state)
 		{
 			if (state == null || state.cell == null || state.style == null)
 			{
@@ -305,7 +309,7 @@
 
 			if (shape == IFRAME_SHAPE || shape == VIDEO_SHAPE || shape == ECHARTS_SHAPE || shape == TABLE_SHAPE)
 			{
-				result[id] = {cell: state.cell, type: shape.substring('mxgraph.hmi.'.length)};
+				result[state.cell.id] = {cell: state.cell, type: shape.substring('mxgraph.hmi.'.length)};
 			}
 		});
 
@@ -350,6 +354,17 @@
 		el.className = 'geHmiDomWidget geHmiDomWidget-' + info.type;
 		el.setAttribute('data-hmi-cell', id);
 		el.style.cssText = 'position:absolute;box-sizing:border-box;overflow:hidden;z-index:2;';
+
+		if (info.type == 'echarts')
+		{
+			// Opaque background so the shape's own canvas-painted
+			// placeholder (still there underneath, in the SVG) never
+			// shows through a transparent chart background.
+			var st = this.rt.graph.view.getState(info.cell);
+			el.style.background = mxUtils.getValue(st != null ? st.style : {},
+				mxConstants.STYLE_FILLCOLOR, '#ffffff');
+		}
+
 		this.rt.graph.container.appendChild(el);
 		rec.el = el;
 
@@ -408,16 +423,17 @@
 
 	DomWidgets.prototype.armTableTimer = function(rec)
 	{
-		if (rec.scrollTimer != null)
-		{
-			clearInterval(rec.scrollTimer);
-			rec.scrollTimer = null;
-		}
-
 		var state = this.rt.graph.view.getState(rec.cell);
+		var enabled = state != null && bool(state.style, 'hmiAutoScroll', '0');
 
-		if (state == null || !bool(state.style, 'hmiAutoScroll', '0'))
+		if (!enabled)
 		{
+			if (rec.scrollTimer != null)
+			{
+				clearInterval(rec.scrollTimer);
+				rec.scrollTimer = null;
+			}
+
 			rec.scrollInterval = null;
 
 			return;
@@ -425,9 +441,15 @@
 
 		var interval = Math.max(100, num(state.style, 'hmiScrollInterval', 1500));
 
-		if (rec.scrollInterval === interval)
+		if (rec.scrollTimer != null && rec.scrollInterval === interval)
 		{
-			return;
+			return; // already running at the right rate
+		}
+
+		if (rec.scrollTimer != null)
+		{
+			clearInterval(rec.scrollTimer);
+			rec.scrollTimer = null;
 		}
 
 		rec.scrollInterval = interval;

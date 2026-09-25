@@ -1922,11 +1922,25 @@
 	mxShapeHmiAlarmBanner.prototype.defaultValue = '[{"severity":"critical","message":"Tank T-101 high level","state":"active-unack"},' +
 		'{"severity":"warning","message":"Pump P-3 running long","state":"active-ack"}]';
 
+	/**
+	 * Shortens text to fit the given width (approximate glyph width, as text
+	 * measuring is not available in all canvases, e.g. exports).
+	 */
+	HmiUtil.ellipsis = function(text, width, fontSize)
+	{
+		var max = Math.max(1, Math.floor(width / (fontSize * 0.56)));
+
+		return (text.length > max) ? text.substring(0, Math.max(1, max - 1)) + '\u2026' : text;
+	};
+
 	mxShapeHmiAlarmBanner.prototype.paintWidget = function(c, w, h)
 	{
 		var raw = HmiUtil.str(this.style, 'hmiValue', this.defaultValue);
 		var alarms = this.parseAlarms(raw);
 		var fill = mxUtils.getValue(this.style, mxConstants.STYLE_FILLCOLOR, '#263238');
+		var fontSize = parseFloat(mxUtils.getValue(this.style, mxConstants.STYLE_FONTSIZE, 13));
+		var rowH = Math.max(fontSize * 1.6, parseFloat(mxUtils.getValue(this.style, 'hmiRowHeight', 26)));
+		var rows = Math.max(1, Math.floor(h / rowH));
 
 		c.setFillColor(fill);
 		c.begin();
@@ -1936,42 +1950,56 @@
 		if (alarms.length == 0)
 		{
 			c.setFontColor('#90a4ae');
-			c.setFontSize(Math.max(9, h * 0.4));
+			c.setFontSize(Math.min(fontSize, Math.max(8, h * 0.4)));
 			c.text(10, h / 2, 0, 0, 'No active alarms', mxConstants.ALIGN_LEFT, mxConstants.ALIGN_MIDDLE, 0);
 
 			return;
 		}
 
-		var rowH = h / alarms.length;
+		// Last visible row summarizes alarms that do not fit
+		var shown = (alarms.length > rows) ? rows - 1 : alarms.length;
+		var sevNames = {1: 'critical', 2: 'warning', 3: 'medium', 4: 'info'};
+		var size = Math.min(fontSize, rowH * 0.55);
 
-		for (var i = 0; i < alarms.length; i++)
+		for (var i = 0; i < shown; i++)
 		{
 			var a = alarms[i] || {};
 			// Numeric runtime severities (1 = highest) map to names
-			var sevNames = {1: 'critical', 2: 'warning', 3: 'medium', 4: 'info'};
 			var sev = (typeof a.severity === 'number') ? (sevNames[a.severity] || 'info') :
 				String(a.severity || 'info').toLowerCase();
 			var color = this.sevColors[sev] || '#1565c0';
 			var y = i * rowH;
 			var acked = (a.state == 'active-ack' || a.state == 'cleared-unack');
+			var ackW = acked ? size * 2.6 : 0;
 
 			c.setFillColor(color);
 			c.begin();
-			c.rect(0, y, Math.max(4, w * 0.012), rowH);
+			c.rect(0, y + 1, Math.max(4, w * 0.012), rowH - 2);
 			c.fill();
 
 			c.setFontColor('#ffffff');
 			c.setFontStyle(acked ? 0 : mxConstants.FONT_BOLD);
-			c.setFontSize(Math.max(9, Math.min(rowH * 0.55, h * 0.28)));
+			c.setFontSize(size);
 			var text = (a.severity ? ('[' + sev.toUpperCase() + '] ') : '') + (a.message || '');
-			c.text(12, y + rowH / 2, w - 24, rowH, text, mxConstants.ALIGN_LEFT, mxConstants.ALIGN_MIDDLE, 0);
+			c.text(12, y + rowH / 2, 0, 0, HmiUtil.ellipsis(text, w - 24 - ackW, size),
+				mxConstants.ALIGN_LEFT, mxConstants.ALIGN_MIDDLE, 0);
 
 			if (acked)
 			{
 				c.setFontColor('#90a4ae');
-				c.setFontSize(Math.max(7, rowH * 0.35));
+				c.setFontStyle(0);
+				c.setFontSize(size * 0.8);
 				c.text(w - 8, y + rowH / 2, 0, 0, 'ACK', mxConstants.ALIGN_RIGHT, mxConstants.ALIGN_MIDDLE, 0);
 			}
+		}
+
+		if (shown < alarms.length)
+		{
+			c.setFontColor('#cfd8dc');
+			c.setFontStyle(0);
+			c.setFontSize(size * 0.9);
+			c.text(12, shown * rowH + rowH / 2, 0, 0, '+' + (alarms.length - shown) + ' more',
+				mxConstants.ALIGN_LEFT, mxConstants.ALIGN_MIDDLE, 0);
 		}
 	};
 

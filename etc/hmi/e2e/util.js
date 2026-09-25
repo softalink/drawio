@@ -34,6 +34,14 @@ function loadPlaywright()
 	throw new Error('Playwright not found (set PLAYWRIGHT_MODULE)');
 }
 
+var pages = {};
+
+// Registers an in-memory HTML page (path must start with /__test/)
+function addPage(path, html)
+{
+	pages[path] = html;
+}
+
 // Static file server for the webapp (no caching)
 function startStatic(port)
 {
@@ -42,6 +50,16 @@ function startStatic(port)
 		var server = http.createServer(function(req, res)
 		{
 			var url = decodeURIComponent(req.url.split('?')[0].split('#')[0]);
+
+			// Test pages registered with addPage (served from memory)
+			if (pages[url] != null)
+			{
+				res.writeHead(200, {'Content-Type': 'text/html', 'Cache-Control': 'no-store'});
+				res.end(pages[url]);
+
+				return;
+			}
+
 			var file = path.join(WEBAPP, url == '/' ? 'index.html' : url);
 
 			if (file.indexOf(WEBAPP) != 0)
@@ -125,5 +143,5 @@ async function waitInPage(page, fn, arg, timeout)
 	await page.waitForFunction(fn, arg, {timeout: timeout || 10000});
 }
 
-module.exports = {WEBAPP: WEBAPP, startStatic: startStatic, launch: launch,
+module.exports = {WEBAPP: WEBAPP, addPage: addPage, startStatic: startStatic, launch: launch,
 	openEditor: openEditor, waitInPage: waitInPage, APP_PARAMS: APP_PARAMS};

@@ -668,6 +668,8 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="runtime/HmiActions.js" />
 				<file name="runtime/HmiAnimator.js" />
 				<file name="runtime/HmiEventDispatcher.js" />
+				<file name="runtime/HmiSystem.js" />
+				<file name="runtime/HmiDomWidgets.js" />
 				<file name="runtime/HmiRuntime.js" />
 				<file name="runtime/HmiEmbed.js" />
 				<file name="ui/HmiResources.js" />
@@ -737,6 +739,8 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="runtime/HmiActions.js" />
 				<file name="runtime/HmiAnimator.js" />
 				<file name="runtime/HmiEventDispatcher.js" />
+				<file name="runtime/HmiSystem.js" />
+				<file name="runtime/HmiDomWidgets.js" />
 				<file name="runtime/HmiRuntime.js" />
 				<file name="runtime/HmiEmbed.js" />
 				<file name="ui/HmiResources.js" />
