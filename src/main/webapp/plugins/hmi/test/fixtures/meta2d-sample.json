@@ -1,0 +1,240 @@
+{
+	"pens": [
+		{
+			"id": "tank",
+			"name": "rectangle",
+			"x": 40,
+			"y": 40,
+			"width": 120,
+			"height": 160,
+			"text": "Tank 1",
+			"background": "#e6e6e6",
+			"color": "#333333",
+			"lineWidth": 2,
+			"progress": 65,
+			"progressColor": "#2ecc71",
+			"verticalProgress": true,
+			"events": [
+				{ "name": "click", "action": 1, "value": { "text": "Full", "background": "#00cc00" }, "params": "self" },
+				{ "name": "dblclick", "action": 13, "value": "page2" },
+				{ "name": "mouseup", "action": 18, "value": "Acknowledged" }
+			]
+		},
+		{
+			"id": "pump",
+			"name": "circle",
+			"x": 260,
+			"y": 100,
+			"width": 60,
+			"height": 60,
+			"text": "P-101",
+			"background": "#cfe8ff",
+			"color": "#1155cc",
+			"rotate": 0,
+			"connectedLines": [
+				{ "lineId": "line1", "lineAnchor": "1", "anchor": "a2" }
+			]
+		},
+		{
+			"id": "valve",
+			"name": "diamond",
+			"x": 400,
+			"y": 110,
+			"width": 50,
+			"height": 40,
+			"text": "V-1",
+			"background": "#ffffff",
+			"color": "#000000",
+			"autoPlay": true,
+			"animateCycle": 0,
+			"frames": [
+				{ "duration": 500, "rotate": 0, "background": "#ffffff" },
+				{ "duration": 500, "rotate": 180, "background": "#ff0000" }
+			]
+		},
+		{
+			"id": "lbl",
+			"name": "text",
+			"x": 40,
+			"y": 10,
+			"width": 200,
+			"height": 20,
+			"text": "Process Overview"
+		},
+		{
+			"id": "logo",
+			"name": "image",
+			"image": "https://example.com/logo.png",
+			"x": 500,
+			"y": 10,
+			"width": 64,
+			"height": 32
+		},
+		{
+			"id": "icon",
+			"name": "svgPath",
+			"pathId": "path1",
+			"x": 500,
+			"y": 60,
+			"width": 40,
+			"height": 40,
+			"background": "#ff9900",
+			"color": "#663300"
+		},
+		{
+			"id": "gauge1",
+			"name": "gauge",
+			"x": 40,
+			"y": 260,
+			"width": 100,
+			"height": 100,
+			"text": "Pressure"
+		},
+		{
+			"id": "sw1",
+			"name": "switch",
+			"x": 200,
+			"y": 280,
+			"width": 60,
+			"height": 30,
+			"text": "Pump Enable",
+			"roles": ["operator", "engineer"]
+		},
+		{
+			"id": "line1",
+			"type": 1,
+			"name": "line",
+			"lineName": "polyline",
+			"x": 160,
+			"y": 130,
+			"fromArrow": "none",
+			"toArrow": "triangle",
+			"lineWidth": 2,
+			"color": "#555555",
+			"lineAnimateType": 0,
+			"animateSpan": 20,
+			"animateReverse": true,
+			"animateColor": "#ff0000",
+			"autoPlay": true,
+			"anchors": [
+				{ "x": 0, "y": 0 },
+				{ "x": 100, "y": -20 }
+			]
+		},
+		{
+			"id": "grp1",
+			"name": "combine",
+			"x": 600,
+			"y": 200,
+			"width": 120,
+			"height": 80,
+			"children": ["c1", "c2"]
+		},
+		{
+			"id": "c1",
+			"name": "rectangle",
+			"parentId": "grp1",
+			"x": 610,
+			"y": 210,
+			"width": 40,
+			"height": 30,
+			"text": "A"
+		},
+		{
+			"id": "c2",
+			"name": "rectangle",
+			"parentId": "grp1",
+			"x": 660,
+			"y": 210,
+			"width": 40,
+			"height": 30,
+			"text": "B"
+		},
+		{
+			"id": "chart1",
+			"name": "echarts",
+			"chartType": "line",
+			"x": 40,
+			"y": 400,
+			"width": 200,
+			"height": 100,
+			"text": "Trend"
+		},
+		{
+			"id": "table1",
+			"name": "table2",
+			"x": 300,
+			"y": 400,
+			"width": 200,
+			"height": 100
+		},
+		{
+			"id": "vid1",
+			"name": "video",
+			"x": 550,
+			"y": 400,
+			"width": 160,
+			"height": 90
+		}
+	],
+	"paths": {
+		"path1": "M0 0 L40 0 L40 40 L0 40 Z"
+	},
+	"networks": [
+		{
+			"name": "plc",
+			"protocol": "mqtt",
+			"url": "mqtt://broker.local:1883",
+			"topics": "plant/tank,plant/pump",
+			"options": { "clientId": "hmi-1" }
+		},
+		{
+			"name": "rest",
+			"protocol": "http",
+			"url": "http://api.local/status",
+			"method": "GET",
+			"interval": 2000
+		},
+		{
+			"name": "legacyIot",
+			"protocol": "iot",
+			"url": "iot://gateway"
+		}
+	],
+	"http": "http://legacy.local/status",
+	"httpTimeInterval": 5000,
+	"realTimes": [
+		{
+			"label": "Pump Speed",
+			"key": "text",
+			"type": "float",
+			"bind": { "id": "pump" },
+			"enableMock": true,
+			"mock": "0-100",
+			"triggers": [
+				{
+					"name": "highSpeed",
+					"conditions": [{ "key": "value", "operator": ">", "value": 80 }],
+					"actions": [
+						{ "action": 1, "value": { "background": "#ff0000" }, "params": "self" }
+					]
+				}
+			]
+		},
+		{
+			"label": "Pump Running",
+			"key": "progress",
+			"type": "bool",
+			"bind": { "id": "pump" }
+		}
+	],
+	"triggers": [
+		{
+			"name": "globalHighTemp",
+			"conditions": [{ "key": "tank.temp", "operator": ">=", "value": 90 }],
+			"actions": [
+				{ "action": 18, "value": "High temperature" }
+			]
+		}
+	]
+}

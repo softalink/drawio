@@ -99,8 +99,7 @@
 
 		if (raw == null)
 		{
-			var label = (this.state != null && this.state.cell != null && typeof this.state.cell.value == 'string' &&
-				this.state.cell.value.length > 0) ? this.state.cell.value : 'Value';
+			var label = HmiUtil.getLabel(this) || 'Value';
 			series = {};
 			series[label] = sampleSeries(60, 0);
 		}

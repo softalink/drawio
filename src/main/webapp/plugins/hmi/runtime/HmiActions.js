@@ -134,6 +134,24 @@
 				var title = (typeof action.prompt === 'object' && action.prompt.title) ?
 					action.prompt.title : mxResources.get('hmiEnterValue');
 				var current = rt.tags.getValue(action.tag);
+
+				// Standalone viewer has no dialogs
+				if (typeof FilenameDialog === 'undefined')
+				{
+					var result = window.prompt(title, (current != null) ? String(current) : '');
+
+					if (result != null)
+					{
+						resolve(result);
+					}
+					else
+					{
+						reject(new Error('Cancelled'));
+					}
+
+					return;
+				}
+
 				var dlg = new FilenameDialog(rt.ui, (current != null) ? String(current) : '',
 					mxResources.get('ok'), function(value)
 					{

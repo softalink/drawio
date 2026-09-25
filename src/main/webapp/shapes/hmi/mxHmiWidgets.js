@@ -29,6 +29,32 @@
 	var HmiUtil = {};
 
 	/**
+	 * Returns the plain-text label of the shape's cell (user objects and
+	 * HTML labels included) or null.
+	 */
+	HmiUtil.getLabel = function(shape)
+	{
+		var state = shape.state;
+
+		if (state == null || state.cell == null)
+		{
+			return null;
+		}
+
+		var graph = state.view.graph;
+		var label = graph.convertValueToString(state.cell);
+
+		if (label != null && graph.isHtmlLabel(state.cell))
+		{
+			label = label.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '').
+				replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').
+				replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+		}
+
+		return (label != null && label !== '') ? label : null;
+	};
+
+	/**
 	 * Parses a float style value, always returning a finite number.
 	 */
 	HmiUtil.num = function(style, key, def)
@@ -502,7 +528,7 @@
 				mxConstants.ALIGN_CENTER, mxConstants.ALIGN_MIDDLE, 0);
 		}
 
-		var label = (this.state != null && this.state.cell != null) ? this.state.cell.value : null;
+		var label = HmiUtil.getLabel(this);
 
 		if (label != null && typeof label == 'string' && label.length > 0)
 		{
@@ -945,7 +971,7 @@
 			c.lineTo(right.x, right.y);
 			// Long way around (through the bottom of the circle) back to
 			// the left point, i.e. the lower "lens" of the circle.
-			c.arcTo(r, r, 0, 1, 1, left.x, left.y);
+			c.arcTo(r, r, 0, (ratio > 0.5) ? 1 : 0, 1, left.x, left.y);
 			c.close();
 			c.fill();
 		}
@@ -1162,7 +1188,7 @@
 		c.ellipse(cx - r * 0.55, cy - r * 0.6, r * 0.9, r * 0.6);
 		c.fill();
 
-		var label = (this.state != null && this.state.cell != null) ? this.state.cell.value : null;
+		var label = HmiUtil.getLabel(this);
 
 		if (label != null && typeof label == 'string' && label.length > 0)
 		{
@@ -1322,7 +1348,7 @@
 		c.roundrect(w * 0.1, offY + 2, w * 0.8, h * 0.28, r * 0.6, r * 0.6);
 		c.fill();
 
-		var label = (this.state != null && this.state.cell != null) ? this.state.cell.value : null;
+		var label = HmiUtil.getLabel(this);
 
 		if (label == null || typeof label != 'string' || label.length == 0)
 		{
@@ -1879,7 +1905,7 @@
 			{
 				var arr = JSON.parse(trimmed);
 
-				if (mxUtils.isArray(arr) || Object.prototype.toString.call(arr) == '[object Array]')
+				if (Object.prototype.toString.call(arr) == '[object Array]')
 				{
 					return arr;
 				}
@@ -1893,9 +1919,12 @@
 		return [{severity: 'info', message: raw, state: 'active-unack'}];
 	};
 
+	mxShapeHmiAlarmBanner.prototype.defaultValue = '[{"severity":"critical","message":"Tank T-101 high level","state":"active-unack"},' +
+		'{"severity":"warning","message":"Pump P-3 running long","state":"active-ack"}]';
+
 	mxShapeHmiAlarmBanner.prototype.paintWidget = function(c, w, h)
 	{
-		var raw = HmiUtil.str(this.style, 'hmiValue', '');
+		var raw = HmiUtil.str(this.style, 'hmiValue', this.defaultValue);
 		var alarms = this.parseAlarms(raw);
 		var fill = mxUtils.getValue(this.style, mxConstants.STYLE_FILLCOLOR, '#263238');
 

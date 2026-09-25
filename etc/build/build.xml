@@ -232,6 +232,9 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="Sidebar-Office.js" />
 				<file name="Sidebar-OpenStack.js" />
 				<file name="Sidebar-PID.js" />
+				<!-- HMI: begin -->
+				<file name="Sidebar-HMI.js" />
+				<!-- HMI: end -->
 				<file name="Sidebar-Rack.js" />
 				<file name="Sidebar-Salesforce.js" />
 				<file name="Sidebar-SAP.js" />
@@ -608,7 +611,167 @@ OUTPUT FILES (in src/main/webapp/js/):
 		<delete file="${basedir}/sidebar.min.js"/>
 		<delete file="${basedir}/client.min.js"/>
 		<delete file="${basedir}/.tmp1.js"/>
+
+		<!-- HMI: begin -->
+		<antcall target="hmi"/>
+		<!-- HMI: end -->
 	</target>
+
+
+	<!-- HMI: begin -->
+	<!--
+	============================================================================
+	TARGET: hmi
+	============================================================================
+	Builds the HMI/SCADA plugin (docs/hmi). Called at the end of "app"; can
+	also run on its own. File lists are generated from Hmi.FILES in
+	plugins/hmi/hmi.js by etc/hmi/update-build-lists.py.
+
+	OUTPUTS:
+	  - plugins/hmi.min.js : plugin bundle (loaded via ?p=hmi / ?hmi=...)
+	  - js/hmi-viewer.min.js : standalone viewer with HMI runtime (requires
+	    base-viewer.min.js from the app target)
+	============================================================================
+	-->
+	<target name="hmi">
+		<echo file="${basedir}/.tmp-hmi-prefix.js">(typeof globalThis !== 'undefined' ? globalThis : window).Hmi = {bundled: true};</echo>
+
+		<jscomp warning="${jscomp.warning}" compilationLevel="simple" debug="false" forceRecompile="true" output="${basedir}/.tmp-hmi.min.js">
+			<sources dir="${basedir}">
+				<file name=".tmp-hmi-prefix.js" />
+			</sources>
+			<sources dir="${war.dir}/plugins/hmi">
+				<!-- HMI: files begin -->
+				<file name="core/HmiExpr.js" />
+				<file name="core/HmiFormat.js" />
+				<file name="core/HmiCondition.js" />
+				<file name="core/HmiTransform.js" />
+				<file name="core/HmiTagStore.js" />
+				<file name="core/HmiSimulator.js" />
+				<file name="core/HmiSchema.js" />
+				<file name="sources/HmiPayload.js" />
+				<file name="sources/HmiSourceManager.js" />
+				<file name="sources/HmiMqttSource.js" />
+				<file name="sources/HmiWsSource.js" />
+				<file name="sources/HmiHttpSource.js" />
+				<file name="sources/HmiSseSource.js" />
+				<file name="sources/HmiHostSource.js" />
+				<file name="runtime/HmiScriptHost.js" />
+				<file name="runtime/HmiModel.js" />
+				<file name="runtime/HmiOverlay.js" />
+				<file name="runtime/HmiLevelFill.js" />
+				<file name="runtime/HmiFlow.js" />
+				<file name="runtime/HmiBindingEngine.js" />
+				<file name="runtime/HmiWriter.js" />
+				<file name="runtime/HmiAlarms.js" />
+				<file name="runtime/HmiTriggerEngine.js" />
+				<file name="runtime/HmiActions.js" />
+				<file name="runtime/HmiAnimator.js" />
+				<file name="runtime/HmiEventDispatcher.js" />
+				<file name="runtime/HmiRuntime.js" />
+				<file name="runtime/HmiEmbed.js" />
+				<file name="ui/HmiResources.js" />
+				<file name="ui/HmiEditors.js" />
+				<file name="ui/HmiSourcesDialog.js" />
+				<file name="ui/HmiTagsDialog.js" />
+				<file name="ui/HmiTagBrowser.js" />
+				<file name="ui/HmiDiagnostics.js" />
+				<file name="ui/HmiFormatPanel.js" />
+				<file name="ui/HmiRunChrome.js" />
+				<file name="ui/HmiValidator.js" />
+				<file name="ui/HmiFaceplate.js" />
+				<file name="ui/HmiImport.js" />
+				<file name="ui/HmiPlugin.js" />
+				<!-- HMI: files end -->
+			</sources>
+		</jscomp>
+
+		<jscomp warning="${jscomp.warning}" compilationLevel="simple" debug="false" forceRecompile="true" output="${basedir}/.tmp-hmi-entry.min.js">
+			<sources dir="${war.dir}/plugins/hmi">
+				<file name="hmi.js" />
+			</sources>
+		</jscomp>
+
+		<concat destfile="${war.dir}/plugins/hmi.min.js" fixlastline="yes" append="no">
+			<filelist dir="${basedir}" files=".tmp-hmi.min.js,.tmp-hmi-entry.min.js"/>
+		</concat>
+
+		<available file="${basedir}/base-viewer.min.js" property="hmi.viewer.base"/>
+		<antcall target="hmi-viewer"/>
+
+		<delete file="${basedir}/.tmp-hmi-prefix.js"/>
+		<delete file="${basedir}/.tmp-hmi.min.js"/>
+		<delete file="${basedir}/.tmp-hmi-entry.min.js"/>
+	</target>
+
+	<target name="hmi-viewer" if="hmi.viewer.base">
+		<jscomp warning="${jscomp.warning}" compilationLevel="simple" debug="false" forceRecompile="true" output="${basedir}/.tmp-hmi-viewer.min.js">
+			<sources dir="${basedir}">
+				<file name=".tmp-hmi-prefix.js" />
+			</sources>
+			<sources dir="${war.dir}/plugins/hmi">
+				<!-- HMI: viewer files begin -->
+				<file name="core/HmiExpr.js" />
+				<file name="core/HmiFormat.js" />
+				<file name="core/HmiCondition.js" />
+				<file name="core/HmiTransform.js" />
+				<file name="core/HmiTagStore.js" />
+				<file name="core/HmiSimulator.js" />
+				<file name="core/HmiSchema.js" />
+				<file name="sources/HmiPayload.js" />
+				<file name="sources/HmiSourceManager.js" />
+				<file name="sources/HmiMqttSource.js" />
+				<file name="sources/HmiWsSource.js" />
+				<file name="sources/HmiHttpSource.js" />
+				<file name="sources/HmiSseSource.js" />
+				<file name="sources/HmiHostSource.js" />
+				<file name="runtime/HmiScriptHost.js" />
+				<file name="runtime/HmiModel.js" />
+				<file name="runtime/HmiOverlay.js" />
+				<file name="runtime/HmiLevelFill.js" />
+				<file name="runtime/HmiFlow.js" />
+				<file name="runtime/HmiBindingEngine.js" />
+				<file name="runtime/HmiWriter.js" />
+				<file name="runtime/HmiAlarms.js" />
+				<file name="runtime/HmiTriggerEngine.js" />
+				<file name="runtime/HmiActions.js" />
+				<file name="runtime/HmiAnimator.js" />
+				<file name="runtime/HmiEventDispatcher.js" />
+				<file name="runtime/HmiRuntime.js" />
+				<file name="runtime/HmiEmbed.js" />
+				<file name="ui/HmiResources.js" />
+				<file name="ui/HmiFaceplate.js" />
+				<file name="viewer/HmiViewer.js" />
+				<!-- HMI: viewer files end -->
+			</sources>
+		</jscomp>
+
+		<echo file="${basedir}/.tmp-hmi-init.js">
+			(function()
+			{
+				Editor.initMath();
+
+				if (window.onDrawioViewerLoad != null)
+				{
+					window.onDrawioViewerLoad();
+				}
+				else
+				{
+					GraphViewer.processElements();
+				}
+			})();
+		</echo>
+
+		<concat destfile="${war.dir}/js/hmi-viewer.min.js" fixlastline="yes" append="no">
+			<filelist dir="${basedir}" files="base-viewer.min.js"/>
+			<filelist dir="${war.dir}/js" files="shapes-14-6-5.min.js"/>
+			<filelist dir="${basedir}" files=".tmp-hmi-viewer.min.js,.tmp-hmi-init.js"/>
+		</concat>
+
+		<delete file="${basedir}/.tmp-hmi-viewer.min.js"/>
+		<delete file="${basedir}/.tmp-hmi-init.js"/>
+	</target>
+	<!-- HMI: end -->
 
 	<!--
 	============================================================================

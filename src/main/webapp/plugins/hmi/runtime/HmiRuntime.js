@@ -443,6 +443,7 @@
 		if (this.running && this.frameHandle == null)
 		{
 			var self = this;
+			this.scheduledAt = Date.now();
 			var raf = root.requestAnimationFrame || function(fn)
 			{
 				return setTimeout(function()
@@ -471,7 +472,9 @@
 		}
 
 		var now = Date.now();
-		var minInterval = 1000 / Math.max(1, Math.min(120, this.maxRate || 30));
+		var maxRate = Math.max(1, Math.min(120, this.maxRate || 30));
+		var rate = Math.min(maxRate, this.dynamicRate || maxRate);
+		var minInterval = 1000 / rate;
 
 		if (this.lastFrame != null && now - this.lastFrame < minInterval - 2)
 		{
@@ -480,7 +483,29 @@
 			return;
 		}
 
+		// Adaptive rate (like meta2d autoFPS): a late frame means the previous
+		// frame's rendering blocked the main thread, so fewer, larger batches
+		// keep the page responsive. Recovers slowly when frames are on time.
+		if (this.lastFrame != null && this.lastWork != null)
+		{
+			// Delay of the animation frame beyond one display refresh
+			var late = (this.scheduledAt != null) ? now - this.scheduledAt - 17 : 0;
+			var load = (this.lastWork + Math.max(0, late)) / minInterval;
+
+			if (load > 0.6 && rate > 2)
+			{
+				this.dynamicRate = Math.max(2, rate * 0.75);
+			}
+			else if (load < 0.3 && rate < maxRate)
+			{
+				this.dynamicRate = Math.min(maxRate, rate + 0.5);
+			}
+
+			this.diag.counters.rate = Math.round(this.dynamicRate || rate);
+		}
+
 		this.lastFrame = now;
+		var workStart = Date.now();
 		this.diag.counters.frames++;
 
 		try
@@ -533,6 +558,7 @@
 		}
 
 		this.flushRequested = false;
+		this.lastWork = Date.now() - workStart;
 
 		if (this.overlay.isDirty() || (this.animator != null && this.animator.isAnimating()))
 		{

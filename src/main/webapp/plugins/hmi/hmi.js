@@ -52,6 +52,7 @@
 		'ui/HmiFormatPanel.js',
 		'ui/HmiRunChrome.js',
 		'ui/HmiValidator.js',
+		'ui/HmiFaceplate.js',
 		'ui/HmiImport.js',
 		'ui/HmiPlugin.js'
 	];
