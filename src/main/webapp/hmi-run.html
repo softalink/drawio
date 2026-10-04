@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<!--
+	Lightweight HMI runtime (SRS HMI-RUN-1/2). Loads only the draw.io viewer
+	core (mxGraph plus the draw.io graph/shape renderer), the HMI shapes and
+	the HMI runtime - not the editor application.
+
+	Usage:
+	  hmi-run.html#R<compressed or url-encoded diagram XML>
+	  hmi-run.html#U<url-encoded URL of a .drawio file>
+	  hmi-run.html?url=<url-encoded URL of a .drawio file>
+
+	Parameters: page-id, hmi-sim (off|on|only), hmi-role, hmi-fit
+	(none|page|width), hmi-hide-nav=1, hmi-hide-status=1, hmi-reload=<min>,
+	title, dev=1 (loads the plugin sources instead of js/hmi-viewer.min.js).
+-->
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>HMI Runtime</title>
+	<style>
+		html, body
+		{
+			margin: 0;
+			height: 100%;
+			overflow: hidden;
+			background: #ffffff;
+			font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+		}
+		#hmi-container
+		{
+			position: absolute;
+			left: 0;
+			top: 0;
+			right: 0;
+			bottom: 28px;
+			overflow: auto;
+		}
+		#hmi-message
+		{
+			position: absolute;
+			left: 50%;
+			top: 40%;
+			transform: translate(-50%, -50%);
+			color: #546e7a;
+			font-size: 15px;
+			text-align: center;
+		}
+		@media (prefers-color-scheme: dark)
+		{
+			html, body
+			{
+				background: #121212;
+			}
+			#hmi-message
+			{
+				color: #b0bec5;
+			}
+		}
+	</style>
+	<script type="text/javascript">
+		// URL parameters for the viewer core and the HMI runtime
+		var urlParams = (function()
+		{
+			var result = {};
+			var query = window.location.search.substring(1).split('&');
+
+			for (var i = 0; i < query.length; i++)
+			{
+				var idx = query[i].indexOf('=');
+
+				if (idx > 0)
+				{
+					result[query[i].substring(0, idx)] = query[i].substring(idx + 1);
+				}
+			}
+
+			return result;
+		})();
+
+		// Assets are loaded from this deployment (never from viewer.diagrams.net),
+		// so the runtime also works on isolated plant networks
+		window.SHAPES_PATH = window.SHAPES_PATH || 'shapes';
+		window.STENCIL_PATH = window.STENCIL_PATH || 'stencils';
+		window.STYLE_PATH = window.STYLE_PATH || 'styles';
+		window.IMAGE_PATH = window.IMAGE_PATH || 'images';
+		window.GRAPH_IMAGE_PATH = window.GRAPH_IMAGE_PATH || 'img';
+		window.DRAW_MATH_URL = window.DRAW_MATH_URL || 'math4/es5';
+
+		(function()
+		{
+			var dev = urlParams['dev'] == '1';
+
+			function message(text)
+			{
+				var elt = document.getElementById('hmi-message');
+
+				if (elt != null)
+				{
+					elt.textContent = text;
+				}
+			};
+
+			function loadScript(src, onload)
+			{
+				var script = document.createElement('script');
+				script.src = src;
+				script.onload = onload;
+				script.onerror = function()
+				{
+					message('Failed to load ' + src);
+				};
+				document.getElementsByTagName('head')[0].appendChild(script);
+			};
+
+			// Returns a promise for the diagram XML from the hash or ?url=
+			function getData()
+			{
+				var hash = window.location.hash.substring(1);
+				var url = (urlParams['url'] != null) ? decodeURIComponent(urlParams['url']) :
+					((hash.charAt(0) == 'U') ? decodeURIComponent(hash.substring(1)) : null);
+
+				if (url != null)
+				{
+					return fetch(url, {credentials: 'same-origin'}).then(function(res)
+					{
+						if (!res.ok)
+						{
+							throw new Error('HTTP ' + res.status + ' for ' + url);
+						}
+
+						return res.text();
+					});
+				}
+				else if (hash.charAt(0) == 'R')
+				{
+					var data = decodeURIComponent(hash.substring(1));
+
+					return Promise.resolve((data.charAt(0) == '<') ? data : Graph.decompress(data));
+				}
+
+				return Promise.reject(new Error('No diagram given'));
+			};
+
+			function start()
+			{
+				getData().then(function(xml)
+				{
+					var node = mxUtils.parseXml(xml).documentElement;
+					var diagrams = (node.nodeName == 'mxfile') ?
+						node.getElementsByTagName('diagram') : [];
+					var page = 0;
+
+					for (var i = 0; i < diagrams.length; i++)
+					{
+						if (diagrams[i].getAttribute('id') == decodeURIComponent(
+							urlParams['page-id'] || ''))
+						{
+							page = i;
+						}
+					}
+
+					// MathJax is only loaded for diagrams with math typesetting
+					if (/\bmath="1"/.test(xml) && !dev)
+					{
+						Editor.initMath();
+					}
+
+					var container = document.getElementById('hmi-container');
+					container.innerHTML = '';
+
+					if (urlParams['title'] != null)
+					{
+						document.title = decodeURIComponent(urlParams['title']);
+					}
+
+					new GraphViewer(container, node, {
+						highlight: 'none',
+						nav: true,
+						resize: false,
+						center: false,
+						lightbox: false,
+						page: page,
+						toolbar: (diagrams.length > 1 && urlParams['hmi-hide-nav'] != '1') ?
+							'pages' : null,
+						'toolbar-position': 'top',
+						'toolbar-nohide': true,
+						hmi: {
+							chrome: true,
+							interactive: true,
+							sim: urlParams['hmi-sim'],
+							roles: (urlParams['hmi-role'] != null) ?
+								decodeURIComponent(urlParams['hmi-role']).split(',') : null
+						}
+					});
+				})['catch'](function(e)
+				{
+					message(e.message);
+				});
+			};
+
+			// Called by the viewer bundle instead of GraphViewer.processElements
+			window.onDrawioViewerLoad = function()
+			{
+				if (dev)
+				{
+					// Development: viewer core from js/viewer.min.js, HMI from sources
+					loadScript('plugins/hmi/hmi.js?t=' + Date.now(), function()
+					{
+						Hmi.basePath = 'plugins/hmi/';
+						Hmi.loadFiles(Hmi.getViewerFiles(), function()
+						{
+							Hmi.Viewer.install();
+							start();
+						});
+					});
+				}
+				else
+				{
+					start();
+				}
+			};
+
+			// Periodic reload for unattended kiosks (hmi-reload=<minutes>)
+			var reload = parseFloat(urlParams['hmi-reload']);
+
+			if (!isNaN(reload) && reload > 0)
+			{
+				window.setTimeout(function()
+				{
+					window.location.reload();
+				}, reload * 60000);
+			}
+
+			window.addEventListener('load', function()
+			{
+				// Deployment configuration (DRAWIO_CONFIG.hmi: allowed endpoints,
+				// script policy, roles, ...) as for the app
+				loadScript('js/PreConfig.js', function()
+				{
+					loadScript(dev ? 'js/viewer.min.js' : 'js/hmi-viewer.min.js');
+				});
+			});
+		})();
+	</script>
+</head>
+<body>
+	<div id="hmi-container"><div id="hmi-message">Loading…</div></div>
+</body>
+</html>

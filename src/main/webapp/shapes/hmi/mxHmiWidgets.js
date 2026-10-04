@@ -1355,9 +1355,11 @@
 			label = (mode == 'latched') ? (active ? 'ON' : 'OFF') : 'PUSH';
 		}
 
-		c.setFontColor('#ffffff');
+		// Opaque caption (the gloss above is drawn translucent)
+		c.setAlpha(1);
+		c.setFontColor(mxUtils.getValue(this.style, mxConstants.STYLE_FONTCOLOR, '#ffffff'));
 		c.setFontStyle(mxConstants.FONT_BOLD);
-		c.setFontSize(Math.max(9, Math.min(w, h) * 0.2));
+		c.setFontSize(Math.max(9, Math.min(16, (h - offY) * 0.4, w * 0.16)));
 		c.text(w / 2, (h - offY) / 2 + offY / 2, 0, 0, label, mxConstants.ALIGN_CENTER, mxConstants.ALIGN_MIDDLE, 0);
 
 		c.restore();
@@ -2004,6 +2006,32 @@
 	};
 
 	mxCellRenderer.registerShape(mxShapeHmiAlarmBanner.prototype.cst.SHAPE, mxShapeHmiAlarmBanner);
+
+	/**
+	 * Widgets that paint their own caption. Their cell label is hidden so it
+	 * is never drawn twice, even without noLabel=1 in the style.
+	 */
+	HmiUtil.SELF_LABELED = {'mxgraph.hmi.radialGauge': true, 'mxgraph.hmi.lamp': true,
+		'mxgraph.hmi.button': true, 'mxgraph.hmi.trendChart': true};
+
+	if (typeof Graph !== 'undefined' && !HmiUtil.labelHookInstalled)
+	{
+		HmiUtil.labelHookInstalled = true;
+		var graphPostProcessCellStyle = Graph.prototype.postProcessCellStyle;
+
+		Graph.prototype.postProcessCellStyle = function(cell, style)
+		{
+			style = graphPostProcessCellStyle.apply(this, arguments);
+
+			if (style != null && style.noLabel == null &&
+				HmiUtil.SELF_LABELED[style[mxConstants.STYLE_SHAPE]])
+			{
+				style.noLabel = '1';
+			}
+
+			return style;
+		};
+	}
 
 	// Expose helpers for the sibling HMI shape files (charts, equipment).
 	var Hmi = (typeof globalThis !== 'undefined' ? globalThis : window).Hmi =

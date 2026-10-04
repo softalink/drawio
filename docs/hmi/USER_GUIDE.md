@@ -55,8 +55,8 @@ Once enabled, a new **Extras → HMI / SCADA** submenu appears (see §3), and se
 3. **Bind the tank to the tag.** Select the tank shape. In the Format panel's **HMI** tab, either:
    - use the **Quick Add** section's *Level* button (fills in a placeholder tag name you then edit to `Tank1.Level`), or
    - open the **Tag Browser** (*Extras → HMI / SCADA → Tag Browser…*) and drag `Tank1.Level` onto the tank — dropping onto a tank/cylinder shape auto-creates a `style:hmiLevel` binding.
-4. **Preview it.** Press **F5** (Live Preview). The tank should start filling and draining on a 20-second sine wave. Toggle **Interactive** in the same menu if you also want click/event handlers to fire while still editing.
-5. **Run it.** Press **Ctrl/Cmd+Shift+F5** (Run Screen) to open the locked, chromeless operator view in a new tab/window — no editing, no sidebar, just the running screen with a status bar (§13).
+4. **Preview it.** Choose *Extras → HMI / SCADA → Live Preview*. The tank should start filling and draining on a 20-second sine wave. Toggle **Interactive** in the same menu if you also want click/event handlers to fire while still editing.
+5. **Run it.** Choose *Extras → HMI / SCADA → Run Screen* to open the locked operator view (`hmi-run.html`) in a new tab or window. It has no editing and no sidebar: just the running screen, page navigation and a status bar (§13).
 
 ---
 
@@ -466,7 +466,22 @@ A tag's `alarms` block declares limits: `hihi`, `hi`, `lo`, `lolo` (numeric), or
 
 ### Run Screen and runtime chrome
 
-**Ctrl/Cmd+Shift+F5** (or *Extras → HMI / SCADA → Run*) opens the current file in a new tab/window at `?hmi=run#R<data>`, honouring the safety notice (§1). The runtime is a locked, chromeless view (based on draw.io's lightbox mode): no editing, no selection handles, no sidebar or Format panel. It adds a **status bar** at the bottom showing:
+*Extras → HMI / SCADA → Run Screen* opens the current file in a new tab or window, after the safety notice (§1). By default this is the **lightweight runtime page** `hmi-run.html#R<data>`.
+
+The page loads only:
+- `js/hmi-viewer.min.js`: draw.io's viewer core (mxGraph plus draw.io's graph and shape renderer), the HMI shapes and the HMI runtime. That is about 2.9 MB, or 0.75 MB gzipped. Other draw.io shapes (P&ID, electrical, …) load on demand.
+- `js/PreConfig.js`, so `DRAWIO_CONFIG.hmi` applies.
+
+It does not load the editor application (`app.min.js`, 9.5 MB). It also never fetches anything from diagrams.net, so it works on isolated plant networks.
+
+Other ways to open screens on `hmi-run.html`:
+- `hmi-run.html#U<url-encoded URL>` loads a published `.drawio` file directly.
+- `hmi-run.html?url=<url-encoded URL>` does the same.
+- `hmi-run.html?dev=1` loads the plugin sources instead of the bundle, for development.
+
+The previous full-app runtime (`index.html?hmi=run`, draw.io's lightbox view) is still supported. Use it with `DRAWIO_CONFIG.hmi.runPage = 'app'`, or by opening that URL directly.
+
+Both runtimes are locked views: no editing, no selection handles, no sidebar or Format panel. Multi-page files get page navigation at the top. A **status bar** at the bottom shows:
 
 - one dot per connected source (green = connected, amber = connecting, grey = disconnected, a small square = error), with the source's name and state as a tooltip of the last error;
 - the current alarm summary (click to open the Alarm List);
@@ -478,7 +493,9 @@ A tag's `alarms` block declares limits: `hihi`, `hi`, `lo`, `lolo` (numeric), or
 
 | Parameter | Effect |
 |---|---|
-| `hmi=run` | Starts runtime mode |
+| `hmi=run` | Starts the full-app runtime (`index.html`); `hmi-run.html` is always in runtime mode |
+| `url=<url>` | `hmi-run.html` only: loads the diagram from a URL |
+| `dev=1` | `hmi-run.html`: loads the plugin sources instead of `js/hmi-viewer.min.js` |
 | `page-id=<id>` | Opens on a specific page |
 | `hmi-fit=none\|page\|width\|stretch` | Overrides the document's fit mode |
 | `hmi-hide-nav=1` | Hides the chromeless toolbar/page navigation |
@@ -550,7 +567,7 @@ When draw.io is embedded as a JS application (not just an iframe with postMessag
 
 **Import.** *Extras → HMI / SCADA → Import meta2d JSON…* converts a meta2d.js (`@meta2d/core`) JSON export into draw.io cells with HMI attributes: pens → shapes, `networks` → sources, `realTimes` → bindings + tag catalogue, `events`/`triggers` → HMI events/triggers, `frames` → animations. Unsupported meta2d features (JetLinks/ADIIOT/SQL networks, `table2`, most chart types, `SendData`, etc.) are reported in a dialog listing exactly what was skipped, rather than silently dropped. If the app supports multiple pages, the import lands on a new page named after the source file.
 
-**Export.** *Extras → HMI / SCADA → Export HMI Screen (HTML)…* saves a self-contained `.html` file for the current screen. By default it's a thin wrapper embedding an iframe that points at this deployment's `?hmi=run` runtime URL; if a standalone viewer bundle is configured (`Hmi.viewerBundleUrl`), it instead inlines the viewer script directly with the diagram data, so the exported file needs no round trip back to this server.
+**Export.** *Extras → HMI / SCADA → Export HMI Screen (HTML)…* saves a self-contained `.html` file for the current screen. By default it's a thin wrapper embedding an iframe that points at this deployment's `hmi-run.html` runtime URL; if a standalone viewer bundle is configured (`Hmi.viewerBundleUrl`), it instead inlines the viewer script directly with the diagram data, so the exported file needs no round trip back to this server.
 
 ---
 

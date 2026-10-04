@@ -8,8 +8,9 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
 HMI_JS = os.path.join(ROOT, 'src/main/webapp/plugins/hmi/hmi.js')
 BUILD = os.path.join(ROOT, 'etc/build/build.xml')
 
-# Editor-only modules left out of the standalone viewer bundle
-VIEWER_EXCLUDE = re.compile(r'^ui/(?!HmiResources\.js|HmiFaceplate\.js)')
+# Editor-only modules left out of the runtime/viewer bundle (keep in sync
+# with Hmi.VIEWER_UI_FILES in plugins/hmi/hmi.js)
+VIEWER_EXCLUDE = re.compile(r'^ui/(?!(HmiResources|HmiDiagnostics|HmiRunChrome|HmiFaceplate)\.js)')
 
 files = re.findall(r"'([^']+\.js)'", re.search(r'Hmi\.FILES = \[(.*?)\];',
 	open(HMI_JS).read(), re.S).group(1))

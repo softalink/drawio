@@ -65,6 +65,43 @@
 	Hmi.basePath = (typeof PLUGINS_BASE_PATH !== 'undefined' && PLUGINS_BASE_PATH != '' ?
 		PLUGINS_BASE_PATH + '/' : '') + 'plugins/hmi/';
 
+	/**
+	 * Modules of the lightweight runtime (hmi-run.html and the standalone
+	 * viewer): everything except the editor UI. Keep in sync with
+	 * VIEWER_EXCLUDE in etc/hmi/update-build-lists.py.
+	 */
+	Hmi.getViewerFiles = function()
+	{
+		var files = [];
+
+		for (var i = 0; i < Hmi.FILES.length; i++)
+		{
+			if (Hmi.FILES[i].substring(0, 3) != 'ui/' ||
+				Hmi.VIEWER_UI_FILES.indexOf(Hmi.FILES[i]) >= 0)
+			{
+				files.push(Hmi.FILES[i]);
+			}
+		}
+
+		files.push('viewer/HmiViewer.js');
+
+		return files;
+	};
+
+	/**
+	 * UI modules used by the runtime (status bar, diagnostics, faceplates).
+	 */
+	Hmi.VIEWER_UI_FILES = ['ui/HmiResources.js', 'ui/HmiDiagnostics.js',
+		'ui/HmiRunChrome.js', 'ui/HmiFaceplate.js'];
+
+	/**
+	 * Loads the given files (relative to Hmi.basePath) in order.
+	 */
+	Hmi.loadFiles = function(files, done)
+	{
+		loadSequential(files, done);
+	};
+
 	function loadSequential(files, done)
 	{
 		var i = 0;
@@ -80,7 +117,7 @@
 				var script = document.createElement('script');
 				script.setAttribute('type', 'text/javascript');
 				script.setAttribute('src', Hmi.basePath + files[i++] +
-					((urlParams != null && urlParams['dev'] == '1') ?
+					((typeof urlParams !== 'undefined' && urlParams['dev'] == '1') ?
 					'?t=' + Date.now() : ''));
 				script.onload = next;
 				script.onerror = function()
@@ -98,6 +135,12 @@
 
 		next();
 	};
+
+	// The lightweight runtime (hmi-run.html) loads this file without the app
+	if (typeof Draw === 'undefined')
+	{
+		return;
+	}
 
 	Draw.loadPlugin(function(ui)
 	{

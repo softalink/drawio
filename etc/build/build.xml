@@ -711,9 +711,20 @@ OUTPUT FILES (in src/main/webapp/js/):
 	</target>
 
 	<target name="hmi-viewer" if="hmi.viewer.base">
+		<!-- Resolves shapes/stencils/images next to the bundle's js/ folder so
+		     other draw.io shapes load on demand, also when embedded elsewhere -->
+		<echo file="${basedir}/.tmp-hmi-paths.js">(function(){try{var s=document.currentScript;var i=(s!=null&amp;&amp;s.src!=null)?s.src.lastIndexOf('/js/'):-1;if(i>=0){var b=s.src.substring(0,i+1);window.SHAPES_PATH=window.SHAPES_PATH||b+'shapes';window.STENCIL_PATH=window.STENCIL_PATH||b+'stencils';window.IMAGE_PATH=window.IMAGE_PATH||b+'images';window.GRAPH_IMAGE_PATH=window.GRAPH_IMAGE_PATH||b+'img';window.STYLE_PATH=window.STYLE_PATH||b+'styles';window.DRAW_MATH_URL=window.DRAW_MATH_URL||b+'math4/es5';}}catch(e){}})();</echo>
+
 		<jscomp warning="${jscomp.warning}" compilationLevel="simple" debug="false" forceRecompile="true" output="${basedir}/.tmp-hmi-viewer.min.js">
 			<sources dir="${basedir}">
 				<file name=".tmp-hmi-prefix.js" />
+			</sources>
+			<!-- Only the HMI shapes; other shapes load on demand -->
+			<sources dir="${war.dir}/shapes/hmi">
+				<file name="mxHmiWidgets.js" />
+				<file name="mxHmiTable.js" />
+				<file name="mxHmiCharts.js" />
+				<file name="mxHmiEquipment.js" />
 			</sources>
 			<sources dir="${war.dir}/plugins/hmi">
 				<!-- HMI: viewer files begin -->
@@ -748,6 +759,8 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="runtime/HmiRuntime.js" />
 				<file name="runtime/HmiEmbed.js" />
 				<file name="ui/HmiResources.js" />
+				<file name="ui/HmiDiagnostics.js" />
+				<file name="ui/HmiRunChrome.js" />
 				<file name="ui/HmiFaceplate.js" />
 				<file name="viewer/HmiViewer.js" />
 				<!-- HMI: viewer files end -->
@@ -757,25 +770,25 @@ OUTPUT FILES (in src/main/webapp/js/):
 		<echo file="${basedir}/.tmp-hmi-init.js">
 			(function()
 			{
-				Editor.initMath();
-
+				// hmi-run.html initializes math only for diagrams that use it
 				if (window.onDrawioViewerLoad != null)
 				{
 					window.onDrawioViewerLoad();
 				}
 				else
 				{
+					Editor.initMath();
 					GraphViewer.processElements();
 				}
 			})();
 		</echo>
 
 		<concat destfile="${war.dir}/js/hmi-viewer.min.js" fixlastline="yes" append="no">
-			<filelist dir="${basedir}" files="base-viewer.min.js"/>
-			<filelist dir="${war.dir}/js" files="shapes-14-6-5.min.js"/>
+			<filelist dir="${basedir}" files=".tmp-hmi-paths.js,base-viewer.min.js"/>
 			<filelist dir="${basedir}" files=".tmp-hmi-viewer.min.js,.tmp-hmi-init.js"/>
 		</concat>
 
+		<delete file="${basedir}/.tmp-hmi-paths.js"/>
 		<delete file="${basedir}/.tmp-hmi-viewer.min.js"/>
 		<delete file="${basedir}/.tmp-hmi-init.js"/>
 	</target>

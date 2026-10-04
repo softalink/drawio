@@ -344,6 +344,11 @@ Hmi.ScriptHost({policy: 'off'|'prompt'|'on', timeout: 50}): run(code, args, api)
   - `confirm`, `getCurrentFile`
 
   It starts for `data-mxgraph` configs that contain `"hmi"`.
+- **Lightweight runtime page** (`hmi-run.html`). Run Screen opens this page by default; `DRAWIO_CONFIG.hmi.runPage = 'app'` selects the full-app lightbox runtime instead (`Hmi.Plugin.getRunUrl(ui, fullApp)`).
+  - It loads `js/PreConfig.js` and `js/hmi-viewer.min.js` (viewer core + HMI shapes + `Hmi.getViewerFiles()` modules).
+  - It sets local asset paths and starts a `GraphViewer` with `{hmi: {chrome: true}}`. `Viewer.attach` then installs `Hmi.RunChrome`.
+  - The viewer runtime exposes its APIs in `Hmi.Viewer.instances`.
+  - Clicks are detected from mouse-down/up in `Hmi.EventDispatcher`, because `mxEvent.CLICK` does not fire in lightbox or viewer graphs.
 - **Adaptive frame rate.** `Runtime.frame` lowers the effective rate (down to 2 Hz) when frames are late or work takes more than 60% of the frame budget, and recovers gradually. `rt.diag.counters.rate` reports the current rate.
 
 ## 4. Isolation rules (SRS HMI-BND-7, C-5)

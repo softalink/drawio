@@ -22,7 +22,8 @@
 	{
 		var script = document.currentScript;
 
-		if (script != null && script.src != null && script.src != '')
+		// Only for the bundle (js/hmi-viewer.min.js), not the dev sources
+		if (script != null && script.src != null && /hmi-viewer\.min\.js/.test(script.src))
 		{
 			Hmi.basePath = script.src.substring(0, script.src.lastIndexOf('/') + 1) +
 				'../plugins/hmi/';
@@ -132,16 +133,75 @@
 		}
 	};
 
-	ViewerUi.prototype.confirm = function(msg, okFn, cancelFn)
+	/**
+	 * Lightweight modal confirmation (the viewer has no dialog framework).
+	 */
+	ViewerUi.prototype.confirm = function(msg, okFn, cancelFn, okLabel, cancelLabel)
 	{
-		if (window.confirm(msg))
+		var back = document.createElement('div');
+		back.className = 'geHmiConfirm';
+		back.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;' +
+			'align-items:center;justify-content:center;background:rgba(0,0,0,0.35);' +
+			'font:14px -apple-system,Segoe UI,Helvetica,Arial,sans-serif;';
+		var box = document.createElement('div');
+		box.setAttribute('role', 'alertdialog');
+		box.style.cssText = 'background:#fff;color:#212121;border-radius:8px;padding:20px 24px;' +
+			'max-width:420px;box-shadow:0 8px 24px rgba(0,0,0,0.3);white-space:pre-wrap;';
+		var text = document.createElement('div');
+		mxUtils.write(text, msg);
+		box.appendChild(text);
+		var buttons = document.createElement('div');
+		buttons.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:18px;';
+		box.appendChild(buttons);
+		back.appendChild(box);
+
+		var close = function(fn)
 		{
-			okFn();
-		}
-		else if (cancelFn != null)
+			if (back.parentNode != null)
+			{
+				back.parentNode.removeChild(back);
+			}
+
+			mxEvent.removeListener(document, 'keydown', keyHandler);
+
+			if (fn != null)
+			{
+				fn();
+			}
+		};
+
+		var button = function(label, primary, fn)
 		{
-			cancelFn();
-		}
+			var btn = document.createElement('button');
+			btn.setAttribute('type', 'button');
+			btn.className = primary ? 'geHmiConfirmOk' : 'geHmiConfirmCancel';
+			btn.style.cssText = 'padding:6px 16px;border-radius:4px;font:inherit;cursor:pointer;' +
+				(primary ? 'background:#1565C0;color:#fff;border:1px solid #1565C0;' :
+				'background:#fff;color:#212121;border:1px solid #9E9E9E;');
+			mxUtils.write(btn, label);
+			mxEvent.addListener(btn, 'click', function()
+			{
+				close(fn);
+			});
+			buttons.appendChild(btn);
+
+			return btn;
+		};
+
+		button(cancelLabel || mxResources.get('cancel') || 'Cancel', false, cancelFn);
+		var ok = button(okLabel || mxResources.get('ok') || 'OK', true, okFn);
+
+		var keyHandler = function(evt)
+		{
+			if (evt.keyCode == 27)
+			{
+				close(cancelFn);
+			}
+		};
+
+		mxEvent.addListener(document, 'keydown', keyHandler);
+		document.body.appendChild(back);
+		ok.focus();
 	};
 
 	ViewerUi.prototype.getCurrentFile = function()
@@ -166,9 +226,24 @@
 		// Dialogs are not available in the viewer (prompt falls back below)
 	};
 
+	ViewerUi.prototype.hideDialog = function()
+	{
+		// No dialogs in the viewer
+	};
+
+	ViewerUi.prototype.showError = function(title, msg)
+	{
+		window.alert((title != null ? title + '\n\n' : '') + (msg || ''));
+	};
+
 	var Viewer = {};
 
 	Viewer.ViewerUi = ViewerUi;
+
+	/**
+	 * APIs (Hmi.Api) of all attached viewers, for scripting and tests.
+	 */
+	Viewer.instances = [];
 
 	/**
 	 * Starts the HMI runtime for the given GraphViewer.
@@ -203,13 +278,32 @@
 		graph.hmiOverlay = new Hmi.Overlay(graph);
 
 		var ui = new ViewerUi(viewer);
+		ui.viewer = viewer;
 		ui.hmiRoles = options.roles;
 		ui.hmi = new Hmi.Api(ui);
 		viewer.hmi = ui.hmi;
+		Viewer.instances.push(ui.hmi);
 		graph.refresh();
 
-		ui.hmi.run({mode: 'run', interactive: options.interactive !== false,
+		var rt = ui.hmi.run({mode: 'run', interactive: options.interactive !== false,
 			sim: options.sim});
+
+		// Status bar, fit modes and kiosk options (full-page runtime)
+		if (options.chrome && Hmi.RunChrome != null)
+		{
+			// GraphViewer sizes its container to the diagram; the full-page
+			// runtime fills the window instead (see hmi-run.html)
+			var cs = graph.container.style;
+			cs.width = '';
+			cs.height = '';
+			cs.minWidth = '';
+			cs.minHeight = '';
+			cs.maxWidth = '';
+			cs.maxHeight = '';
+			cs.overflow = 'auto';
+
+			Hmi.RunChrome.install(ui, rt);
+		}
 
 		return ui.hmi;
 	};

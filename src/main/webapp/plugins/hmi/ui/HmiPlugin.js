@@ -197,9 +197,12 @@
 	/**
 	 * Returns the URL that opens the current diagram in runtime mode.
 	 */
-	Plugin.getRunUrl = function(ui)
+	Plugin.getRunUrl = function(ui, fullApp)
 	{
-		var params = ['hmi=run'];
+		// Lightweight runtime page (viewer core + HMI runtime) unless the
+		// deployment or caller asks for the full app in lightbox mode
+		fullApp = fullApp || Hmi.Runtime.getGlobalConfig().runPage == 'app';
+		var params = fullApp ? ['hmi=run'] : [];
 		var keep = ['dev', 'p', 'hmi-connect-src', 'hmi-sim', 'hmi-role', 'lang', 'dark', 'ui'];
 
 		for (var i = 0; i < keep.length; i++)
@@ -224,8 +227,14 @@
 
 		var data = ui.getFileData(true, null, null, null, null, null, null, true, null, false);
 
-		return window.location.pathname + '?' + params.join('&') +
-			'#R' + encodeURIComponent(data);
+		var path = window.location.pathname;
+
+		if (!fullApp)
+		{
+			path = path.substring(0, path.lastIndexOf('/') + 1) + 'hmi-run.html';
+		}
+
+		return path + '?' + params.join('&') + '#R' + encodeURIComponent(data);
 	};
 
 	/**
@@ -251,7 +260,7 @@
 						mxResources.get('ok'));
 				}
 			});
-		}, null, null, Editor.ctrlKey + '+Shift+F5');
+		});
 
 		var preview = ui.actions.addAction('hmiLivePreview', function()
 		{
@@ -269,7 +278,7 @@
 			}
 
 			ui.fireEvent(new mxEventObject('hmiPreviewChanged'));
-		}, null, null, 'F5');
+		});
 		preview.setToggleAction(true);
 		preview.setSelectedCallback(function()
 		{

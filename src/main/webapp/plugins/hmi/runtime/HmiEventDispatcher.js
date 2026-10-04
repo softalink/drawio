@@ -329,6 +329,8 @@
 				{
 					self.pressed = cell;
 					self.pressStart = Date.now();
+					self.pressX = me.getX();
+					self.pressY = me.getY();
 					self.fire(cell, 'mousedown');
 					self.widgetMouseDown(cell, me);
 
@@ -399,46 +401,25 @@
 					self.fire(cell, 'mouseup');
 				}
 
+				// Clicks are detected here rather than with mxEvent.CLICK, which
+				// is not fired in chromeless/lightbox views (Run Screen) and
+				// the standalone viewer, as they override graph.click.
+				if (cell != null && self.pressed != null && !self.longPressed &&
+					Math.abs(me.getX() - self.pressX) < EventDispatcher.CLICK_TOLERANCE &&
+					Math.abs(me.getY() - self.pressY) < EventDispatcher.CLICK_TOLERANCE &&
+					self.isSameOrAncestor(self.pressed, cell))
+				{
+					if (self.handleClick(self.pressed))
+					{
+						me.consume();
+					}
+				}
+
+				self.longPressed = false;
 				self.pressed = null;
 			}
 		};
 		graph.addMouseListener(this.mouseListener);
-
-		this.clickListener = function(sender, evt)
-		{
-			var cell = evt.getProperty('cell');
-
-			if (!self.isEnabled() || cell == null || self.longPressed)
-			{
-				self.longPressed = false;
-
-				return;
-			}
-
-			var handled = self.fire(cell, 'click');
-
-			if (!handled)
-			{
-				handled = self.widgetClick(cell);
-			}
-
-			if (handled)
-			{
-				evt.consume();
-			}
-		};
-		graph.addListener(mxEvent.CLICK, this.clickListener);
-
-		this.dblClickListener = function(sender, evt)
-		{
-			var cell = evt.getProperty('cell');
-
-			if (self.isEnabled() && cell != null && self.fire(cell, 'dblclick'))
-			{
-				evt.consume();
-			}
-		};
-		graph.addListener(mxEvent.DOUBLE_CLICK, this.dblClickListener);
 
 		if (graph.container != null)
 		{
@@ -480,8 +461,6 @@
 
 		var graph = this.rt.graph;
 		graph.removeMouseListener(this.mouseListener);
-		graph.removeListener(this.clickListener);
-		graph.removeListener(this.dblClickListener);
 
 		if (graph.container != null)
 		{
@@ -492,6 +471,54 @@
 		this.updateHover(null);
 		this.closeEditor(false);
 		this.installed = false;
+	};
+
+	/**
+	 * Maximum pointer movement in pixels between press and release of a click.
+	 */
+	EventDispatcher.CLICK_TOLERANCE = 6;
+
+	/**
+	 * Maximum delay in milliseconds between the clicks of a double click.
+	 */
+	EventDispatcher.DBLCLICK_DELAY = 350;
+
+	/**
+	 * Returns true if a is b or an ancestor of b, or b an ancestor of a.
+	 */
+	EventDispatcher.prototype.isSameOrAncestor = function(a, b)
+	{
+		var model = this.rt.graph.model;
+
+		return a == b || model.isAncestor(a, b) || model.isAncestor(b, a);
+	};
+
+	/**
+	 * Fires click (and dblclick for a second click on the same cell) and runs
+	 * the default widget behaviour. Returns true if the click was handled.
+	 */
+	EventDispatcher.prototype.handleClick = function(cell)
+	{
+		var now = Date.now();
+		var handled = this.fire(cell, 'click');
+
+		if (!handled)
+		{
+			handled = this.widgetClick(cell);
+		}
+
+		if (this.lastClickCell == cell && now - this.lastClickTime < EventDispatcher.DBLCLICK_DELAY)
+		{
+			handled = this.fire(cell, 'dblclick') || handled;
+			this.lastClickCell = null;
+		}
+		else
+		{
+			this.lastClickCell = cell;
+			this.lastClickTime = now;
+		}
+
+		return handled;
 	};
 
 	/**

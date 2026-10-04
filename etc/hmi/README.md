@@ -26,7 +26,7 @@ cd src/main/webapp/plugins/hmi/test && node --test --test-concurrency=1
 End-to-end tests need Playwright with Chromium. Set `PLAYWRIGHT_MODULE` and `CHROMIUM_PATH` if they are not auto-detected.
 
 ```sh
-node --test --test-concurrency=1 etc/hmi/e2e/runtime.e2e.js etc/hmi/e2e/ui.e2e.js
+node --test --test-concurrency=1 etc/hmi/e2e/runtime.e2e.js etc/hmi/e2e/ui.e2e.js etc/hmi/e2e/runscreen.e2e.js
 node --test --test-concurrency=1 etc/hmi/e2e/perf.e2e.js
 HMI_SOAK_MINUTES=1440 node --test --test-name-pattern=soak etc/hmi/e2e/perf.e2e.js
 node --test etc/hmi/e2e/bundle.e2e.js    # after the Ant build
@@ -41,7 +41,7 @@ cd etc/build && ant hmi     # plugin bundle only (viewer needs base-viewer.min.j
 
 The build produces:
 - `src/main/webapp/plugins/hmi.min.js` (loaded for `?p=hmi` / `?hmi=...` outside dev mode)
-- `src/main/webapp/js/hmi-viewer.min.js` (standalone viewer)
+- `src/main/webapp/js/hmi-viewer.min.js` (lightweight runtime used by `hmi-run.html` and the standalone viewer)
 
 Run `python3 etc/hmi/update-build-lists.py` after adding a module to `Hmi.FILES`.
 

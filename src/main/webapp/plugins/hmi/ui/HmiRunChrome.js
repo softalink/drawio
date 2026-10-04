@@ -272,6 +272,20 @@
 			{
 				return;
 			}
+			else if (ui.viewer != null)
+			{
+				// Standalone runtime: scales the design area (runtime width and
+				// height, or the diagram bounds) to the window and centers it
+				var view = graph.view;
+				ch = container.clientHeight;
+				var area = (rt.config.runtime.width > 0 && rt.config.runtime.height > 0) ?
+					new mxRectangle(0, 0, bw, bh) : new mxRectangle(bounds.x / s - view.translate.x,
+					bounds.y / s - view.translate.y, bw, bh);
+				var ns = Math.max(0.05, (fit == 'width') ? cw / area.width :
+					Math.min(cw / area.width, ch / area.height));
+				view.scaleAndTranslate(ns, Math.max(0, (cw / ns - area.width) / 2) - area.x,
+					((fit == 'width') ? 0 : Math.max(0, (ch / ns - area.height) / 2)) - area.y);
+			}
 			else if (fit == 'width')
 			{
 				graph.zoomTo(Math.max(0.05, cw / bw));
@@ -281,6 +295,12 @@
 				graph.zoomTo(Math.max(0.05, Math.min(cw / bw, ch / bh)));
 			}
 		};
+
+		// The standalone runtime has no lightbox fit of its own
+		if (ui.viewer != null && fit != 'none')
+		{
+			window.setTimeout(doFit, 0);
+		}
 
 		if (fit != 'none')
 		{
