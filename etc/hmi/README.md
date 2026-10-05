@@ -8,6 +8,7 @@ Development, test and build helpers for the HMI/SCADA plugin. The documentation 
 | `e2e/` | Playwright end-to-end, performance and bundle tests. |
 | `check-hooks.sh` | Verifies the `// HMI:` core hooks after merging an upstream release. |
 | `update-build-lists.py` | Regenerates the HMI file lists in `etc/build/build.xml` from `Hmi.FILES`. |
+| `gen-intouch-demo.py` | Regenerates `templates/hmi/intouch_links_demo.xml` (InTouch animation links demo). |
 
 ## Running the tests
 
@@ -26,7 +27,7 @@ cd src/main/webapp/plugins/hmi/test && node --test --test-concurrency=1
 End-to-end tests need Playwright with Chromium. Set `PLAYWRIGHT_MODULE` and `CHROMIUM_PATH` if they are not auto-detected.
 
 ```sh
-node --test --test-concurrency=1 etc/hmi/e2e/runtime.e2e.js etc/hmi/e2e/ui.e2e.js etc/hmi/e2e/runscreen.e2e.js
+node --test --test-concurrency=1 etc/hmi/e2e/runtime.e2e.js etc/hmi/e2e/ui.e2e.js etc/hmi/e2e/runscreen.e2e.js etc/hmi/e2e/links.e2e.js etc/hmi/e2e/links-ui.e2e.js
 node --test --test-concurrency=1 etc/hmi/e2e/perf.e2e.js
 HMI_SOAK_MINUTES=1440 node --test --test-name-pattern=soak etc/hmi/e2e/perf.e2e.js
 node --test etc/hmi/e2e/bundle.e2e.js    # after the Ant build
