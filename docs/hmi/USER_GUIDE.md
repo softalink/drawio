@@ -491,6 +491,15 @@ Both runtimes are locked views: no editing, no selection handles, no sidebar or 
 
 **Ctrl/Cmd+Shift+D** opens the Diagnostics panel from anywhere in the runtime.
 
+### Hover halo
+
+In a running screen, an interactive object glows when the mouse is over it. Interactive objects are those with a touch link, a click/press/hover event, or a control widget such as a button or switch. The glow follows the object's shape and gets stronger while the mouse button is held down. The object focused with Tab glows the same way. Disabled and hidden objects, and objects that only display data, do not glow.
+
+Configure the halo globally with `DRAWIO_CONFIG.hmi.hoverHalo` or per document with `runtime.hoverHalo`. The document setting wins.
+- `false` turns the halo off.
+- An object changes it: `{color: '#1E88E5', size: 6, pressColor, pressSize, press: true}`. `size` is the glow radius in pixels (1–40). `press: false` turns off the stronger glow while pressed.
+- The style `hmiHalo=0` turns it off for one object.
+
 ### Kiosk URL parameters
 
 | Parameter | Effect |

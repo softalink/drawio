@@ -676,6 +676,7 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="runtime/HmiEventDispatcher.js" />
 				<file name="runtime/HmiSystem.js" />
 				<file name="runtime/HmiDomWidgets.js" />
+				<file name="runtime/HmiHalo.js" />
 				<file name="runtime/HmiKeypad.js" />
 				<file name="runtime/HmiLinkEngine.js" />
 				<file name="runtime/HmiRuntime.js" />
@@ -764,6 +765,7 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="runtime/HmiEventDispatcher.js" />
 				<file name="runtime/HmiSystem.js" />
 				<file name="runtime/HmiDomWidgets.js" />
+				<file name="runtime/HmiHalo.js" />
 				<file name="runtime/HmiKeypad.js" />
 				<file name="runtime/HmiLinkEngine.js" />
 				<file name="runtime/HmiRuntime.js" />

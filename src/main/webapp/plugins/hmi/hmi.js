@@ -45,6 +45,7 @@
 		'runtime/HmiEventDispatcher.js',
 		'runtime/HmiSystem.js',
 		'runtime/HmiDomWidgets.js',
+		'runtime/HmiHalo.js',
 		'runtime/HmiKeypad.js',
 		'runtime/HmiLinkEngine.js',
 		'runtime/HmiRuntime.js',

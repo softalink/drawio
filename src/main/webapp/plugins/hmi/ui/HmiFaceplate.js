@@ -113,6 +113,13 @@
 			proxy.links.install();
 		}
 
+		proxy.halo = (Hmi.Halo != null && rt.interactive) ? new Hmi.Halo(proxy) : null;
+
+		if (proxy.halo != null)
+		{
+			proxy.halo.install();
+		}
+
 		var updateAll = function()
 		{
 			var names = [];
@@ -209,6 +216,11 @@
 				rt.off('tags', tagsListener);
 				rt.off('alarm', alarmListener);
 				proxy.events.uninstall();
+
+				if (proxy.halo != null)
+				{
+					proxy.halo.uninstall();
+				}
 
 				if (proxy.links != null)
 				{

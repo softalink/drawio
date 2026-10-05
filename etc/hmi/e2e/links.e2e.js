@@ -273,6 +273,10 @@ async function displayScenario(page)
 	// Disable: clicks are ignored while Enable = 0
 	await set(page, {Enable: false, Cmd: false});
 	await click(page, 'itd-disable');
+	assert.strictEqual(await page.evaluate(function()
+	{
+		return rt().graph.view.getState(rt().graph.model.getCell('itd-disable')).shape.node.getAttribute('data-hmi-halo');
+	}), null, 'no halo on disabled objects');
 	await page.waitForTimeout(300);
 	assert.strictEqual(await get(page, 'Cmd'), false);
 	await set(page, {Enable: true});
@@ -289,6 +293,33 @@ async function touchScenario(page)
 	await set(page, {Cmd: false, Speed: 750, SetPoint: 50, SliderX: 50, SliderY: 50,
 		PbDirect: false, PbReverse: true, PbToggle: false, PbLatch: false, Counter: 0, Held: 0,
 		Hover: false});
+
+	// Hover halo: glow on the hovered touch object, stronger while pressed,
+	// none on plain objects, removed on leave
+	var halo = function(id)
+	{
+		return page.evaluate(function(id)
+		{
+			var state = rt().graph.view.getState(rt().graph.model.getCell(id));
+
+			return {attr: state.shape.node.getAttribute('data-hmi-halo'),
+				filter: state.shape.node.style.filter};
+		}, id);
+	};
+	var hc = await center(page, 'itd-input-analog');
+	await page.mouse.move(hc.x, hc.y, {steps: 2});
+	var h = await halo('itd-input-analog');
+	assert.strictEqual(h.attr, 'hover');
+	assert.match(h.filter, /drop-shadow/);
+	hc = await center(page, 'itd-enable-set');
+	await page.mouse.move(hc.x, hc.y, {steps: 2});
+	assert.strictEqual((await halo('itd-input-analog')).attr, null);
+	await page.mouse.down();
+	assert.strictEqual((await halo('itd-enable-set')).attr, 'pressed');
+	await page.mouse.up();
+	assert.strictEqual((await halo('itd-enable-set')).attr, 'hover');
+	await page.mouse.move(5, 890, {steps: 2});
+	assert.strictEqual((await halo('itd-enable-set')).attr, null);
 
 	// Discrete input: Set/Reset prompt, label shows on/off message
 	assert.strictEqual((await cellState(page, 'itd-input-discrete')).label, 'Cmd: OFF');

@@ -21,6 +21,10 @@
         "theme": { "enum": ["default", "isa101"], "default": "default" },
         "width": { "type": "number" },
         "height": { "type": "number" },
+        "hoverHalo": {
+          "description": "Hover glow of interactive objects: false, or {color, size, pressColor, pressSize, press}.",
+          "type": ["boolean", "object"]
+        },
         "blink": {
           "type": "object",
           "description": "Blink half-periods in ms for InTouch blink links (INTOUCH_LINKS.md §7).",

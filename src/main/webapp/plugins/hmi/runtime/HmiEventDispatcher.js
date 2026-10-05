@@ -340,6 +340,13 @@
 
 					// InTouch touch links run before HMI events
 					var linked = rt.links != null && rt.links.mouseDown(cell, me);
+
+					if (rt.halo != null && rt.halo.cell != null &&
+						rt.halo.cell == self.getHaloCell(cell))
+					{
+						rt.halo.press(true);
+					}
+
 					self.fire(cell, 'mousedown');
 					self.widgetMouseDown(cell, me);
 
@@ -412,6 +419,11 @@
 				if (rt.links != null)
 				{
 					rt.links.mouseUp(me);
+				}
+
+				if (rt.halo != null)
+				{
+					rt.halo.press(false);
 				}
 
 				if (self.pressed != null)
@@ -575,7 +587,7 @@
 		{
 			var cfg = (this.rt.index != null) ? this.rt.index.cells[current.id] : null;
 
-			if (cfg != null && cfg.events.length > 0)
+			if (cfg != null && EventDispatcher.hasInteractiveEvents(cfg))
 			{
 				return true;
 			}
@@ -584,6 +596,71 @@
 		}
 
 		return this.getControlWidget(cell) != null;
+	};
+
+	/**
+	 * Event names that need user input (cells with only valueChange,
+	 * pageOpen or message handlers are not interactive).
+	 */
+	EventDispatcher.INTERACTIVE = {click: 1, dblclick: 1, mousedown: 1, mouseup: 1,
+		longpress: 1, contextmenu: 1, enter: 1, leave: 1, change: 1};
+
+	/**
+	 * Returns true if the index entry has handlers for user input.
+	 */
+	EventDispatcher.hasInteractiveEvents = function(cfg)
+	{
+		for (var i = 0; cfg != null && cfg.events != null && i < cfg.events.length; i++)
+		{
+			if (EventDispatcher.INTERACTIVE[cfg.events[i].on])
+			{
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	/**
+	 * Returns the interactive cell that glows when the given cell is hovered
+	 * (the cell or the ancestor whose touch link, event or widget handles
+	 * it), or null.
+	 */
+	EventDispatcher.prototype.getHaloCell = function(cell)
+	{
+		if (cell == null || !this.isEnabled() || (this.rt.links != null &&
+			this.rt.links.isDisabled(cell)))
+		{
+			return null;
+		}
+
+		if (this.getControlWidget(cell) != null)
+		{
+			return cell;
+		}
+
+		var rec = (this.rt.links != null) ? this.rt.links.findTouch(cell) : null;
+		var model = this.rt.graph.model;
+		var current = cell;
+
+		while (current != null)
+		{
+			if (rec != null && rec.cell == current)
+			{
+				return current;
+			}
+
+			var cfg = (this.rt.index != null) ? this.rt.index.cells[current.id] : null;
+
+			if (cfg != null && !cfg.disabled && EventDispatcher.hasInteractiveEvents(cfg))
+			{
+				return current;
+			}
+
+			current = model.getParent(current);
+		}
+
+		return null;
 	};
 
 	/**
@@ -611,6 +688,11 @@
 		if (this.rt.links != null)
 		{
 			this.rt.links.hover(cell);
+		}
+
+		if (this.rt.halo != null)
+		{
+			this.rt.halo.hover(this.getHaloCell(cell));
 		}
 
 		// Pointer cursor for interactive cells, not-allowed for disabled ones

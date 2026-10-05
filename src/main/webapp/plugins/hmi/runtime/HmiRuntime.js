@@ -745,6 +745,14 @@
 			this.links.install();
 		}
 
+		// Hover halo of interactive objects (run mode only)
+		this.halo = (Hmi.Halo != null && this.interactive) ? new Hmi.Halo(this) : null;
+
+		if (this.halo != null)
+		{
+			this.halo.install();
+		}
+
 		this.installListeners();
 		this.system = new Hmi.System(this);
 		this.system.install();
@@ -976,6 +984,12 @@
 		if (this.links != null)
 		{
 			this.links.reset();
+		}
+
+		if (this.halo != null)
+		{
+			this.halo.hover(null);
+			this.halo.focusCell = null;
 		}
 
 		this.overlay.clear();
@@ -1219,6 +1233,12 @@
 			this.dom = null;
 		}
 		this.events.uninstall();
+
+		if (this.halo != null)
+		{
+			this.halo.uninstall();
+			this.halo = null;
+		}
 
 		if (this.links != null)
 		{
