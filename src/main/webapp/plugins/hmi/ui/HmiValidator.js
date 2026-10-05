@@ -140,6 +140,173 @@
 	};
 
 	// ---------------------------------------------------------------
+	// Animation links (INTOUCH_LINKS.md §10)
+	// ---------------------------------------------------------------
+
+	function checkIntouchExpr(list, cellId, label, src)
+	{
+		if (src == null || src === '' || Hmi.Expr == null)
+		{
+			return;
+		}
+
+		try
+		{
+			Hmi.Expr.compile(src, {intouch: true});
+		}
+		catch (e)
+		{
+			list.push({level: 'error', cellId: cellId, message: label + ': ' + e.message});
+		}
+	};
+
+	function walkLinkExprs(list, cellId, prefix, obj)
+	{
+		if (obj == null || typeof obj !== 'object')
+		{
+			return;
+		}
+
+		for (var key in obj)
+		{
+			if (key == 'expr' && typeof obj[key] === 'string')
+			{
+				checkIntouchExpr(list, cellId, prefix + ' expression', obj[key]);
+			}
+			else if (obj[key] != null && typeof obj[key] === 'object' && key != 'scripts')
+			{
+				walkLinkExprs(list, cellId, prefix, obj[key]);
+			}
+		}
+	};
+
+	function checkLinks(list, cellId, links, ctx)
+	{
+		if (links == null || typeof links !== 'object')
+		{
+			return;
+		}
+
+		var L = Hmi.LinksDialog;
+
+		if (L != null && L.schemaSupportsLinks())
+		{
+			pushAll(list, Hmi.Schema.validate('links', links), 'error', cellId, 'link');
+		}
+
+		for (var type in links)
+		{
+			var l = links[type];
+
+			if (l == null || typeof l !== 'object')
+			{
+				continue;
+			}
+
+			var prefix = 'link ' + type;
+			walkLinkExprs(list, cellId, prefix, l);
+
+			if (type == 'inputAnalog' && typeof l.min === 'number' && typeof l.max === 'number' &&
+				l.max <= l.min)
+			{
+				list.push({level: 'error', cellId: cellId, message: prefix +
+					': maximum (' + l.max + ') must be greater than minimum (' + l.min + ')'});
+			}
+
+			if (l.breakpoints != null)
+			{
+				if (l.breakpoints.length > 10)
+				{
+					list.push({level: 'error', cellId: cellId, message: prefix +
+						': more than 10 break points'});
+				}
+
+				for (var b = 1; b < l.breakpoints.length; b++)
+				{
+					if (!(l.breakpoints[b].value > l.breakpoints[b - 1].value))
+					{
+						list.push({level: 'error', cellId: cellId, message: prefix +
+							': break points must be in ascending order'});
+						break;
+					}
+				}
+			}
+
+			if (type == 'tooltip' && l.mode == 'static' && l.text != null && l.text.length > 131)
+			{
+				list.push({level: 'error', cellId: cellId, message: prefix +
+					': tooltip text is longer than 131 characters'});
+			}
+
+			if (type == 'pushAction' && l.scripts != null && Hmi.QuickScript != null &&
+				Hmi.QuickScript.compile != null)
+			{
+				for (var s = 0; s < l.scripts.length; s++)
+				{
+					try
+					{
+						Hmi.QuickScript.compile(l.scripts[s].script || '');
+					}
+					catch (e)
+					{
+						list.push({level: 'error', cellId: cellId, message: prefix + ' script ' +
+							(s + 1) + ': ' + e.message});
+					}
+				}
+			}
+
+			if ((type == 'showWindow' || type == 'hideWindow') && l.windows != null &&
+				Hmi.Actions != null && Hmi.Actions.findPage != null)
+			{
+				for (var w = 0; w < l.windows.length; w++)
+				{
+					if (Hmi.Actions.findPage(ctx.ui, l.windows[w]) == null)
+					{
+						list.push({level: 'error', cellId: cellId, message: prefix +
+							': window "' + l.windows[w] + '" not found'});
+					}
+				}
+			}
+
+			if (l.key != null && l.key.key != null && L != null)
+			{
+				var sig = L.keyOf(l);
+				ctx.keys[sig] = ctx.keys[sig] || [];
+				ctx.keys[sig].push({cellId: cellId, type: type});
+			}
+		}
+
+		if (L != null)
+		{
+			var seen = {};
+
+			L.linkRefs(links, ctx.knownTags).forEach(function(r)
+			{
+				if (!seen[r.name])
+				{
+					seen[r.name] = true;
+					checkTagRefs(list, cellId, 'link', r.name.charAt(0) == '$' ? '' : r.name, ctx.knownTags);
+				}
+			});
+		}
+	};
+
+	function checkDuplicateKeys(list, ctx)
+	{
+		for (var sig in ctx.keys)
+		{
+			var uses = ctx.keys[sig];
+
+			for (var i = 1; i < uses.length; i++)
+			{
+				list.push({level: 'warning', cellId: uses[i].cellId, message: 'link ' +
+					uses[i].type + ': key equivalent ' + sig + ' is also used by ' +
+					uses[0].type + ' of cell ' + uses[0].cellId + ' on this page'});
+			}
+		}
+	};
+
+	// ---------------------------------------------------------------
 	// Main validate()
 	// ---------------------------------------------------------------
 
@@ -179,12 +346,14 @@
 			}
 		}
 
-		var ctx = {ui: ui, graph: graph, knownTags: knownTags, tagDefs: tagDefs, docCfg: docCfg};
+		var ctx = {ui: ui, graph: graph, knownTags: knownTags, tagDefs: tagDefs, docCfg: docCfg, keys: {}};
 		var index = Hmi.Model.scan(graph);
 
 		for (var id in index.cells)
 		{
 			var cfg = index.cells[id];
+
+			checkLinks(list, id, cfg.links, ctx);
 
 			for (var b = 0; b < cfg.bindings.length; b++)
 			{
@@ -243,6 +412,8 @@
 				}
 			}
 		}
+
+		checkDuplicateKeys(list, ctx);
 
 		for (var dt = 0; dt < docCfg.triggers.length; dt++)
 		{

@@ -454,6 +454,8 @@ Each template ships with its own simulated tags (`sim: "only"`) so it runs immed
 
 A tag's `alarms` block declares limits: `hihi`, `hi`, `lo`, `lolo` (numeric), or `bool` (a boolean alarm value), plus `deadband`, per-limit `severity` (1 = highest … 4 = lowest) and per-limit `messages`.
 
+Two more InTouch alarm kinds are available. A **deviation** alarm (`target` as a number or tag name, `minorDev`, `majorDev`) has the levels `minor` and `major`. A **rate-of-change** alarm (`roc`, in units per second) is active while the value changes faster than the limit.
+
 - **Alarm list.** Active alarms are tracked session-locally with state `active-unack`, `active-ack`, or `cleared-unack`. Its own floating window (separate from the Diagnostics panel) opens by clicking the alarm summary in the runtime status bar. Acknowledge individually or all at once (**Acknowledge all**).
 - **`hmiAlarmIndicator=1`** on any cell bound to an alarmed tag applies the alarm's severity colour to its stroke and blinks while unacknowledged (stops blinking once acknowledged); the highest-severity active alarm among the cell's bound tags wins.
 - **Alarm Banner / Alarm List widgets** (`mxgraph.hmi.alarmBanner`, §11) render the `$alarms` system tag (or any JSON array in the same shape) directly on the screen.
@@ -608,6 +610,70 @@ When draw.io is embedded as a JS application (not just an iframe with postMessag
 | A password/token appears to leak | It shouldn't: credentials are never written to the diagnostics log, exports, or postMessage events (`HMI-SEC-6`). If you see one, treat it as a bug and check whether `credentials.mode` is `save` (stored in the file) rather than `prompt`/`param`. |
 
 For deployment-wide security configuration (endpoint allow-listing, script policy, roles, CSP), see [HARDENING.md](HARDENING.md). For setting up a gateway between field protocols (Modbus/OPC UA/S7/BACnet) and an HMI-compatible source (MQTT/WS/HTTP/SSE), see [GATEWAY_GUIDE.md](GATEWAY_GUIDE.md). For running local MQTT/WS/HTTP/SSE test servers while developing screens, see [`etc/hmi/dev/README.md`](../../etc/hmi/dev/README.md).
+
+---
+
+## 18. InTouch animation links
+
+The plugin implements every animation link of AVEVA InTouch (Visualization Guide, chapter 4). If you know InTouch, you can configure objects the same way:
+
+- **Display links:** value display, location, orientation, size, line / fill / text colour, percent fill, blink, visibility, disable and tooltip.
+- **Touch links:** user inputs, sliders, pushbuttons, action scripts and show / hide window.
+
+The template **InTouch Animation Links** (*File → New → Hmi*) shows each link working. `docs/hmi/INTOUCH_MAPPING.md` lists every guide section with its implementation.
+
+### Configuring links
+
+1. Open the **Animation Links** dialog in one of three ways:
+   - Select one or more objects and choose **Animation Links…** from the context menu.
+   - Use the **Animation Links…** button in the HMI tab of the format panel.
+   - Alt+double-click an object.
+2. Tick a link under **Display** or **Touch** to enable it, then click its **…** button to open its settings. The settings use the field names of the InTouch dialogs.
+3. Enter expressions in InTouch syntax:
+   - Bare tag names: `TankLevel > 75`.
+   - Operators: `AND`, `OR`, `NOT`, `MOD`, `<>`.
+   - Dotfields: `Tank.MaxEU`, `Pump.Alarm`.
+   - Functions: `Text(Level, "#.0")`, `StrUpper(Mode)`, `IF(c, a, b)` and others.
+4. Double-click a tag field to open the **Tag Browser** in select mode. It supports wildcard filters such as `Tank*` and `Pump?`.
+
+For analog value displays and inputs, the **field text** is the object's label. A numeric mask in it is replaced by the formatted value, for example `Level = #.# %` or `000.00`. Advanced formatting (fixed decimal, exponential, hex or binary bits, fixed width) is set in the link's format settings.
+
+A small chain badge marks objects with links while the HMI tab or the Animation Links dialog is open.
+
+### Tags
+
+**Extras → HMI / SCADA** has two tag commands:
+- **Substitute Tags…** renames the tags of the selected objects in one undoable step. This is how you reuse a graphic for another unit.
+- **Define Missing Tags…** adds undeclared tags to the catalogue, with the type inferred from the links that use them.
+
+### Running
+
+At runtime:
+- Display links update when their tags change.
+- Blinking is synchronised. Set the half-periods with `runtime.blink` in the document, or globally with `DRAWIO_CONFIG.hmi.blink` (`{slow: 1000, medium: 500, fast: 250}` ms).
+
+Touch links work with the mouse, touch and keyboard:
+- **User inputs** open the on-screen keypad or keyboard, or an inline editor. Set the keyboard type with `DRAWIO_CONFIG.hmi.keyboard` (`standard`, `system` or `resizable`).
+- **Sliders** move the object while you drag it.
+- **Pushbuttons** write on press and release.
+- **Action scripts** run QuickScript on their conditions (On Left Down, While Left Down, On Mouse Over and the others). They support assignments, `IF … THEN … ELSE … ENDIF`, `FOR … NEXT`, `Show`, `Hide`, `HideSelf`, `ShowAt`, `ShowTopLeftAt`, `DialogValueEntry`, `DialogStringEntry` and `LogMessage`.
+- **Key equivalents** (for example Ctrl+D or F2) activate a link from the keyboard. Tab moves between touch objects and Enter activates the focused one.
+- **Disabled and invisible objects** ignore all input.
+
+### Windows
+
+InTouch windows are **pages**. To make a page an overlay or popup window, give its document config a `window` entry:
+
+```json
+{"window": {"type": "overlay", "x": 860, "y": 120, "width": 360, "height": 260, "title": "Details"}}
+```
+
+The window types behave as follows:
+- `replace` (the default) navigates to the page. `Hide` on the current page goes back to the previous page.
+- `overlay` opens the page in a floating window.
+- `popup` opens the page in a modal floating window.
+
+`ShowAt(name, $ObjHor, $ObjVer)` places a window's centre at the object that ran the script. `ShowTopLeftAt` places its top-left corner there instead.
 
 ---
 

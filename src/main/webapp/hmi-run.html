@@ -46,6 +46,48 @@
 			font-size: 15px;
 			text-align: center;
 		}
+		/* Faceplates and InTouch windows (mxWindow, normally from common.css) */
+		div.mxWindow
+		{
+			position: absolute;
+			overflow: hidden;
+			z-index: 1;
+			background: #ffffff;
+			border: 1px solid #b0bec5;
+			border-radius: 4px;
+			box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+		}
+		table.mxWindow
+		{
+			border-collapse: collapse;
+			table-layout: fixed;
+			font-size: 12px;
+		}
+		td.mxWindowTitle
+		{
+			background: #eceff1;
+			color: #263238;
+			font-weight: bold;
+			text-align: center;
+			white-space: nowrap;
+			text-overflow: ellipsis;
+			overflow: hidden;
+			height: 18px;
+			padding: 4px 6px;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+		td.mxWindowPane
+		{
+			vertical-align: top;
+			padding: 0;
+		}
+		div.mxWindowPane
+		{
+			overflow: hidden;
+			position: relative;
+		}
 		@media (prefers-color-scheme: dark)
 		{
 			html, body
@@ -85,6 +127,8 @@
 		window.STYLE_PATH = window.STYLE_PATH || 'styles';
 		window.IMAGE_PATH = window.IMAGE_PATH || 'images';
 		window.GRAPH_IMAGE_PATH = window.GRAPH_IMAGE_PATH || 'img';
+		window.mxImageBasePath = window.mxImageBasePath || 'mxgraph/images';
+		window.mxBasePath = window.mxBasePath || 'mxgraph/';
 		window.DRAW_MATH_URL = window.DRAW_MATH_URL || 'math4/es5';
 
 		(function()

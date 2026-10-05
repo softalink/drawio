@@ -14,7 +14,7 @@
 	/**
 	 * Layer precedence, low to high.
 	 */
-	var LAYERS = ['binding', 'trigger', 'action', 'anim'];
+	var LAYERS = ['binding', 'link', 'trigger', 'action', 'anim', 'blink'];
 
 	function Overlay(graph)
 	{
@@ -444,6 +444,12 @@
 					for (var key in data.style)
 					{
 						style[key] = data.style[key];
+					}
+
+					// mxShape adds the direction to the rotation numerically
+					if (data.style.rotation != null && !isNaN(parseFloat(data.style.rotation)))
+					{
+						style.rotation = parseFloat(data.style.rotation);
 					}
 				}
 			}

@@ -1,0 +1,2347 @@
+/**
+ * Hmi.LinksDialog: design-stage editor for InTouch-style animation links
+ * (INTOUCH_LINKS.md §2 and §10). The main dialog mirrors InTouch's
+ * "Animation Links" dialog: one checkbox per link and a configure button
+ * that opens the settings dialog of that link. Saving writes the attribute
+ * hmiLinks through Hmi.Model.setCellConfig (one undoable edit).
+ *
+ * Also provides Hmi.LinksDialog.summary(links) for the HMI tab and
+ * Hmi.LinksDialog.decorate(ui, on) for the link badge.
+ *
+ * DOM-bound; not part of the DOM-free module set (ARCHITECTURE.md §1).
+ */
+(function()
+{
+	var root = (typeof globalThis !== 'undefined') ? globalThis : window;
+	var Hmi = root.Hmi = root.Hmi || {};
+
+	var LinksDialog = {};
+
+	function T(key)
+	{
+		var value = mxResources.get(key);
+
+		return (value != null && value !== '') ? value : key;
+	};
+
+	function clone(obj)
+	{
+		return (obj === undefined) ? undefined : JSON.parse(JSON.stringify(obj));
+	};
+
+	function trim(s)
+	{
+		return String(s == null ? '' : s).replace(/^\s+|\s+$/g, '');
+	};
+
+	// ---------------------------------------------------------------
+	// Option lists
+	// ---------------------------------------------------------------
+
+	var CONDITIONS = ['onLeftDown', 'whileLeftDown', 'onLeftUp', 'onLeftDouble',
+		'onRightDown', 'whileRightDown', 'onRightUp', 'onRightDouble',
+		'onMouseOver', 'whileMouseOver', 'onMouseLeave'];
+
+	var NAMED_KEYS = ['Enter', 'Space', 'Escape', 'Tab', 'Insert', 'Delete', 'Home', 'End',
+		'PageUp', 'PageDown'];
+
+	function keyChoices()
+	{
+		var list = [{value: '', label: T('hmiLnkNone')}];
+		var i;
+
+		for (i = 1; i <= 16; i++)
+		{
+			list.push({value: 'F' + i, label: 'F' + i});
+		}
+
+		for (i = 0; i < 26; i++)
+		{
+			var ch = String.fromCharCode(65 + i);
+			list.push({value: ch, label: ch});
+		}
+
+		for (i = 0; i < 10; i++)
+		{
+			list.push({value: String(i), label: String(i)});
+		}
+
+		for (i = 0; i < NAMED_KEYS.length; i++)
+		{
+			list.push({value: NAMED_KEYS[i], label: NAMED_KEYS[i]});
+		}
+
+		return list;
+	};
+
+	function opts(pairs)
+	{
+		return pairs.map(function(p)
+		{
+			return {value: p[0], label: T(p[1])};
+		});
+	};
+
+	var FORMAT_MODES = [['text', 'hmiLnkFmtText'], ['real', 'hmiLnkFmtReal'],
+		['fixed', 'hmiLnkFmtFixed'], ['integer', 'hmiLnkFmtInteger'],
+		['exponential', 'hmiLnkFmtExponential'], ['hex', 'hmiLnkFmtHex'],
+		['binary', 'hmiLnkFmtBinary']];
+
+	var DEFAULT_FORMAT = {mode: 'text', precision: 0, bitsFrom: 0, bitsTo: 31, fixedWidth: false};
+
+	// ---------------------------------------------------------------
+	// Link specifications: id → {title, fields, fixed, width}
+	// ---------------------------------------------------------------
+
+	var SPECS = {};
+
+	function field(key, type, label, extra)
+	{
+		var f = {key: key, type: type, label: label};
+
+		for (var k in extra)
+		{
+			f[k] = extra[k];
+		}
+
+		return f;
+	};
+
+	function expr(extra)
+	{
+		return field('expr', 'expr', 'hmiLnkExpression', extra);
+	};
+
+	function head(label)
+	{
+		return field(null, 'heading', label);
+	};
+
+	function num(key, label, def, inline, extra)
+	{
+		var f = field(key, 'number', label, extra);
+		f.def = def;
+		f.inline = inline;
+
+		return f;
+	};
+
+	function sel(key, label, def, pairs, extra)
+	{
+		var f = field(key, 'select', label, extra);
+		f.def = def;
+		f.options = opts(pairs);
+
+		return f;
+	};
+
+	function color(key, label, def, extra)
+	{
+		var f = field(key, 'color', label, extra);
+		f.def = def;
+
+		return f;
+	};
+
+	function def(id, title, fields, fixed, width)
+	{
+		SPECS[id] = {id: id, title: title, fields: fields, fixed: fixed || {}, width: width || 470};
+	};
+
+	function arrow(a, b)
+	{
+		return T(a) + ' → ' + T(b);
+	};
+
+	function percentFields(minPct, maxPct)
+	{
+		return [head('hmiLnkExprValue'),
+			num('valueAtMin', 'hmiLnkAtMin', 0, 'v'),
+			num('valueAtMax', 'hmiLnkAtMax', 100, 'v'),
+			head(minPct),
+			num('minPercent', 'hmiLnkMinPercent', 0, 'p'),
+			num('maxPercent', 'hmiLnkMaxPercent', 100, 'p')];
+	};
+
+	var KEY_FIELD = field('key', 'key', 'hmiLnkKeyEquivalent', {def: null});
+
+	function buildSpecs()
+	{
+		def('valueDiscrete', arrow('hmiLnkOutput', 'hmiLnkDiscreteExpression'),
+			[expr(), field('onMessage', 'text', 'hmiLnkOnMessage', {def: 'On'}),
+			field('offMessage', 'text', 'hmiLnkOffMessage', {def: 'Off'})]);
+		def('valueAnalog', arrow('hmiLnkOutput', 'hmiLnkAnalogExpression'),
+			[expr(), field('format', 'format', 'hmiLnkFormat', {def: DEFAULT_FORMAT})]);
+		def('valueString', arrow('hmiLnkOutput', 'hmiLnkStringExpression'), [expr()]);
+
+		def('locationH', T('hmiLnkHorizontalLocation'),
+			[expr(), head('hmiLnkExprValue'),
+			num('atLeft', 'hmiLnkAtLeft', 0, 'a'), num('atRight', 'hmiLnkAtRight', 100, 'a'),
+			head('hmiLnkMovePixels'),
+			num('toLeft', 'hmiLnkToLeft', 0, 'b', {min: 0}), num('toRight', 'hmiLnkToRight', 100, 'b', {min: 0})]);
+		def('locationV', T('hmiLnkVerticalLocation'),
+			[expr(), head('hmiLnkExprValue'),
+			num('atTop', 'hmiLnkAtTop', 100, 'a'), num('atBottom', 'hmiLnkAtBottom', 0, 'a'),
+			head('hmiLnkMovePixels'),
+			num('up', 'hmiLnkUp', 100, 'b', {min: 0}), num('down', 'hmiLnkDown', 0, 'b', {min: 0})]);
+		def('orientation', arrow('hmiLnkOrientation', 'hmiLnkAnalogValue'),
+			[expr(), head('hmiLnkExprValue'),
+			num('valueAtMaxCCW', 'hmiLnkAtMaxCCW', 0, 'a'), num('valueAtMaxCW', 'hmiLnkAtMaxCW', 100, 'a'),
+			head('hmiLnkRotationDegrees'),
+			num('ccwRotation', 'hmiLnkCcw', 0, 'b', {min: 0, max: 360}),
+			num('cwRotation', 'hmiLnkCw', 360, 'b', {min: 0, max: 360}),
+			head('hmiLnkRotationPoint'),
+			num('offsetX', 'hmiLnkOffsetX', 0, 'c'), num('offsetY', 'hmiLnkOffsetY', 0, 'c')]);
+
+		def('sizeHeight', arrow('hmiLnkObjectHeight', 'hmiLnkAnalogValue'),
+			[expr()].concat(percentFields('hmiLnkHeightPercent')).concat([
+			sel('anchor', 'hmiLnkAnchor', 'bottom', [['top', 'hmiLnkTop'],
+				['middle', 'hmiLnkMiddle'], ['bottom', 'hmiLnkBottom']])]));
+		def('sizeWidth', arrow('hmiLnkObjectWidth', 'hmiLnkAnalogValue'),
+			[expr()].concat(percentFields('hmiLnkWidthPercent')).concat([
+			sel('anchor', 'hmiLnkAnchor', 'left', [['left', 'hmiLnkLeft'],
+				['center', 'hmiLnkCenter'], ['right', 'hmiLnkRight']])]));
+
+		var targets = [['lineColor', 'hmiLnkLineColor'], ['fillColor', 'hmiLnkFillColor'],
+			['textColor', 'hmiLnkTextColor']];
+
+		for (var i = 0; i < targets.length; i++)
+		{
+			(function(id, label)
+			{
+				def(id + ':discrete', arrow(label, 'hmiLnkDiscreteExpression'),
+					[expr(), color('offColor', 'hmiLnkOffColor', '#FF0000'),
+					color('onColor', 'hmiLnkOnColor', '#00C000')], {kind: 'discrete'});
+				def(id + ':analog', arrow(label, 'hmiLnkAnalogExpression'),
+					[expr(), field('breakpoints', 'breakpoints', 'hmiLnkBreakPoints',
+					{def: [{value: 0, color: '#0000FF'}, {value: 50, color: '#00C000'}]})],
+					{kind: 'analog'});
+				def(id + ':discreteAlarm', arrow(label, 'hmiLnkDiscreteAlarm'),
+					[field('tag', 'tag', 'hmiLnkTagname'), color('normalColor', 'hmiLnkNormalColor', '#00C000'),
+					color('alarmColor', 'hmiLnkAlarmColor', '#FF0000')], {kind: 'discreteAlarm'});
+				def(id + ':analogAlarm', arrow(label, 'hmiLnkAnalogAlarm'),
+					[field('tag', 'tag', 'hmiLnkTagname'),
+					sel('alarmType', 'hmiLnkAlarmType', 'value', [['value', 'hmiLnkAlarmValue'],
+						['deviation', 'hmiLnkAlarmDeviation'], ['roc', 'hmiLnkAlarmRoc']]),
+					field('colors', 'alarmColors', 'hmiLnkColors', {})], {kind: 'analogAlarm'});
+			})(targets[i][0], targets[i][1]);
+		}
+
+		def('fillVertical', arrow('hmiLnkVerticalFill', 'hmiLnkAnalogValue'),
+			[expr()].concat(percentFields('hmiLnkFillPercent')).concat([
+			sel('direction', 'hmiLnkDirection', 'up', [['up', 'hmiLnkUp'], ['down', 'hmiLnkDown']]),
+			color('backgroundColor', 'hmiLnkBackground', '#FFFFFF')]));
+		def('fillHorizontal', arrow('hmiLnkHorizontalFill', 'hmiLnkAnalogValue'),
+			[expr()].concat(percentFields('hmiLnkFillPercent')).concat([
+			sel('direction', 'hmiLnkDirection', 'right', [['right', 'hmiLnkFillRight'],
+				['left', 'hmiLnkFillLeft']]),
+			color('backgroundColor', 'hmiLnkBackground', '#FFFFFF')]));
+
+		def('blink', arrow('hmiLnkObjectBlinking', 'hmiLnkDiscreteValue'),
+			[expr(), sel('mode', 'hmiLnkBlinkMode', 'invisible', [['invisible', 'hmiLnkBlinkInvisible'],
+				['visible', 'hmiLnkBlinkVisible']]),
+			sel('speed', 'hmiLnkBlinkSpeed', 'medium', [['slow', 'hmiLnkSlow'],
+				['medium', 'hmiLnkMedium'], ['fast', 'hmiLnkFast']]),
+			color('textColor', 'hmiLnkTextColor', '', {optional: true, showWhen: {mode: 'visible'}}),
+			color('lineColor', 'hmiLnkLineColor', '', {optional: true, showWhen: {mode: 'visible'}}),
+			color('fillColor', 'hmiLnkFillColor', '', {optional: true, showWhen: {mode: 'visible'}})]);
+		def('visibility', arrow('hmiLnkObjectVisibility', 'hmiLnkDiscreteValue'),
+			[expr(), sel('visibleState', 'hmiLnkVisibleWhen', 'on', [['on', 'hmiLnkExprTrue'],
+				['off', 'hmiLnkExprFalse']])]);
+		def('disable', arrow('hmiLnkObjectDisabled', 'hmiLnkDiscreteValue'),
+			[expr(), sel('disabledState', 'hmiLnkDisabledWhen', 'on', [['on', 'hmiLnkExprTrue'],
+				['off', 'hmiLnkExprFalse']])]);
+		def('tooltip', arrow('hmiLnkObjectTooltip', 'hmiLnkStringTagname'),
+			[sel('mode', 'hmiLnkTooltipMode', 'static', [['static', 'hmiLnkStaticText'],
+				['expression', 'hmiLnkExpression']]),
+			field('text', 'text', 'hmiLnkTooltipText', {def: '', maxLength: 131,
+				showWhen: {mode: 'static'}}),
+			expr({showWhen: {mode: 'expression'}})]);
+
+		def('inputDiscrete', arrow('hmiLnkInput', 'hmiLnkDiscreteTagname'),
+			[field('tag', 'tag', 'hmiLnkTagname'), KEY_FIELD,
+			field('message', 'text', 'hmiLnkMessage', {def: ''}),
+			field('setPrompt', 'text', 'hmiLnkSetPrompt', {def: 'On'}),
+			field('resetPrompt', 'text', 'hmiLnkResetPrompt', {def: 'Off'}),
+			field('onMessage', 'text', 'hmiLnkOnMessage', {def: 'On'}),
+			field('offMessage', 'text', 'hmiLnkOffMessage', {def: 'Off'}),
+			field('inputOnly', 'bool', 'hmiLnkInputOnly', {def: false})]);
+		def('inputAnalog', arrow('hmiLnkInput', 'hmiLnkAnalogTagname'),
+			[field('tag', 'tag', 'hmiLnkTagname'), KEY_FIELD,
+			field('keypad', 'bool', 'hmiLnkKeypad', {def: false}),
+			field('message', 'text', 'hmiLnkMessage', {def: '', showWhen: {keypad: true}}),
+			field('min', 'numOrTag', 'hmiLnkMinimum', {def: 1}),
+			field('max', 'numOrTag', 'hmiLnkMaximum', {def: 100}),
+			field('inputOnly', 'bool', 'hmiLnkInputOnly', {def: false}),
+			field('format', 'format', 'hmiLnkFormat', {def: DEFAULT_FORMAT})]);
+		def('inputString', arrow('hmiLnkInput', 'hmiLnkStringTagname'),
+			[field('tag', 'tag', 'hmiLnkTagname'), KEY_FIELD,
+			field('keypad', 'bool', 'hmiLnkKeyboard', {def: false}),
+			field('message', 'text', 'hmiLnkMessage', {def: '', showWhen: {keypad: true}}),
+			sel('echo', 'hmiLnkEcho', 'yes', [['yes', 'hmiLnkYes'], ['no', 'hmiLnkNo'],
+				['password', 'hmiLnkPassword']]),
+			field('passwordChar', 'text', 'hmiLnkPasswordChar', {def: '*', maxLength: 1,
+				showWhen: {echo: 'password'}}),
+			field('encrypt', 'bool', 'hmiLnkEncrypt', {def: false, showWhen: {echo: 'password'}}),
+			field('inputOnly', 'bool', 'hmiLnkInputOnly', {def: false})]);
+
+		def('sliderH', T('hmiLnkHorizontalSlider'),
+			[field('tag', 'tag', 'hmiLnkTagname'), head('hmiLnkExprValue'),
+			num('atLeft', 'hmiLnkAtLeft', 0, 'a'), num('atRight', 'hmiLnkAtRight', 100, 'a'),
+			head('hmiLnkMovePixels'),
+			num('toLeft', 'hmiLnkToLeft', 0, 'b', {min: 0}), num('toRight', 'hmiLnkToRight', 100, 'b', {min: 0}),
+			sel('reference', 'hmiLnkReference', 'center', [['left', 'hmiLnkLeft'],
+				['center', 'hmiLnkCenter'], ['right', 'hmiLnkRight']])]);
+		def('sliderV', T('hmiLnkVerticalSlider'),
+			[field('tag', 'tag', 'hmiLnkTagname'), head('hmiLnkExprValue'),
+			num('atTop', 'hmiLnkAtTop', 100, 'a'), num('atBottom', 'hmiLnkAtBottom', 0, 'a'),
+			head('hmiLnkMovePixels'),
+			num('up', 'hmiLnkUp', 100, 'b', {min: 0}), num('down', 'hmiLnkDown', 0, 'b', {min: 0}),
+			sel('reference', 'hmiLnkReference', 'middle', [['top', 'hmiLnkTop'],
+				['middle', 'hmiLnkMiddle'], ['bottom', 'hmiLnkBottom']])]);
+
+		def('pushDiscrete', arrow('hmiLnkPushbutton', 'hmiLnkDiscreteValue'),
+			[field('tag', 'tag', 'hmiLnkTagname'), KEY_FIELD,
+			sel('action', 'hmiLnkPushAction', 'direct', [['direct', 'hmiLnkPushDirect'],
+				['reverse', 'hmiLnkPushReverse'], ['toggle', 'hmiLnkPushToggle'],
+				['reset', 'hmiLnkPushReset'], ['set', 'hmiLnkPushSet']])]);
+		def('pushAction', arrow('hmiLnkTouch', 'hmiLnkActionScript'),
+			[KEY_FIELD, field('scripts', 'scripts', 'hmiLnkScripts', {})], null, 560);
+		def('showWindow', T('hmiLnkWindowsToShow'),
+			[KEY_FIELD, field('windows', 'windows', 'hmiLnkWindows', {})], null, 500);
+		def('hideWindow', T('hmiLnkWindowsToHide'),
+			[KEY_FIELD, field('windows', 'windows', 'hmiLnkWindows', {})], null, 500);
+	};
+
+	/**
+	 * Main dialog layout: groups of [link id, label key].
+	 */
+	var GROUPS = [
+		{band: 'hmiLnkDisplayLinks'},
+		{title: 'hmiLnkValueDisplay', items: [['valueDiscrete', 'hmiLnkDiscrete'],
+			['valueAnalog', 'hmiLnkAnalog'], ['valueString', 'hmiLnkString']]},
+		{title: 'hmiLnkLocation', items: [['locationH', 'hmiLnkHorizontal'],
+			['locationV', 'hmiLnkVertical']]},
+		{title: 'hmiLnkObjectSize', items: [['sizeHeight', 'hmiLnkHeight'],
+			['sizeWidth', 'hmiLnkWidth']]},
+		{title: 'hmiLnkLineColor', color: 'lineColor'},
+		{title: 'hmiLnkFillColor', color: 'fillColor'},
+		{title: 'hmiLnkTextColor', color: 'textColor'},
+		{title: 'hmiLnkPercentFill', items: [['fillVertical', 'hmiLnkVertical'],
+			['fillHorizontal', 'hmiLnkHorizontal']]},
+		{title: 'hmiLnkMiscellaneous', items: [['visibility', 'hmiLnkVisibility'],
+			['blink', 'hmiLnkBlink'], ['orientation', 'hmiLnkOrientation'],
+			['disable', 'hmiLnkDisable'], ['tooltip', 'hmiLnkTooltip']]},
+		{band: 'hmiLnkTouchLinks'},
+		{title: 'hmiLnkUserInputs', items: [['inputDiscrete', 'hmiLnkDiscrete'],
+			['inputAnalog', 'hmiLnkAnalog'], ['inputString', 'hmiLnkString']]},
+		{title: 'hmiLnkSliders', items: [['sliderV', 'hmiLnkVertical'],
+			['sliderH', 'hmiLnkHorizontal']]},
+		{title: 'hmiLnkTouchPushbuttons', items: [['pushDiscrete', 'hmiLnkDiscreteValue'],
+			['pushAction', 'hmiLnkAction'], ['showWindow', 'hmiLnkShowWindow'],
+			['hideWindow', 'hmiLnkHideWindow']]}
+	];
+
+	var COLOR_KINDS = [['discrete', 'hmiLnkDiscrete'], ['analog', 'hmiLnkAnalog'],
+		['discreteAlarm', 'hmiLnkDiscreteAlarm'], ['analogAlarm', 'hmiLnkAnalogAlarm']];
+
+	var COLOR_TARGETS = {lineColor: true, fillColor: true, textColor: true};
+
+	/**
+	 * Canonical order of the link types for summaries.
+	 */
+	var ORDER = ['valueDiscrete', 'valueAnalog', 'valueString', 'locationH', 'locationV',
+		'sizeHeight', 'sizeWidth', 'lineColor', 'fillColor', 'textColor', 'fillVertical',
+		'fillHorizontal', 'visibility', 'blink', 'orientation', 'disable', 'tooltip',
+		'inputDiscrete', 'inputAnalog', 'inputString', 'sliderV', 'sliderH', 'pushDiscrete',
+		'pushAction', 'showWindow', 'hideWindow'];
+
+	// ---------------------------------------------------------------
+	// Expression helpers
+	// ---------------------------------------------------------------
+
+	function compileExpr(src)
+	{
+		if (Hmi.Expr == null || Hmi.Expr.compile == null)
+		{
+			return {refs: []};
+		}
+
+		return Hmi.Expr.compile(src, {intouch: true});
+	};
+
+	var DOTFIELD_RE = /\.(value|name|quality|mineu|maxeu|minraw|maxraw|alarm|ack|timelastmodified)$/i;
+
+	/**
+	 * Expression refs list both "A.Value" and "A" for a dotfield access;
+	 * drops the dotted duplicate when its prefix is in the list too.
+	 */
+	LinksDialog.cleanRefs = function(names)
+	{
+		return names.filter(function(n)
+		{
+			return !(DOTFIELD_RE.test(n) && names.indexOf(n.replace(DOTFIELD_RE, '')) >= 0);
+		});
+	};
+
+	/**
+	 * Returns the tag names referenced by an expression ([] on errors).
+	 */
+	LinksDialog.exprRefs = function(src)
+	{
+		if (src == null || src === '')
+		{
+			return [];
+		}
+
+		try
+		{
+			return LinksDialog.cleanRefs(compileExpr(src).refs || []);
+		}
+		catch (e)
+		{
+			return [];
+		}
+	};
+
+	function isBareRef(src, name)
+	{
+		var s = trim(src).replace(/^(NOT\s+|!\s*)/i, '');
+
+		return s === name;
+	};
+
+	function scriptRefs(src, known)
+	{
+		var out = [];
+
+		try
+		{
+			if (Hmi.QuickScript != null && Hmi.QuickScript.refs != null)
+			{
+				return Hmi.QuickScript.refs(src) || [];
+			}
+		}
+		catch (e)
+		{
+			// fall through
+		}
+
+		var re = /[A-Za-z_$][A-Za-z0-9_!@#$%&\\\/.]*/g;
+		var m;
+
+		while ((m = re.exec(src)) != null)
+		{
+			if (known[m[0]] && out.indexOf(m[0]) < 0)
+			{
+				out.push(m[0]);
+			}
+		}
+
+		return out;
+	};
+
+	/**
+	 * Returns [{name, type: 'boolean'|'number'|'string'|'any', write}] for
+	 * every tag referenced by the links object. known: optional {name:true}
+	 * used to find tags inside QuickScript text.
+	 */
+	LinksDialog.linkRefs = function(links, known)
+	{
+		var out = [];
+		known = known || {};
+
+		function add(name, type, write)
+		{
+			if (name != null && name !== '' && typeof name === 'string')
+			{
+				out.push({name: name, type: type, write: !!write});
+			}
+		};
+
+		function addExpr(src, bareType, otherType)
+		{
+			var names = LinksDialog.exprRefs(src);
+
+			for (var i = 0; i < names.length; i++)
+			{
+				add(names[i], isBareRef(src, names[i]) ? bareType : otherType, false);
+			}
+		};
+
+		var numExpr = {valueAnalog: 1, locationH: 1, locationV: 1, orientation: 1,
+			sizeHeight: 1, sizeWidth: 1, fillVertical: 1, fillHorizontal: 1};
+		var boolExpr = {valueDiscrete: 1, blink: 1, visibility: 1, disable: 1};
+
+		for (var type in links)
+		{
+			var l = links[type];
+
+			if (l == null || typeof l !== 'object')
+			{
+				continue;
+			}
+
+			if (numExpr[type])
+			{
+				addExpr(l.expr, 'number', 'number');
+			}
+			else if (boolExpr[type])
+			{
+				addExpr(l.expr, 'boolean', 'any');
+			}
+			else if (type == 'valueString')
+			{
+				addExpr(l.expr, 'string', 'any');
+			}
+			else if (type == 'tooltip')
+			{
+				addExpr(l.expr, 'any', 'any');
+			}
+			else if (COLOR_TARGETS[type])
+			{
+				if (l.kind == 'discrete')
+				{
+					addExpr(l.expr, 'boolean', 'any');
+				}
+				else if (l.kind == 'analog')
+				{
+					addExpr(l.expr, 'number', 'number');
+				}
+				else if (l.kind == 'discreteAlarm')
+				{
+					add(l.tag, 'boolean', false);
+				}
+				else if (l.kind == 'analogAlarm')
+				{
+					add(l.tag, 'number', false);
+				}
+			}
+			else if (type == 'inputDiscrete' || type == 'pushDiscrete')
+			{
+				add(l.tag, 'boolean', true);
+			}
+			else if (type == 'inputAnalog')
+			{
+				add(l.tag, 'number', true);
+
+				if (typeof l.min === 'string')
+				{
+					add(l.min, 'number', false);
+				}
+
+				if (typeof l.max === 'string')
+				{
+					add(l.max, 'number', false);
+				}
+			}
+			else if (type == 'inputString')
+			{
+				add(l.tag, 'string', true);
+			}
+			else if (type == 'sliderH' || type == 'sliderV')
+			{
+				add(l.tag, 'number', true);
+			}
+			else if (type == 'pushAction' && l.scripts != null)
+			{
+				for (var i = 0; i < l.scripts.length; i++)
+				{
+					var names = scriptRefs(l.scripts[i].script || '', known);
+
+					for (var j = 0; j < names.length; j++)
+					{
+						add(names[j], 'any', false);
+					}
+				}
+			}
+		}
+
+		return out;
+	};
+
+	/**
+	 * Returns every {kind, key} key equivalent of the links object.
+	 */
+	LinksDialog.keyOf = function(link)
+	{
+		if (link == null || link.key == null || link.key.key == null || link.key.key === '')
+		{
+			return null;
+		}
+
+		return (link.key.ctrl ? 'Ctrl+' : '') + (link.key.shift ? 'Shift+' : '') + link.key.key;
+	};
+
+	// ---------------------------------------------------------------
+	// Form builder
+	// ---------------------------------------------------------------
+
+	function mark(el, key)
+	{
+		if (key != null)
+		{
+			el.setAttribute('data-field', key);
+		}
+
+		return el;
+	};
+
+	/**
+	 * Builds the settings form of one link. Returns {el, getValue(),
+	 * validate() → error string | null, extras}.
+	 */
+	function buildForm(ui, spec, value)
+	{
+		var E = Hmi.Editors;
+		E.installStyle();
+		value = value || {};
+		var container = document.createElement('div');
+		var section = document.createElement('div');
+		section.className = 'geDialogSection';
+		container.appendChild(section);
+
+		var widgets = [];
+		var inlineRow = null;
+		var inlineName = null;
+		var form = {el: container, extras: {}};
+
+		function place(f, el, labelKey)
+		{
+			if (f.inline != null)
+			{
+				if (inlineRow == null || inlineName != f.inline)
+				{
+					inlineRow = E.inlineFields(section);
+					inlineName = f.inline;
+				}
+
+				return E.inlineField(inlineRow, T(f.label) + ':', el);
+			}
+
+			inlineRow = null;
+			inlineName = null;
+
+			return E.row(section, T(labelKey || f.label) + ':');
+		};
+
+		var needed = {alarmType: true};
+
+		spec.fields.forEach(function(f)
+		{
+			for (var k in f.showWhen)
+			{
+				needed[k] = true;
+			}
+		});
+
+		function values()
+		{
+			var o = {};
+
+			for (var i = 0; i < widgets.length; i++)
+			{
+				var w = widgets[i];
+
+				if (w.field.key != null && w.get != null && needed[w.field.key])
+				{
+					o[w.field.key] = w.get();
+				}
+			}
+
+			return o;
+		};
+
+		function isShown(f, vals)
+		{
+			if (f.showWhen != null)
+			{
+				for (var k in f.showWhen)
+				{
+					if (vals[k] !== f.showWhen[k])
+					{
+						return false;
+					}
+				}
+			}
+
+			return true;
+		};
+
+		function refresh()
+		{
+			var vals = values();
+
+			for (var i = 0; i < widgets.length; i++)
+			{
+				var w = widgets[i];
+				w.shown = isShown(w.field, vals);
+
+				for (var j = 0; j < w.rows.length; j++)
+				{
+					w.rows[j].style.display = w.shown ? '' : 'none';
+				}
+
+				if (w.update != null)
+				{
+					w.update(vals);
+				}
+			}
+		};
+
+		var builders = {};
+
+		builders.heading = function(f)
+		{
+			inlineRow = null;
+			var el = document.createElement('div');
+			el.className = 'geDialogHint geHmiSubHead';
+			mxUtils.write(el, T(f.label));
+			section.appendChild(el);
+
+			return {rows: [el]};
+		};
+
+		builders.expr = function(f, v)
+		{
+			var pk = E.tagPicker(ui, v || '', {expression: true, placeholder: T('hmiLnkExprHint')});
+			mark(pk.input, f.key);
+			var row = place(f, pk);
+			row.appendChild(pk);
+
+			function check()
+			{
+				var bad = null;
+				var s = trim(pk.input.value);
+
+				if (s !== '')
+				{
+					try
+					{
+						compileExpr(s);
+					}
+					catch (e)
+					{
+						bad = e.message;
+					}
+				}
+
+				pk.input.style.outline = (bad != null) ? '1px solid var(--error-color)' : '';
+				pk.input.setAttribute('title', bad || '');
+
+				return bad;
+			};
+
+			mxEvent.addListener(pk.input, 'change', check);
+
+			return {rows: [row], get: function()
+			{
+				return trim(pk.input.value);
+			}, validate: function()
+			{
+				var s = trim(pk.input.value);
+
+				if (s === '' && !f.optional)
+				{
+					return T(f.label) + ': ' + T('hmiLnkRequired');
+				}
+
+				var bad = check();
+
+				return (bad != null) ? T(f.label) + ': ' + bad : null;
+			}};
+		};
+
+		builders.tag = function(f, v)
+		{
+			var pk = E.tagPicker(ui, v || '');
+			mark(pk.input, f.key);
+			var row = place(f, pk);
+			row.appendChild(pk);
+
+			return {rows: [row], get: function()
+			{
+				return trim(pk.input.value);
+			}, validate: function()
+			{
+				return (trim(pk.input.value) === '') ? T(f.label) + ': ' + T('hmiLnkRequired') : null;
+			}};
+		};
+
+		builders.text = function(f, v)
+		{
+			var input = E.textInput(v != null ? v : '');
+			mark(input, f.key);
+
+			if (f.maxLength != null)
+			{
+				input.setAttribute('maxlength', String(f.maxLength));
+			}
+
+			var row = place(f, input);
+			row.appendChild(input);
+
+			return {rows: [row], get: function()
+			{
+				return input.value;
+			}, validate: function()
+			{
+				return (f.maxLength != null && input.value.length > f.maxLength) ?
+					T(f.label) + ': ' + T('hmiLnkTooLong').replace('{1}', f.maxLength) : null;
+			}};
+		};
+
+		builders.number = function(f, v)
+		{
+			var input = E.numberInput(v != null ? v : '');
+			input.setAttribute('step', 'any');
+			mark(input, f.key);
+			var row = place(f, input);
+
+			if (f.inline == null)
+			{
+				row.appendChild(input);
+			}
+
+			return {rows: [row], get: function()
+			{
+				var n = parseFloat(input.value);
+
+				return isNaN(n) ? undefined : n;
+			}, validate: function()
+			{
+				var n = parseFloat(input.value);
+
+				if (isNaN(n))
+				{
+					return T(f.label) + ': ' + T('hmiLnkNumberRequired');
+				}
+
+				if ((f.min != null && n < f.min) || (f.max != null && n > f.max))
+				{
+					return T(f.label) + ': ' + T('hmiLnkOutOfRange') + ' [' +
+						(f.min != null ? f.min : '-∞') + ', ' + (f.max != null ? f.max : '∞') + ']';
+				}
+
+				return null;
+			}};
+		};
+
+		builders.numOrTag = function(f, v)
+		{
+			var pk = E.tagPicker(ui, v != null ? String(v) : '', {placeholder: T('hmiLnkNumberOrTag')});
+			mark(pk.input, f.key);
+			var row = place(f, pk);
+			row.appendChild(pk);
+
+			return {rows: [row], get: function()
+			{
+				var s = trim(pk.input.value);
+
+				return (s !== '' && !isNaN(Number(s))) ? Number(s) : s;
+			}, validate: function()
+			{
+				return (trim(pk.input.value) === '') ? T(f.label) + ': ' + T('hmiLnkRequired') : null;
+			}};
+		};
+
+		builders.select = function(f, v)
+		{
+			var select = E.select(f.options, v);
+			mark(select, f.key);
+			var row = place(f, select);
+
+			if (f.inline == null)
+			{
+				row.appendChild(select);
+			}
+
+			mxEvent.addListener(select, 'change', refresh);
+
+			return {rows: [row], get: function()
+			{
+				return select.value;
+			}};
+		};
+
+		builders.bool = function(f, v)
+		{
+			inlineRow = null;
+			var cb = E.checkbox(T(f.label), !!v);
+			mark(cb.input, f.key);
+			section.appendChild(cb);
+			var lbl = cb.querySelector('label');
+			var id = 'hmiCb' + (builders.seq = (builders.seq || 0) + 1);
+			cb.input.setAttribute('id', id);
+			lbl.setAttribute('for', id);
+			mxEvent.addListener(cb.input, 'change', refresh);
+
+			return {rows: [cb], get: function()
+			{
+				return cb.input.checked;
+			}};
+		};
+
+		builders.color = function(f, v)
+		{
+			var ci = E.colorInput(ui, v || '');
+			mark(ci.input, f.key);
+			var row = place(f, ci);
+			row.appendChild(ci);
+
+			return {rows: [row], get: function()
+			{
+				return ci.getValue();
+			}, validate: function()
+			{
+				var c = ci.getValue();
+
+				if (c === '' && f.optional)
+				{
+					return null;
+				}
+
+				return /^#[0-9A-F]{6}$/i.test(c) ? null : T(f.label) + ': ' + T('hmiLnkColorInvalid');
+			}};
+		};
+
+		builders.key = function(f, v)
+		{
+			var row = place(f, null);
+			var wrap = document.createElement('span');
+			wrap.style.cssText = 'display:flex;flex:1;min-width:0;align-items:center;column-gap:12px;';
+			var ctrl = E.checkbox(T('hmiLnkCtrl'), !!(v && v.ctrl));
+			var shift = E.checkbox(T('hmiLnkShift'), !!(v && v.shift));
+			ctrl.style.minHeight = '0';
+			shift.style.minHeight = '0';
+			var select = E.select(keyChoices(), (v && v.key) || '');
+			select.style.flex = '1';
+			mark(select, 'key');
+			mark(ctrl.input, 'keyCtrl');
+			mark(shift.input, 'keyShift');
+			wrap.appendChild(ctrl);
+			wrap.appendChild(shift);
+			wrap.appendChild(select);
+			row.appendChild(wrap);
+
+			function sync()
+			{
+				ctrl.input.disabled = shift.input.disabled = (select.value === '');
+			};
+
+			mxEvent.addListener(select, 'change', sync);
+			sync();
+
+			return {rows: [row], get: function()
+			{
+				return (select.value === '') ? null : {key: select.value,
+					ctrl: ctrl.input.checked, shift: shift.input.checked};
+			}};
+		};
+
+		builders.format = function(f, v)
+		{
+			v = v || DEFAULT_FORMAT;
+			inlineRow = null;
+			inlineName = null;
+			var rows = [];
+			var h = document.createElement('div');
+			h.className = 'geDialogHint geHmiSubHead';
+			mxUtils.write(h, T('hmiLnkAdvancedFormatting'));
+			section.appendChild(h);
+			rows.push(h);
+
+			var modeRow = E.row(section, T('hmiLnkFormatting') + ':');
+			var mode = E.select(opts(FORMAT_MODES), v.mode || 'text');
+			mark(mode, 'formatMode');
+			modeRow.appendChild(mode);
+			var clear = E.button(T('hmiLnkClear'), function()
+			{
+				mode.value = DEFAULT_FORMAT.mode;
+				prec.value = DEFAULT_FORMAT.precision;
+				from.value = DEFAULT_FORMAT.bitsFrom;
+				to.value = DEFAULT_FORMAT.bitsTo;
+				fixed.input.checked = false;
+				sync();
+			});
+			clear.style.margin = '0';
+			mark(clear, 'formatClear');
+			modeRow.appendChild(clear);
+			rows.push(modeRow);
+
+			var fixed = E.checkbox(T('hmiLnkFixedWidth'), !!v.fixedWidth);
+			mark(fixed.input, 'formatFixedWidth');
+			section.appendChild(fixed);
+			rows.push(fixed);
+
+			var inl = E.inlineFields(section);
+			var prec = E.numberInput(v.precision != null ? v.precision : 0);
+			var from = E.numberInput(v.bitsFrom != null ? v.bitsFrom : 0);
+			var to = E.numberInput(v.bitsTo != null ? v.bitsTo : 31);
+			[prec, from, to].forEach(function(n)
+			{
+				n.setAttribute('min', n == prec ? '0' : '0');
+				n.setAttribute('max', n == prec ? '8' : '31');
+			});
+			mark(prec, 'formatPrecision');
+			mark(from, 'formatBitsFrom');
+			mark(to, 'formatBitsTo');
+			E.inlineField(inl, T('hmiLnkPrecision') + ':', prec);
+			E.inlineField(inl, T('hmiLnkBitsFrom') + ':', from);
+			E.inlineField(inl, T('hmiLnkBitsTo') + ':', to);
+			rows.push(inl);
+
+			function sync()
+			{
+				var m = mode.value;
+				fixed.input.disabled = (m == 'text');
+
+				if (m == 'text')
+				{
+					fixed.input.checked = false;
+				}
+
+				prec.disabled = !(m == 'fixed' || m == 'exponential');
+				from.disabled = to.disabled = !(m == 'hex' || m == 'binary');
+			};
+
+			mxEvent.addListener(mode, 'change', sync);
+			sync();
+
+			function int(el)
+			{
+				var n = parseInt(el.value, 10);
+
+				return isNaN(n) ? 0 : n;
+			};
+
+			return {rows: rows, get: function()
+			{
+				return {mode: mode.value, precision: int(prec), bitsFrom: int(from),
+					bitsTo: int(to), fixedWidth: fixed.input.checked};
+			}, validate: function()
+			{
+				if (!prec.disabled && (int(prec) < 0 || int(prec) > 8))
+				{
+					return T('hmiLnkPrecision') + ': ' + T('hmiLnkOutOfRange') + ' [0, 8]';
+				}
+
+				if (!from.disabled && (int(from) < 0 || int(from) > 31 || int(to) < 0 || int(to) > 31))
+				{
+					return T('hmiLnkBitsFrom') + ' / ' + T('hmiLnkBitsTo') + ': ' +
+						T('hmiLnkOutOfRange') + ' [0, 31]';
+				}
+
+				return null;
+			}};
+		};
+
+		builders.breakpoints = function(f, v)
+		{
+			inlineRow = null;
+			inlineName = null;
+			var h = document.createElement('div');
+			h.className = 'geDialogHint geHmiSubHead';
+			mxUtils.write(h, T('hmiLnkBreakPoints') + ' (' + T('hmiLnkBreakPointsHint') + ')');
+			section.appendChild(h);
+			var list = document.createElement('div');
+			section.appendChild(list);
+			var addBtn = E.button(T('hmiAddItem'), function()
+			{
+				var last = items.length > 0 ? items[items.length - 1] : null;
+				var next = last != null ? (parseFloat(last.value.value) || 0) + 10 : 0;
+				addItem(next, '#00C000');
+				sync();
+			});
+			addBtn.style.marginTop = '6px';
+			mark(addBtn, 'addBreakpoint');
+			section.appendChild(addBtn);
+			var items = [];
+
+			function addItem(value, col)
+			{
+				var row = document.createElement('div');
+				row.style.cssText = 'display:flex;align-items:center;column-gap:8px;margin-top:6px;';
+				row.setAttribute('data-role', 'breakpoint');
+				var num = E.numberInput(value);
+				num.setAttribute('step', 'any');
+				num.style.cssText = 'width:90px;flex:0 0 90px;';
+				mark(num, 'bpValue');
+				var ci = E.colorInput(ui, col);
+				ci.style.flex = '1';
+				mark(ci.input, 'bpColor');
+				var del = E.button('✕', function()
+				{
+					items.splice(items.indexOf(item), 1);
+					row.parentNode.removeChild(row);
+					sync();
+				});
+				del.style.cssText = 'margin:0;flex:0 0 34px;width:34px;min-width:0;padding:0;';
+				del.setAttribute('title', mxResources.get('delete'));
+				var item = {value: num, color: ci, row: row};
+				row.appendChild(num);
+				row.appendChild(ci);
+				row.appendChild(del);
+				list.appendChild(row);
+				items.push(item);
+			};
+
+			function sync()
+			{
+				addBtn.disabled = (items.length >= 10);
+			};
+
+			(v || []).forEach(function(bp)
+			{
+				addItem(bp.value, bp.color);
+			});
+			sync();
+
+			return {rows: [h, list, addBtn], get: function()
+			{
+				return items.map(function(it)
+				{
+					return {value: parseFloat(it.value.value), color: it.color.getValue()};
+				});
+			}, validate: function()
+			{
+				if (items.length == 0)
+				{
+					return T('hmiLnkBreakPoints') + ': ' + T('hmiLnkNeedBreakPoint');
+				}
+
+				if (items.length > 10)
+				{
+					return T('hmiLnkBreakPoints') + ': ' + T('hmiLnkMaxBreakPoints');
+				}
+
+				var prev = null;
+
+				for (var i = 0; i < items.length; i++)
+				{
+					var n = parseFloat(items[i].value.value);
+
+					if (isNaN(n))
+					{
+						return T('hmiLnkBreakPoints') + ' ' + (i + 1) + ': ' + T('hmiLnkNumberRequired');
+					}
+
+					if (prev != null && n <= prev)
+					{
+						return T('hmiLnkBreakPoints') + ' ' + (i + 1) + ': ' + T('hmiLnkAscending');
+					}
+
+					if (!/^#[0-9A-F]{6}$/i.test(items[i].color.getValue()))
+					{
+						return T('hmiLnkBreakPoints') + ' ' + (i + 1) + ': ' + T('hmiLnkColorInvalid');
+					}
+
+					prev = n;
+				}
+
+				return null;
+			}};
+		};
+
+		builders.alarmColors = function(f, v)
+		{
+			inlineRow = null;
+			inlineName = null;
+			var LABELS = {normal: 'hmiLnkNormalColor', lolo: 'hmiLnkLoLo', lo: 'hmiLnkLo',
+				hi: 'hmiLnkHi', hihi: 'hmiLnkHiHi', minor: 'hmiLnkMinor', major: 'hmiLnkMajor',
+				roc: 'hmiLnkRocColor'};
+			var KEYS = {value: ['normal', 'lolo', 'lo', 'hi', 'hihi'],
+				deviation: ['normal', 'minor', 'major'], roc: ['normal', 'roc']};
+			var DEFAULTS = {normal: '#00C000', lolo: '#FF0000', lo: '#FFA500', hi: '#FFA500',
+				hihi: '#FF0000', minor: '#FFD000', major: '#FF0000', roc: '#FF0000'};
+			var store = {};
+			var inputs = {};
+			var holder = document.createElement('div');
+			holder.style.marginTop = '6px';
+			section.appendChild(holder);
+			var current = null;
+			var w = {rows: [holder]};
+
+			for (var k in DEFAULTS)
+			{
+				store[k] = (v != null && v[k]) ? v[k] : DEFAULTS[k];
+			}
+
+			function render(type)
+			{
+				for (var key in inputs)
+				{
+					store[key] = inputs[key].getValue() || store[key];
+				}
+
+				holder.innerHTML = '';
+				inputs = {};
+				current = type;
+				var keys = KEYS[type] || KEYS.value;
+
+				for (var i = 0; i < keys.length; i++)
+				{
+					var row = E.row(holder, T(LABELS[keys[i]]) + ':');
+					row.style.marginTop = i > 0 ? '6px' : '0';
+					var ci = E.colorInput(ui, store[keys[i]]);
+					mark(ci.input, 'color_' + keys[i]);
+					row.appendChild(ci);
+					inputs[keys[i]] = ci;
+				}
+			};
+
+			w.update = function(vals)
+			{
+				if (vals.alarmType != current)
+				{
+					render(vals.alarmType);
+				}
+			};
+			w.get = function()
+			{
+				var o = {};
+
+				for (var key in inputs)
+				{
+					o[key] = inputs[key].getValue();
+				}
+
+				return o;
+			};
+			w.validate = function()
+			{
+				for (var key in inputs)
+				{
+					if (!/^#[0-9A-F]{6}$/i.test(inputs[key].getValue()))
+					{
+						return T(LABELS[key]) + ': ' + T('hmiLnkColorInvalid');
+					}
+				}
+
+				return null;
+			};
+
+			return w;
+		};
+
+		builders.scripts = function(f, v)
+		{
+			inlineRow = null;
+			inlineName = null;
+			var holder = document.createElement('div');
+			section.appendChild(holder);
+			var items = [];
+			var addBtn = E.button(T('hmiLnkAddScript'), function()
+			{
+				addScript({condition: 'onLeftDown', script: ''});
+			});
+			addBtn.style.marginTop = '8px';
+			mark(addBtn, 'addScript');
+			section.appendChild(addBtn);
+
+			function addScript(s)
+			{
+				var card = document.createElement('div');
+				card.className = 'geHmiCard';
+				card.setAttribute('data-role', 'script');
+				var top = document.createElement('div');
+				top.style.cssText = 'display:flex;align-items:center;column-gap:8px;margin-bottom:6px;';
+				var cond = E.select(CONDITIONS.map(function(c)
+				{
+					return {value: c, label: T('hmiLnkCond_' + c)};
+				}), s.condition || 'onLeftDown');
+				cond.style.cssText = 'flex:1;min-width:0;';
+				mark(cond, 'condition');
+				var perLbl = document.createElement('span');
+				perLbl.className = 'geDialogHint';
+				mxUtils.write(perLbl, T('hmiLnkEvery'));
+				var period = E.numberInput(s.period != null ? s.period : 500);
+				period.style.cssText = 'width:70px;flex:0 0 70px;';
+				mark(period, 'period');
+				var ms = document.createElement('span');
+				ms.className = 'geDialogHint';
+				mxUtils.write(ms, 'ms');
+				var del = E.button('✕', function()
+				{
+					items.splice(items.indexOf(item), 1);
+					card.parentNode.removeChild(card);
+				});
+				del.style.cssText = 'margin:0;flex:0 0 34px;width:34px;min-width:0;padding:0;';
+				del.setAttribute('title', mxResources.get('delete'));
+				top.appendChild(cond);
+				top.appendChild(perLbl);
+				top.appendChild(period);
+				top.appendChild(ms);
+				top.appendChild(del);
+				card.appendChild(top);
+
+				var area = document.createElement('textarea');
+				area.className = 'geHmiMono';
+				area.setAttribute('rows', '7');
+				area.setAttribute('spellcheck', 'false');
+				area.style.cssText = 'width:100%;box-sizing:border-box;resize:vertical;';
+				area.value = s.script || '';
+				mark(area, 'script');
+				card.appendChild(area);
+
+				var bar = document.createElement('div');
+				bar.style.cssText = 'display:flex;align-items:center;column-gap:8px;margin-top:6px;';
+				var result = document.createElement('span');
+				result.className = 'geDialogHint';
+				result.style.cssText = 'flex:1;min-width:0;line-height:normal;';
+				result.setAttribute('data-role', 'scriptResult');
+				var check = E.button(T('hmiLnkCheck'), function()
+				{
+					var err = checkScript(area.value);
+					result.className = (err == null) ? 'geDialogHint' : 'geHmiError';
+					result.textContent = (err == null) ? T('hmiLnkScriptOk') : err;
+				});
+				check.style.margin = '0';
+				mark(check, 'checkScript');
+				bar.appendChild(check);
+				bar.appendChild(result);
+				card.appendChild(bar);
+
+				var item = {cond: cond, period: period, area: area};
+				items.push(item);
+				holder.appendChild(card);
+
+				function sync()
+				{
+					var isWhile = cond.value.indexOf('while') == 0;
+					perLbl.style.display = period.style.display = ms.style.display = isWhile ? '' : 'none';
+				};
+
+				mxEvent.addListener(cond, 'change', sync);
+				sync();
+			};
+
+			(v || [{condition: 'onLeftDown', script: ''}]).forEach(addScript);
+
+			return {rows: [holder, addBtn], get: function()
+			{
+				return items.map(function(it)
+				{
+					var o = {condition: it.cond.value};
+
+					if (it.cond.value.indexOf('while') == 0)
+					{
+						o.period = parseInt(it.period.value, 10) || 500;
+					}
+
+					o.script = it.area.value;
+
+					return o;
+				});
+			}, validate: function()
+			{
+				if (items.length == 0)
+				{
+					return T('hmiLnkNeedScript');
+				}
+
+				for (var i = 0; i < items.length; i++)
+				{
+					var it = items[i];
+
+					if (trim(it.area.value) === '')
+					{
+						return T('hmiLnkScript') + ' ' + (i + 1) + ': ' + T('hmiLnkRequired');
+					}
+
+					if (it.cond.value.indexOf('while') == 0)
+					{
+						var p = parseInt(it.period.value, 10);
+
+						if (isNaN(p) || p < 10)
+						{
+							return T('hmiLnkScript') + ' ' + (i + 1) + ': ' + T('hmiLnkPeriodMin');
+						}
+					}
+
+					var err = checkScript(it.area.value);
+
+					if (err != null)
+					{
+						return T('hmiLnkScript') + ' ' + (i + 1) + ': ' + err;
+					}
+				}
+
+				return null;
+			}};
+		};
+
+		builders.windows = function(f, v)
+		{
+			inlineRow = null;
+			inlineName = null;
+			var graph = ui.editor.graph;
+			var pages = (ui.pages != null && ui.pages.length > 0) ? ui.pages : [ui.currentPage];
+			var chosen = {};
+			(v || []).forEach(function(n)
+			{
+				chosen[n] = true;
+			});
+			var h = document.createElement('div');
+			h.className = 'geDialogHint geHmiSubHead';
+			mxUtils.write(h, T('hmiLnkWindows'));
+			section.appendChild(h);
+			var list = document.createElement('div');
+			list.className = 'geHmiPick';
+			list.style.maxHeight = '160px';
+			section.appendChild(list);
+			var cbs = [];
+
+			function pageWindow(page)
+			{
+				try
+				{
+					if (page == ui.currentPage)
+					{
+						return Hmi.Model.getDocConfig(graph).window || {};
+					}
+
+					if (page.root == null && ui.updatePageRoot != null)
+					{
+						ui.updatePageRoot(page);
+					}
+
+					return (page.root != null && Hmi.Model.hasDocConfig(page.root)) ?
+						(Hmi.Model.getDocConfigForRoot(page.root).window || {}) : {};
+				}
+				catch (e)
+				{
+					return {};
+				}
+			};
+
+			var current = clone(pageWindow(ui.currentPage)) || {};
+
+			pages.forEach(function(page, i)
+			{
+				var name = (page != null && page.getName != null) ? page.getName() : '';
+				var row = document.createElement('div');
+				row.className = 'geDialogCheckRow geHmiPickRow';
+				row.style.cursor = 'default';
+				var cb = document.createElement('input');
+				cb.setAttribute('type', 'checkbox');
+				cb.id = 'hmiWin' + i + '_' + Date.now();
+				cb.checked = !!(chosen[name] || (page.getId != null && chosen[page.getId()]));
+				mark(cb, 'window');
+				cb.setAttribute('data-page', name);
+				var lbl = document.createElement('label');
+				lbl.setAttribute('for', cb.id);
+				lbl.style.flex = '1';
+				mxUtils.write(lbl, name);
+				var type = document.createElement('span');
+				type.className = 'geDialogHint';
+				var win = (page == ui.currentPage) ? current : pageWindow(page);
+				type.textContent = T('hmiLnkWin_' + (win.type || 'replace')) +
+					((page == ui.currentPage) ? ' (' + T('hmiLnkCurrentPage') + ')' : '');
+				row.appendChild(cb);
+				row.appendChild(lbl);
+				row.appendChild(type);
+				list.appendChild(row);
+				cbs.push({cb: cb, name: name, type: type});
+			});
+
+			// Window settings of the current page (undoable edit with the links)
+			var wh = document.createElement('div');
+			wh.className = 'geDialogHint geHmiSubHead';
+			mxUtils.write(wh, T('hmiLnkWindowSettings').replace('{1}', ui.currentPage != null ?
+				ui.currentPage.getName() : ''));
+			section.appendChild(wh);
+			var typeRow = E.row(section, T('hmiLnkWindowType') + ':');
+			var typeSel = E.select(opts([['replace', 'hmiLnkWin_replace'],
+				['overlay', 'hmiLnkWin_overlay'], ['popup', 'hmiLnkWin_popup']]), current.type || 'replace');
+			mark(typeSel, 'windowType');
+			typeRow.appendChild(typeSel);
+			var geo1 = E.inlineFields(section);
+			var wx = E.numberInput(current.x != null ? current.x : '');
+			var wy = E.numberInput(current.y != null ? current.y : '');
+			mark(wx, 'windowX');
+			mark(wy, 'windowY');
+			E.inlineField(geo1, 'X:', wx);
+			E.inlineField(geo1, 'Y:', wy);
+			var geo2 = E.inlineFields(section);
+			var ww = E.numberInput(current.width != null ? current.width : '');
+			var wht = E.numberInput(current.height != null ? current.height : '');
+			mark(ww, 'windowWidth');
+			mark(wht, 'windowHeight');
+			E.inlineField(geo2, T('width') + ':', ww);
+			E.inlineField(geo2, T('height') + ':', wht);
+			var titleRow = E.row(section, T('hmiLnkWindowTitle') + ':');
+			var wtitle = E.textInput(current.title || '');
+			mark(wtitle, 'windowTitle');
+			titleRow.appendChild(wtitle);
+			var note = document.createElement('div');
+			note.className = 'geDialogHint';
+			note.style.marginTop = '6px';
+			mxUtils.write(note, T('hmiLnkWindowOtherPages'));
+			section.appendChild(note);
+
+			function currentWindow()
+			{
+				var o = clone(current) || {};
+				o.type = typeSel.value;
+
+				[['x', wx], ['y', wy], ['width', ww], ['height', wht]].forEach(function(p)
+				{
+					var n = parseFloat(p[1].value);
+
+					if (isNaN(n))
+					{
+						delete o[p[0]];
+					}
+					else
+					{
+						o[p[0]] = n;
+					}
+				});
+
+				if (wtitle.value !== '')
+				{
+					o.title = wtitle.value;
+				}
+				else
+				{
+					delete o.title;
+				}
+
+				return o;
+			};
+
+			function sync()
+			{
+				var geoOn = (typeSel.value != 'replace');
+				[wx, wy, ww, wht, wtitle].forEach(function(el)
+				{
+					el.disabled = !geoOn;
+				});
+			};
+
+			mxEvent.addListener(typeSel, 'change', sync);
+			sync();
+
+			return {rows: [h, list, wh, typeRow, note], get: function()
+			{
+				var names = [];
+
+				for (var i = 0; i < cbs.length; i++)
+				{
+					if (cbs[i].cb.checked)
+					{
+						names.push(cbs[i].name);
+					}
+				}
+
+				return names;
+			}, validate: function()
+			{
+				var any = false;
+
+				for (var i = 0; i < cbs.length; i++)
+				{
+					any = any || cbs[i].cb.checked;
+				}
+
+				return any ? null : T('hmiLnkNeedWindow');
+			}, extras: function()
+			{
+				var o = currentWindow();
+				var before = JSON.stringify(pageWindow(ui.currentPage) || {});
+
+				return (JSON.stringify(o) != before && !(before == '{}' && o.type == 'replace' &&
+					Object.keys(o).length == 1)) ? {page: ui.currentPage, window: o} : null;
+			}};
+		};
+
+		for (var i = 0; i < spec.fields.length; i++)
+		{
+			var f = spec.fields[i];
+			var init = (value[f.key] !== undefined) ? value[f.key] : clone(f.def);
+			var w = builders[f.type](f, init);
+			w.field = f;
+			w.shown = true;
+			widgets.push(w);
+		}
+
+		function fit()
+		{
+			E.fitDialog(container);
+		};
+
+		mxEvent.addListener(container, 'input', refresh);
+		mxEvent.addListener(container, 'change', function()
+		{
+			refresh();
+			fit();
+		});
+		mxEvent.addListener(container, 'click', function(evt)
+		{
+			// Adding or removing rows (break points, scripts) changes the height
+			if (mxEvent.getSource(evt).tagName == 'BUTTON' || mxEvent.getSource(evt).tagName == 'INPUT')
+			{
+				window.setTimeout(fit, 0);
+			}
+		});
+		refresh();
+
+		form.validate = function()
+		{
+			for (var i = 0; i < widgets.length; i++)
+			{
+				if (widgets[i].shown && widgets[i].validate != null)
+				{
+					var err = widgets[i].validate();
+
+					if (err != null)
+					{
+						return err;
+					}
+				}
+			}
+
+			return LinksDialog.validateLink(spec, form.getValue());
+		};
+
+		form.getValue = function()
+		{
+			var o = {};
+
+			for (var k in spec.fixed)
+			{
+				o[k] = spec.fixed[k];
+			}
+
+			for (var i = 0; i < widgets.length; i++)
+			{
+				var w = widgets[i];
+
+				if (w.field.key != null && w.get != null && w.shown)
+				{
+					var v = w.get();
+
+					if (v !== undefined && !(w.field.optional && v === ''))
+					{
+						o[w.field.key] = v;
+					}
+				}
+			}
+
+			return o;
+		};
+
+		form.getExtras = function()
+		{
+			var out = {};
+
+			for (var i = 0; i < widgets.length; i++)
+			{
+				if (widgets[i].extras != null)
+				{
+					var e = widgets[i].extras();
+
+					if (e != null)
+					{
+						out.windowEdit = e;
+					}
+				}
+			}
+
+			return out;
+		};
+
+		return form;
+	};
+
+	function checkScript(src)
+	{
+		if (Hmi.QuickScript == null || Hmi.QuickScript.compile == null)
+		{
+			return null;
+		}
+
+		try
+		{
+			Hmi.QuickScript.compile(src);
+		}
+		catch (e)
+		{
+			return (e.line != null && String(e.message).indexOf(String(e.line)) < 0 ?
+				T('hmiLnkLine') + ' ' + e.line + ': ' : '') + e.message;
+		}
+
+		return null;
+	};
+
+	/**
+	 * Cross-field validation of a single link value. Returns an error
+	 * string or null.
+	 */
+	LinksDialog.validateLink = function(spec, v)
+	{
+		if (spec.id == 'inputAnalog' && typeof v.min === 'number' && typeof v.max === 'number' &&
+			v.max <= v.min)
+		{
+			return T('hmiLnkMaximum') + ': ' + T('hmiLnkMaxGreaterMin');
+		}
+
+		if (spec.id == 'tooltip' && v.mode == 'static' && (v.text == null || trim(v.text) === ''))
+		{
+			return T('hmiLnkTooltipText') + ': ' + T('hmiLnkRequired');
+		}
+
+		if (spec.id == 'tooltip' && v.mode == 'expression' && trim(v.expr) === '')
+		{
+			return T('hmiLnkExpression') + ': ' + T('hmiLnkRequired');
+		}
+
+		if (spec.id == 'inputString' && v.echo == 'password' && (v.passwordChar == null ||
+			v.passwordChar === ''))
+		{
+			return T('hmiLnkPasswordChar') + ': ' + T('hmiLnkRequired');
+		}
+
+		if (Hmi.Schema != null && Hmi.Schema.validate != null && LinksDialog.schemaSupportsLinks())
+		{
+			var holder = {};
+			var top = spec.id.split(':')[0];
+			holder[top] = v;
+			var errs = Hmi.Schema.validate('links', holder);
+
+			if (errs != null && errs.length > 0)
+			{
+				return errs.join('; ');
+			}
+		}
+
+		return null;
+	};
+
+	var schemaChecked = null;
+
+	/**
+	 * True once Hmi.Schema knows the 'links' kind.
+	 */
+	LinksDialog.schemaSupportsLinks = function()
+	{
+		if (schemaChecked == null || !schemaChecked)
+		{
+			try
+			{
+				schemaChecked = !!(Hmi.Schema != null && Hmi.Schema.validate != null &&
+					Hmi.Schema.validate('links', {}).join(' ').indexOf('unknown schema kind') < 0);
+			}
+			catch (e)
+			{
+				schemaChecked = false;
+			}
+		}
+
+		return schemaChecked;
+	};
+
+	/**
+	 * Applies Hmi.Schema defaults when available.
+	 */
+	LinksDialog.withDefaults = function(links)
+	{
+		if (LinksDialog.schemaSupportsLinks() && Hmi.Schema.defaults != null)
+		{
+			try
+			{
+				return Hmi.Schema.defaults('links', links) || links;
+			}
+			catch (e)
+			{
+				return links;
+			}
+		}
+
+		return links;
+	};
+
+	/**
+	 * Returns the default value of a link spec.
+	 */
+	LinksDialog.defaultsOf = function(id)
+	{
+		var spec = SPECS[id];
+		var o = {};
+
+		for (var k in spec.fixed)
+		{
+			o[k] = spec.fixed[k];
+		}
+
+		for (var i = 0; i < spec.fields.length; i++)
+		{
+			var f = spec.fields[i];
+
+			if (f.key != null && f.def !== undefined && f.def !== '' && f.def !== null)
+			{
+				o[f.key] = clone(f.def);
+			}
+		}
+
+		return o;
+	};
+
+	/**
+	 * Opens the settings dialog of one link. onSave(value, extras) is
+	 * called after validation; onCancel() when the dialog is cancelled.
+	 */
+	LinksDialog.configure = function(ui, id, value, onSave, onCancel)
+	{
+		var spec = SPECS[id];
+		var form = buildForm(ui, spec, value);
+		var div = document.createElement('div');
+		var hd = document.createElement('h3');
+		mxUtils.write(hd, spec.title);
+		div.appendChild(hd);
+		div.appendChild(form.el);
+
+		var saved = false;
+		var dlg = new CustomDialog(ui, div, function()
+		{
+			var err = form.validate();
+
+			if (err != null)
+			{
+				return err;
+			}
+
+			saved = true;
+			onSave(form.getValue(), form.getExtras());
+		}, function()
+		{
+			if (onCancel != null)
+			{
+				onCancel();
+			}
+		}, mxResources.get('ok'), null, null, false, null, true);
+		ui.showDialog(dlg.container, spec.width, null, true, true, function()
+		{
+			if (!saved && onCancel != null)
+			{
+				onCancel();
+			}
+		});
+		div.setAttribute('data-dialog', 'link-' + id);
+
+		return dlg;
+	};
+
+	// ---------------------------------------------------------------
+	// Summary
+	// ---------------------------------------------------------------
+
+	function shorten(s, n)
+	{
+		s = trim(s);
+
+		return (s.length > n) ? s.substring(0, n - 1) + '…' : s;
+	};
+
+	/**
+	 * Returns one human-readable line per configured link, e.g.
+	 * "Fill Color: Analog (TankLevel, 4 break points)".
+	 */
+	LinksDialog.summary = function(links)
+	{
+		var out = [];
+
+		if (links == null)
+		{
+			return out;
+		}
+
+		var labels = {valueDiscrete: ['hmiLnkValueDisplay', 'hmiLnkDiscrete'],
+			valueAnalog: ['hmiLnkValueDisplay', 'hmiLnkAnalog'],
+			valueString: ['hmiLnkValueDisplay', 'hmiLnkString'],
+			locationH: ['hmiLnkLocation', 'hmiLnkHorizontal'],
+			locationV: ['hmiLnkLocation', 'hmiLnkVertical'],
+			sizeHeight: ['hmiLnkObjectSize', 'hmiLnkHeight'],
+			sizeWidth: ['hmiLnkObjectSize', 'hmiLnkWidth'],
+			fillVertical: ['hmiLnkPercentFill', 'hmiLnkVertical'],
+			fillHorizontal: ['hmiLnkPercentFill', 'hmiLnkHorizontal'],
+			visibility: ['hmiLnkMiscellaneous', 'hmiLnkVisibility'],
+			blink: ['hmiLnkMiscellaneous', 'hmiLnkBlink'],
+			orientation: ['hmiLnkMiscellaneous', 'hmiLnkOrientation'],
+			disable: ['hmiLnkMiscellaneous', 'hmiLnkDisable'],
+			tooltip: ['hmiLnkMiscellaneous', 'hmiLnkTooltip'],
+			inputDiscrete: ['hmiLnkUserInputs', 'hmiLnkDiscrete'],
+			inputAnalog: ['hmiLnkUserInputs', 'hmiLnkAnalog'],
+			inputString: ['hmiLnkUserInputs', 'hmiLnkString'],
+			sliderV: ['hmiLnkSliders', 'hmiLnkVertical'],
+			sliderH: ['hmiLnkSliders', 'hmiLnkHorizontal'],
+			pushDiscrete: ['hmiLnkTouchPushbuttons', 'hmiLnkDiscreteValue'],
+			pushAction: ['hmiLnkTouchPushbuttons', 'hmiLnkAction'],
+			showWindow: ['hmiLnkTouchPushbuttons', 'hmiLnkShowWindow'],
+			hideWindow: ['hmiLnkTouchPushbuttons', 'hmiLnkHideWindow']};
+		var colorKinds = {discrete: 'hmiLnkDiscrete', analog: 'hmiLnkAnalog',
+			discreteAlarm: 'hmiLnkDiscreteAlarm', analogAlarm: 'hmiLnkAnalogAlarm'};
+		var colorLabels = {lineColor: 'hmiLnkLineColor', fillColor: 'hmiLnkFillColor',
+			textColor: 'hmiLnkTextColor'};
+		var done = {};
+		var keys = ORDER.concat(Object.keys(links));
+
+		for (var i = 0; i < keys.length; i++)
+		{
+			var type = keys[i];
+			var l = links[type];
+
+			if (done[type] || l == null || typeof l !== 'object')
+			{
+				continue;
+			}
+
+			done[type] = true;
+			var label;
+			var detail = '';
+
+			if (colorLabels[type] != null)
+			{
+				label = T(colorLabels[type]) + ': ' + T(colorKinds[l.kind] || 'hmiLnkDiscrete');
+
+				if (l.kind == 'analog')
+				{
+					var n = (l.breakpoints || []).length;
+					detail = shorten(l.expr || '', 24) + ', ' + n + ' ' + T(n == 1 ?
+						'hmiLnkBreakPointSingular' : 'hmiLnkBreakPointPlural');
+				}
+				else if (l.kind == 'analogAlarm')
+				{
+					detail = shorten(l.tag || '', 24) + ', ' + T('hmiLnkAlarm_' + (l.alarmType || 'value'));
+				}
+				else
+				{
+					detail = shorten(l.expr || l.tag || '', 28);
+				}
+			}
+			else if (labels[type] != null)
+			{
+				label = T(labels[type][0]) + ': ' + T(labels[type][1]);
+
+				if (type == 'pushAction')
+				{
+					var sc = (l.scripts || []).length;
+					detail = sc + ' ' + T(sc == 1 ? 'hmiLnkScriptSingular' : 'hmiLnkScriptPlural');
+				}
+				else if (type == 'showWindow' || type == 'hideWindow')
+				{
+					detail = shorten((l.windows || []).join(', '), 30);
+				}
+				else if (type == 'tooltip')
+				{
+					detail = (l.mode == 'expression') ? shorten(l.expr || '', 28) : shorten(l.text || '', 28);
+				}
+				else
+				{
+					detail = shorten(l.expr || l.tag || '', 28);
+				}
+			}
+			else
+			{
+				continue;
+			}
+
+			out.push(label + (detail !== '' ? ' (' + detail + ')' : ''));
+		}
+
+		return out;
+	};
+
+	// ---------------------------------------------------------------
+	// Main dialog
+	// ---------------------------------------------------------------
+
+	function editableCells(ui, cells)
+	{
+		var model = ui.editor.graph.model;
+
+		return (cells || []).filter(function(c)
+		{
+			return c != null && (model.isVertex(c) || model.isEdge(c));
+		});
+	};
+
+	/**
+	 * Shows the "Animation Links" dialog for the given cells (default: the
+	 * selection). Links apply to all given cells.
+	 */
+	LinksDialog.show = function(ui, cells)
+	{
+		var graph = ui.editor.graph;
+		Hmi.Editors.installStyle();
+
+		if (SPECS.valueDiscrete == null)
+		{
+			buildSpecs();
+		}
+
+		cells = editableCells(ui, cells || graph.getSelectionCells());
+
+		if (cells.length == 0)
+		{
+			ui.showError(mxResources.get('error'), T('hmiLnkSelectCell'), mxResources.get('ok'));
+
+			return null;
+		}
+
+		var links = clone(Hmi.Model.getCellConfig(cells[0]).links) || {};
+		var pendingWindows = [];
+		var same = true;
+
+		for (var c = 1; c < cells.length; c++)
+		{
+			if (JSON.stringify(Hmi.Model.getCellConfig(cells[c]).links) != JSON.stringify(links))
+			{
+				same = false;
+			}
+		}
+
+		var div = document.createElement('div');
+		div.setAttribute('data-dialog', 'animation-links');
+		var hd = document.createElement('h3');
+		mxUtils.write(hd, T('hmiAnimationLinks'));
+		div.appendChild(hd);
+
+		var info = document.createElement('div');
+		info.className = 'geDialogHint';
+		info.style.cssText = 'margin:-8px 0 10px 0;text-align:center;line-height:normal;';
+		var name = graph.convertValueToString(cells[0]);
+		name = (name != null && name !== '') ? String(name).replace(/<[^>]*>/g, '').substring(0, 40) : cells[0].id;
+		info.textContent = (cells.length == 1) ? name :
+			T('hmiLnkAppliesTo').replace('{1}', cells.length) + (same ? '' : ' — ' + T('hmiLnkDiffer'));
+		div.appendChild(info);
+
+		var rows = {};
+
+		function isOn(id)
+		{
+			var p = id.split(':');
+
+			return links[p[0]] != null && (p.length == 1 || links[p[0]].kind == p[1]);
+		};
+
+		function refreshRows()
+		{
+			for (var id in rows)
+			{
+				var on = isOn(id);
+				rows[id].cb.checked = on;
+				rows[id].row.className = 'geDialogCheckRow geHmiLinkRow' + (on ? '' : ' geHmiOff');
+				var p = id.split(':');
+				var s = on ? LinksDialog.summary((function()
+				{
+					var o = {};
+					o[p[0]] = links[p[0]];
+
+					return o;
+				})())[0] : '';
+				rows[id].row.setAttribute('title', s || '');
+			}
+		};
+
+		function openConfig(id, cancelUncheck)
+		{
+			var p = id.split(':');
+			var existing = isOn(id) ? clone(links[p[0]]) : LinksDialog.defaultsOf(id);
+			LinksDialog.configure(ui, id, existing, function(value, extras)
+			{
+				links[p[0]] = value;
+
+				if (extras != null && extras.windowEdit != null)
+				{
+					pendingWindows = pendingWindows.filter(function(w)
+					{
+						return w.page != extras.windowEdit.page;
+					});
+					pendingWindows.push(extras.windowEdit);
+				}
+
+				refreshRows();
+			}, function()
+			{
+				refreshRows();
+			});
+		};
+
+		function addRow(section, id, labelKey)
+		{
+			var row = document.createElement('div');
+			row.className = 'geDialogCheckRow geHmiLinkRow';
+			row.setAttribute('data-link', id);
+			var cb = document.createElement('input');
+			cb.setAttribute('type', 'checkbox');
+			cb.setAttribute('id', 'hmiLnk_' + id.replace(':', '_'));
+			var lbl = document.createElement('label');
+			lbl.setAttribute('for', cb.id);
+			mxUtils.write(lbl, T(labelKey));
+			var btn = Hmi.Editors.button('…', function()
+			{
+				openConfig(id);
+			});
+			btn.setAttribute('title', T('hmiLnkConfigure'));
+			btn.setAttribute('data-role', 'configure');
+			cb.setAttribute('data-role', 'check');
+			row.appendChild(cb);
+			row.appendChild(lbl);
+			row.appendChild(btn);
+			section.appendChild(row);
+			rows[id] = {row: row, cb: cb};
+
+			mxEvent.addListener(cb, 'change', function()
+			{
+				var p = id.split(':');
+
+				if (cb.checked)
+				{
+					openConfig(id, true);
+				}
+				else
+				{
+					delete links[p[0]];
+					refreshRows();
+				}
+			});
+		};
+
+		var grid = null;
+
+		GROUPS.forEach(function(g)
+		{
+			if (g.band != null)
+			{
+				var band = document.createElement('div');
+				band.className = 'geHmiBand';
+				mxUtils.write(band, T(g.band));
+				div.appendChild(band);
+				grid = document.createElement('div');
+				grid.className = 'geHmiLinkGrid';
+				div.appendChild(grid);
+
+				return;
+			}
+
+			var section = document.createElement('div');
+			section.className = 'geDialogSection';
+			var title = document.createElement('div');
+			title.className = 'geHmiGroupTitle';
+			mxUtils.write(title, T(g.title));
+			section.appendChild(title);
+			grid.appendChild(section);
+
+			if (g.color != null)
+			{
+				COLOR_KINDS.forEach(function(k)
+				{
+					addRow(section, g.color + ':' + k[0], k[1]);
+				});
+			}
+			else
+			{
+				g.items.forEach(function(it)
+				{
+					addRow(section, it[0], it[1]);
+				});
+			}
+		});
+
+		refreshRows();
+		LinksDialog.decorate(ui, true);
+
+		var removeAll = Hmi.Editors.button(T('hmiLnkRemoveAll'), function()
+		{
+			links = {};
+			refreshRows();
+		});
+		removeAll.style.cssText = 'float:left;margin-left:0;';
+		removeAll.setAttribute('data-role', 'remove-all');
+
+		var dlg = new CustomDialog(ui, div, function()
+		{
+			var out = LinksDialog.withDefaults(clone(links));
+
+			graph.model.beginUpdate();
+			try
+			{
+				Hmi.Model.setCellConfig(graph, cells, 'links', out);
+
+				for (var i = 0; i < pendingWindows.length; i++)
+				{
+					if (pendingWindows[i].page == ui.currentPage)
+					{
+						var cfg = Hmi.Model.getDocConfig(graph);
+						cfg.window = pendingWindows[i].window;
+						Hmi.Model.setDocConfig(graph, cfg);
+					}
+				}
+			}
+			finally
+			{
+				graph.model.endUpdate();
+			}
+		}, null, mxResources.get('ok'), null, removeAll, false, null, false);
+
+		ui.showDialog(dlg.container, 740, null, true, true, function()
+		{
+			if (!(ui.format != null && ui.format.hmiTabActive))
+			{
+				LinksDialog.decorate(ui, false);
+			}
+		});
+
+		return dlg;
+	};
+
+	// ---------------------------------------------------------------
+	// Link badge (design-time, never touches the model)
+	// ---------------------------------------------------------------
+
+	var BADGE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">' +
+		'<rect x="0.5" y="0.5" width="15" height="15" rx="4" fill="#0071e3" stroke="#ffffff" stroke-width="1"/>' +
+		'<g fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round">' +
+		'<path d="M6.8 9.2l2.4-2.4"/><path d="M7.4 5.6l.8-.8a2.1 2.1 0 013 3l-.8.8"/>' +
+		'<path d="M8.6 10.4l-.8.8a2.1 2.1 0 01-3-3l.8-.8"/></g></svg>';
+
+	function badgeImage()
+	{
+		var uri = 'data:image/svg+xml;base64,' + (root.btoa != null ? root.btoa(BADGE_SVG) : '');
+
+		return new mxImage(uri, 16, 16);
+	};
+
+	function hasLinks(cell)
+	{
+		var v = cell.value;
+		var s = (v != null && typeof v === 'object' && v.getAttribute != null) ?
+			v.getAttribute('hmiLinks') : null;
+
+		return s != null && s !== '' && s !== '{}';
+	};
+
+	/**
+	 * Shows (on=true) or removes (on=false) a small chain badge in the top
+	 * right corner of every cell on the current page that has hmiLinks.
+	 * Uses cell overlays only; the model is never modified.
+	 */
+	LinksDialog.decorate = function(ui, on)
+	{
+		var graph = ui.editor.graph;
+		var st = ui.hmiLinkBadges;
+
+		if (st == null)
+		{
+			st = ui.hmiLinkBadges = {on: false, timer: null, listener: null, pageListener: null};
+		}
+
+		function clear()
+		{
+			var cells = graph.model.cells;
+
+			for (var id in cells)
+			{
+				var c = cells[id];
+
+				if (c.overlays != null)
+				{
+					for (var i = c.overlays.length - 1; i >= 0; i--)
+					{
+						if (c.overlays[i].hmiLinkBadge)
+						{
+							graph.removeCellOverlay(c, c.overlays[i]);
+						}
+					}
+				}
+			}
+		};
+
+		function update()
+		{
+			st.timer = null;
+
+			if (!st.on)
+			{
+				return;
+			}
+
+			clear();
+			var cells = graph.model.cells;
+			var image = badgeImage();
+
+			for (var id in cells)
+			{
+				var c = cells[id];
+
+				if (c != graph.model.getRoot() && hasLinks(c) && graph.model.contains(c))
+				{
+					var overlay = new mxCellOverlay(image, T('hmiAnimationLinks'),
+						mxConstants.ALIGN_RIGHT, mxConstants.ALIGN_TOP, new mxPoint(-7, 7));
+					overlay.hmiLinkBadge = true;
+					overlay.cursor = 'pointer';
+					overlay.addListener(mxEvent.CLICK, (function(cell)
+					{
+						return function()
+						{
+							LinksDialog.show(ui, [cell]);
+						};
+					})(c));
+					graph.addCellOverlay(c, overlay);
+				}
+			}
+		};
+
+		function schedule()
+		{
+			if (st.timer == null)
+			{
+				st.timer = window.setTimeout(update, 60);
+			}
+		};
+
+		if (on && !st.on)
+		{
+			st.on = true;
+			st.listener = schedule;
+			graph.model.addListener(mxEvent.CHANGE, st.listener);
+			st.pageListener = schedule;
+			ui.editor.addListener('pageSelected', st.pageListener);
+			update();
+		}
+		else if (!on && st.on)
+		{
+			st.on = false;
+			graph.model.removeListener(st.listener);
+			ui.editor.removeListener(st.pageListener);
+
+			if (st.timer != null)
+			{
+				window.clearTimeout(st.timer);
+				st.timer = null;
+			}
+
+			clear();
+		}
+		else if (on)
+		{
+			update();
+		}
+	};
+
+	LinksDialog.SPECS = SPECS;
+	LinksDialog.GROUPS = GROUPS;
+	LinksDialog.ensureSpecs = function()
+	{
+		if (SPECS.valueDiscrete == null)
+		{
+			buildSpecs();
+		}
+
+		return SPECS;
+	};
+
+	Hmi.LinksDialog = LinksDialog;
+})();

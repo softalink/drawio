@@ -22,6 +22,8 @@
 		'core/HmiTagStore.js',
 		'core/HmiSimulator.js',
 		'core/HmiSchema.js',
+		'core/HmiLinks.js',
+		'core/HmiQuickScript.js',
 		'sources/HmiPayload.js',
 		'sources/HmiSourceManager.js',
 		'sources/HmiMqttSource.js',
@@ -43,6 +45,8 @@
 		'runtime/HmiEventDispatcher.js',
 		'runtime/HmiSystem.js',
 		'runtime/HmiDomWidgets.js',
+		'runtime/HmiKeypad.js',
+		'runtime/HmiLinkEngine.js',
 		'runtime/HmiRuntime.js',
 		'runtime/HmiEmbed.js',
 		'ui/HmiResources.js',
@@ -56,6 +60,8 @@
 		'ui/HmiValidator.js',
 		'ui/HmiFaceplate.js',
 		'ui/HmiImport.js',
+		'ui/HmiLinksDialog.js',
+		'ui/HmiSubstituteTags.js',
 		'ui/HmiPlugin.js'
 	];
 

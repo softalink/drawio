@@ -277,6 +277,195 @@
 		return list;
 	};
 
+
+	// ---------------------------------------------------------------
+	// Animation links (attribute hmiLinks, INTOUCH_LINKS.md §2)
+	// ---------------------------------------------------------------
+
+	var LINK_DISPLAY_EXPR = ['valueDiscrete', 'valueAnalog', 'valueString', 'locationH', 'locationV',
+		'orientation', 'sizeHeight', 'sizeWidth', 'lineColor', 'fillColor', 'textColor',
+		'fillVertical', 'fillHorizontal', 'blink', 'visibility', 'disable', 'tooltip'];
+	var LINK_TOUCH = ['inputDiscrete', 'inputAnalog', 'inputString', 'sliderH', 'sliderV',
+		'pushDiscrete', 'pushAction', 'showWindow', 'hideWindow'];
+	var COLOR_LINKS = { lineColor: true, fillColor: true, textColor: true };
+	var LINK_CONDITIONS = ['onLeftDown', 'whileLeftDown', 'onLeftUp', 'onLeftDouble', 'onRightDown',
+		'whileRightDown', 'onRightUp', 'onRightDouble', 'onMouseOver', 'whileMouseOver', 'onMouseLeave'];
+	var FORMAT_MODES = ['text', 'real', 'fixed', 'integer', 'exponential', 'hex', 'binary'];
+
+	/**
+	 * Numeric defaults per link type: {field: default}.
+	 */
+	var LINK_NUMBERS = {
+		locationH: { atLeft: 0, atRight: 100, toLeft: 0, toRight: 100 },
+		locationV: { atTop: 100, atBottom: 0, up: 100, down: 0 },
+		orientation: { valueAtMaxCCW: 0, valueAtMaxCW: 100, ccwRotation: 0, cwRotation: 360, offsetX: 0, offsetY: 0 },
+		sizeHeight: { valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100 },
+		sizeWidth: { valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100 },
+		fillVertical: { valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100 },
+		fillHorizontal: { valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100 },
+		sliderH: { atLeft: 0, atRight: 100, toLeft: 0, toRight: 100 },
+		sliderV: { atTop: 100, atBottom: 0, up: 100, down: 0 }
+	};
+
+	/**
+	 * Enum fields per link type: {field: [allowed values, default first]}.
+	 */
+	var LINK_ENUMS = {
+		sizeHeight: { anchor: ['bottom', 'top', 'middle'] },
+		sizeWidth: { anchor: ['left', 'center', 'right'] },
+		fillVertical: { direction: ['up', 'down'] },
+		fillHorizontal: { direction: ['right', 'left'] },
+		blink: { mode: ['invisible', 'visible'], speed: ['medium', 'slow', 'fast'] },
+		visibility: { visibleState: ['on', 'off'] },
+		disable: { disabledState: ['on', 'off'] },
+		tooltip: { mode: ['static', 'expression'] },
+		inputString: { echo: ['yes', 'no', 'password'] },
+		sliderH: { reference: ['left', 'center', 'right'] },
+		sliderV: { reference: ['top', 'middle', 'bottom'] },
+		pushDiscrete: { action: ['direct', 'reverse', 'toggle', 'reset', 'set'] }
+	};
+
+	function defaultsLinkFormat(f)
+	{
+		f = isPlainObject(f) ? f : {};
+
+		if (f.mode == null) f.mode = 'text';
+		if (f.precision == null) f.precision = 0;
+		if (f.bitsFrom == null) f.bitsFrom = 0;
+		if (f.bitsTo == null) f.bitsTo = 31;
+		if (f.fixedWidth == null) f.fixedWidth = false;
+
+		return f;
+	};
+
+	function defaultsLink(type, link)
+	{
+		if (!isPlainObject(link))
+		{
+			return link;
+		}
+
+		var nums = has(LINK_NUMBERS, type) ? LINK_NUMBERS[type] : null;
+		var enums = has(LINK_ENUMS, type) ? LINK_ENUMS[type] : null;
+		var k;
+
+		if (nums != null)
+		{
+			for (k in nums)
+			{
+				if (link[k] == null) link[k] = nums[k];
+			}
+		}
+
+		if (enums != null)
+		{
+			for (k in enums)
+			{
+				if (link[k] == null) link[k] = enums[k][0];
+			}
+		}
+
+		switch (type)
+		{
+			case 'valueDiscrete':
+				if (link.onMessage == null) link.onMessage = 'On';
+				if (link.offMessage == null) link.offMessage = 'Off';
+				break;
+
+			case 'valueAnalog':
+				link.format = defaultsLinkFormat(link.format);
+				break;
+
+			case 'fillVertical':
+			case 'fillHorizontal':
+				if (link.backgroundColor == null) link.backgroundColor = '#FFFFFF';
+				break;
+
+			case 'analogAlarm':
+				break;
+
+			case 'tooltip':
+				if (link.mode === 'static' && link.text == null) link.text = '';
+				break;
+
+			case 'inputDiscrete':
+				if (link.key === undefined) link.key = null;
+				if (link.setPrompt == null) link.setPrompt = 'On';
+				if (link.resetPrompt == null) link.resetPrompt = 'Off';
+				if (link.onMessage == null) link.onMessage = 'On';
+				if (link.offMessage == null) link.offMessage = 'Off';
+				if (link.inputOnly == null) link.inputOnly = false;
+				break;
+
+			case 'inputAnalog':
+				if (link.key === undefined) link.key = null;
+				if (link.keypad == null) link.keypad = false;
+				if (link.min == null) link.min = 1;
+				if (link.max == null) link.max = 100;
+				if (link.inputOnly == null) link.inputOnly = false;
+				link.format = defaultsLinkFormat(link.format);
+				break;
+
+			case 'inputString':
+				if (link.key === undefined) link.key = null;
+				if (link.keypad == null) link.keypad = false;
+				if (link.passwordChar == null) link.passwordChar = '*';
+				if (link.encrypt == null) link.encrypt = false;
+				if (link.inputOnly == null) link.inputOnly = false;
+				break;
+
+			case 'pushDiscrete':
+				if (link.key === undefined) link.key = null;
+				break;
+
+			case 'pushAction':
+				if (link.key === undefined) link.key = null;
+				if (!isArray(link.scripts)) link.scripts = [];
+
+				for (var i = 0; i < link.scripts.length; i++)
+				{
+					var sc = link.scripts[i];
+
+					if (isPlainObject(sc))
+					{
+						if (sc.condition == null) sc.condition = 'onLeftDown';
+						if (sc.period == null) sc.period = 500;
+						if (sc.script == null) sc.script = '';
+					}
+				}
+
+				break;
+
+			case 'showWindow':
+			case 'hideWindow':
+				if (link.key === undefined) link.key = null;
+				if (!isArray(link.windows)) link.windows = [];
+				break;
+		}
+
+		if (COLOR_LINKS[type] === true && link.kind === 'analog' && !isArray(link.breakpoints))
+		{
+			link.breakpoints = [];
+		}
+
+		return link;
+	};
+
+	function defaultsLinks(obj)
+	{
+		obj = isPlainObject(obj) ? obj : {};
+
+		for (var type in obj)
+		{
+			if (Object.prototype.hasOwnProperty.call(obj, type))
+			{
+				defaultsLink(type, obj[type]);
+			}
+		}
+
+		return obj;
+	};
+
 	function defaults(kind, obj)
 	{
 		switch (kind)
@@ -288,6 +477,7 @@
 			case 'events': return defaultsEvents(obj);
 			case 'triggers': return defaultsTriggers(obj);
 			case 'animations': return defaultsAnimations(obj);
+			case 'links': return defaultsLinks(obj);
 			default: return obj;
 		}
 	};
@@ -726,6 +916,427 @@
 		}
 	};
 
+
+	// ---------------------------------------------------------------
+	// validate(): animation links
+	// ---------------------------------------------------------------
+
+	function isFiniteNumber(v)
+	{
+		return typeof v === 'number' && isFinite(v);
+	};
+
+	function checkNumbers(link, fields, path, errors)
+	{
+		for (var k in fields)
+		{
+			if (link[k] != null && !isFiniteNumber(link[k]))
+			{
+				errors.push(path + '.' + k + ': must be a number');
+			}
+		}
+	};
+
+	function checkStrings(link, fields, path, errors)
+	{
+		for (var i = 0; i < fields.length; i++)
+		{
+			if (link[fields[i]] != null && !isString(link[fields[i]]))
+			{
+				errors.push(path + '.' + fields[i] + ': must be a string');
+			}
+		}
+	};
+
+	function checkBooleans(link, fields, path, errors)
+	{
+		for (var i = 0; i < fields.length; i++)
+		{
+			if (link[fields[i]] != null && typeof link[fields[i]] !== 'boolean')
+			{
+				errors.push(path + '.' + fields[i] + ': must be a boolean');
+			}
+		}
+	};
+
+	function checkRequiredString(link, field, path, errors)
+	{
+		if (!isString(link[field]) || link[field].replace(/\s+/g, '') === '')
+		{
+			errors.push(path + '.' + field + ': required');
+		}
+	};
+
+	function validateLinkKey(key, path, errors)
+	{
+		if (key == null)
+		{
+			return;
+		}
+
+		if (!isPlainObject(key))
+		{
+			errors.push(path + ': must be an object or null');
+
+			return;
+		}
+
+		if (!isString(key.key) || key.key === '')
+		{
+			errors.push(path + '.key: required');
+		}
+
+		checkBooleans(key, ['ctrl', 'shift'], path, errors);
+	};
+
+	function validateLinkFormat(f, path, errors)
+	{
+		if (f == null)
+		{
+			return;
+		}
+
+		if (!isPlainObject(f))
+		{
+			errors.push(path + ': must be an object');
+
+			return;
+		}
+
+		if (f.mode != null && FORMAT_MODES.indexOf(f.mode) < 0)
+		{
+			errors.push(path + '.mode: must be one of ' + FORMAT_MODES.join('|'));
+		}
+
+		if (f.precision != null && !(isFiniteNumber(f.precision) && f.precision >= 0 && f.precision <= 8 &&
+			Math.floor(f.precision) === f.precision))
+		{
+			errors.push(path + '.precision: must be an integer 0..8');
+		}
+
+		var bits = ['bitsFrom', 'bitsTo'];
+
+		for (var i = 0; i < bits.length; i++)
+		{
+			var b = f[bits[i]];
+
+			if (b != null && !(isFiniteNumber(b) && b >= 0 && b <= 31 && Math.floor(b) === b))
+			{
+				errors.push(path + '.' + bits[i] + ': must be an integer 0..31');
+			}
+		}
+
+		checkBooleans(f, ['fixedWidth'], path, errors);
+	};
+
+	function validateColorLink(type, link, path, errors)
+	{
+		var kinds = ['discrete', 'analog', 'discreteAlarm', 'analogAlarm'];
+		var i;
+
+		if (kinds.indexOf(link.kind) < 0)
+		{
+			errors.push(path + '.kind: must be one of ' + kinds.join('|'));
+
+			return;
+		}
+
+		if (link.kind === 'discrete')
+		{
+			checkRequiredString(link, 'expr', path, errors);
+			checkStrings(link, ['offColor', 'onColor'], path, errors);
+		}
+		else if (link.kind === 'analog')
+		{
+			checkRequiredString(link, 'expr', path, errors);
+
+			if (link.breakpoints != null && !isArray(link.breakpoints))
+			{
+				errors.push(path + '.breakpoints: must be an array');
+			}
+			else if (isArray(link.breakpoints))
+			{
+				if (link.breakpoints.length > 10)
+				{
+					errors.push(path + '.breakpoints: at most 10 entries');
+				}
+
+				for (i = 0; i < link.breakpoints.length; i++)
+				{
+					var bp = link.breakpoints[i];
+					var bpPath = path + '.breakpoints[' + i + ']';
+
+					if (!isPlainObject(bp))
+					{
+						errors.push(bpPath + ': must be an object');
+						continue;
+					}
+
+					if (!isFiniteNumber(bp.value))
+					{
+						errors.push(bpPath + '.value: must be a number');
+					}
+					else if (i > 0 && isPlainObject(link.breakpoints[i - 1]) &&
+						isFiniteNumber(link.breakpoints[i - 1].value) && bp.value < link.breakpoints[i - 1].value)
+					{
+						errors.push(bpPath + '.value: breakpoints must be in ascending order');
+					}
+
+					if (!isString(bp.color))
+					{
+						errors.push(bpPath + '.color: must be a string');
+					}
+				}
+			}
+		}
+		else if (link.kind === 'discreteAlarm')
+		{
+			checkRequiredString(link, 'tag', path, errors);
+			checkStrings(link, ['normalColor', 'alarmColor'], path, errors);
+		}
+		else
+		{
+			checkRequiredString(link, 'tag', path, errors);
+
+			if (['value', 'deviation', 'roc'].indexOf(link.alarmType) < 0)
+			{
+				errors.push(path + '.alarmType: must be one of value|deviation|roc');
+			}
+			else if (link.colors != null && !isPlainObject(link.colors))
+			{
+				errors.push(path + '.colors: must be an object');
+			}
+			else if (isPlainObject(link.colors))
+			{
+				var keys = (link.alarmType === 'value') ? ['normal', 'lolo', 'lo', 'hi', 'hihi'] :
+					((link.alarmType === 'deviation') ? ['normal', 'minor', 'major'] : ['normal', 'roc']);
+
+				for (i = 0; i < keys.length; i++)
+				{
+					if (link.colors[keys[i]] != null && !isString(link.colors[keys[i]]))
+					{
+						errors.push(path + '.colors.' + keys[i] + ': must be a string');
+					}
+				}
+			}
+		}
+	};
+
+	function validateLink(type, link, path, errors)
+	{
+		var k;
+
+		if (!isPlainObject(link))
+		{
+			errors.push(path + ': must be an object');
+
+			return;
+		}
+
+		if (has(LINK_NUMBERS, type))
+		{
+			checkNumbers(link, LINK_NUMBERS[type], path, errors);
+		}
+
+		if (has(LINK_ENUMS, type))
+		{
+			for (k in LINK_ENUMS[type])
+			{
+				if (link[k] != null && LINK_ENUMS[type][k].indexOf(link[k]) < 0)
+				{
+					errors.push(path + '.' + k + ': must be one of ' + LINK_ENUMS[type][k].join('|'));
+				}
+			}
+		}
+
+		if (has(COLOR_LINKS, type))
+		{
+			validateColorLink(type, link, path, errors);
+
+			return;
+		}
+
+		switch (type)
+		{
+			case 'valueDiscrete':
+				checkRequiredString(link, 'expr', path, errors);
+				checkStrings(link, ['onMessage', 'offMessage'], path, errors);
+				break;
+
+			case 'valueAnalog':
+				checkRequiredString(link, 'expr', path, errors);
+				validateLinkFormat(link.format, path + '.format', errors);
+				break;
+
+			case 'valueString':
+			case 'locationH':
+			case 'locationV':
+			case 'orientation':
+			case 'sizeHeight':
+			case 'sizeWidth':
+			case 'visibility':
+			case 'disable':
+				checkRequiredString(link, 'expr', path, errors);
+				break;
+
+			case 'fillVertical':
+			case 'fillHorizontal':
+				checkRequiredString(link, 'expr', path, errors);
+				checkStrings(link, ['backgroundColor'], path, errors);
+				break;
+
+			case 'blink':
+				checkRequiredString(link, 'expr', path, errors);
+				checkStrings(link, ['textColor', 'lineColor', 'fillColor'], path, errors);
+				break;
+
+			case 'tooltip':
+				if (link.mode === 'expression')
+				{
+					checkRequiredString(link, 'expr', path, errors);
+				}
+				else if (link.text != null && !isString(link.text))
+				{
+					errors.push(path + '.text: must be a string');
+				}
+				else if (isString(link.text) && link.text.length > 131)
+				{
+					errors.push(path + '.text: at most 131 characters');
+				}
+
+				break;
+
+			case 'inputDiscrete':
+				checkRequiredString(link, 'tag', path, errors);
+				validateLinkKey(link.key, path + '.key', errors);
+				checkStrings(link, ['message', 'setPrompt', 'resetPrompt', 'onMessage', 'offMessage'], path, errors);
+				checkBooleans(link, ['inputOnly'], path, errors);
+				break;
+
+			case 'inputAnalog':
+				checkRequiredString(link, 'tag', path, errors);
+				validateLinkKey(link.key, path + '.key', errors);
+				checkStrings(link, ['message'], path, errors);
+				checkBooleans(link, ['keypad', 'inputOnly'], path, errors);
+				validateLinkFormat(link.format, path + '.format', errors);
+
+				var lim = ['min', 'max'];
+
+				for (var i = 0; i < lim.length; i++)
+				{
+					var lv = link[lim[i]];
+
+					if (lv != null && !isFiniteNumber(lv) && !(isString(lv) && lv.replace(/\s+/g, '') !== ''))
+					{
+						errors.push(path + '.' + lim[i] + ': must be a number or a tag name');
+					}
+				}
+
+				if (isFiniteNumber(link.min) && isFiniteNumber(link.max) && link.max <= link.min)
+				{
+					errors.push(path + '.max: must be greater than min');
+				}
+
+				break;
+
+			case 'inputString':
+				checkRequiredString(link, 'tag', path, errors);
+				validateLinkKey(link.key, path + '.key', errors);
+				checkStrings(link, ['message', 'passwordChar'], path, errors);
+				checkBooleans(link, ['keypad', 'encrypt', 'inputOnly'], path, errors);
+				break;
+
+			case 'sliderH':
+			case 'sliderV':
+				checkRequiredString(link, 'tag', path, errors);
+				break;
+
+			case 'pushDiscrete':
+				checkRequiredString(link, 'tag', path, errors);
+				validateLinkKey(link.key, path + '.key', errors);
+				break;
+
+			case 'pushAction':
+				validateLinkKey(link.key, path + '.key', errors);
+
+				if (link.scripts != null && !isArray(link.scripts))
+				{
+					errors.push(path + '.scripts: must be an array');
+				}
+				else if (isArray(link.scripts))
+				{
+					for (var s = 0; s < link.scripts.length; s++)
+					{
+						var sc = link.scripts[s];
+						var sp = path + '.scripts[' + s + ']';
+
+						if (!isPlainObject(sc))
+						{
+							errors.push(sp + ': must be an object');
+							continue;
+						}
+
+						if (LINK_CONDITIONS.indexOf(sc.condition) < 0)
+						{
+							errors.push(sp + '.condition: must be one of ' + LINK_CONDITIONS.join('|'));
+						}
+
+						if (sc.period != null && !(isFiniteNumber(sc.period) && sc.period > 0))
+						{
+							errors.push(sp + '.period: must be a positive number');
+						}
+
+						if (!isString(sc.script))
+						{
+							errors.push(sp + '.script: must be a string');
+						}
+					}
+				}
+
+				break;
+
+			case 'showWindow':
+			case 'hideWindow':
+				validateLinkKey(link.key, path + '.key', errors);
+
+				if (link.windows != null && !isArray(link.windows))
+				{
+					errors.push(path + '.windows: must be an array');
+				}
+				else if (isArray(link.windows))
+				{
+					for (var w = 0; w < link.windows.length; w++)
+					{
+						if (!isString(link.windows[w]) || link.windows[w] === '')
+						{
+							errors.push(path + '.windows[' + w + ']: must be a non-empty string');
+						}
+					}
+				}
+
+				break;
+		}
+	};
+
+	function validateLinks(obj, errors)
+	{
+		if (!isPlainObject(obj))
+		{
+			errors.push('links: must be an object');
+
+			return;
+		}
+
+		for (var type in obj)
+		{
+			if (Object.prototype.hasOwnProperty.call(obj, type) &&
+				(LINK_DISPLAY_EXPR.indexOf(type) >= 0 || LINK_TOUCH.indexOf(type) >= 0))
+			{
+				validateLink(type, obj[type], type, errors);
+			}
+		}
+	};
+
 	function validate(kind, obj)
 	{
 		var errors = [];
@@ -758,6 +1369,10 @@
 
 			case 'animations':
 				validateAnimations(obj, errors);
+				break;
+
+			case 'links':
+				validateLinks(obj, errors);
 				break;
 
 			default:

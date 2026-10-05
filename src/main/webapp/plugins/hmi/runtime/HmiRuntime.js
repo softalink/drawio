@@ -540,6 +540,11 @@
 					this.alarms.evaluate(names);
 				}
 
+				if (this.links != null)
+				{
+					this.links.update(names);
+				}
+
 				this.animator.tagsChanged(names);
 
 				if (this.initialized)
@@ -660,6 +665,16 @@
 		this.animator = new Hmi.Animator(this);
 		this.events = new Hmi.EventDispatcher(this);
 		this.bindings = new Hmi.BindingEngine(this);
+		this.links = (Hmi.LinkEngine != null) ? new Hmi.LinkEngine(this) : null;
+		this.linksAlarmListener = function(evt)
+		{
+			if (self.links != null && evt != null && evt.changed != null)
+			{
+				self.links.update(evt.changed);
+				self.requestFlush();
+			}
+		};
+		this.on('alarm', this.linksAlarmListener);
 
 		// Sources and simulator
 		var sim = (typeof urlParams !== 'undefined' && urlParams['hmi-sim'] != null) ?
@@ -724,6 +739,12 @@
 		this.applyTheme();
 		this.buildPage();
 		this.events.install();
+
+		if (this.links != null)
+		{
+			this.links.install();
+		}
+
 		this.installListeners();
 		this.system = new Hmi.System(this);
 		this.system.install();
@@ -891,6 +912,11 @@
 		this.applyRoles();
 		this.bindings.updateAll();
 
+		if (this.links != null)
+		{
+			this.links.build(index);
+		}
+
 		if (this.system != null)
 		{
 			this.system.alarmsChanged(null);
@@ -903,6 +929,12 @@
 
 		this.overlay.flush(false);
 		this.events.decorate();
+
+		if (this.links != null)
+		{
+			this.links.decorate();
+		}
+
 		this.requestFlush();
 	};
 
@@ -940,6 +972,12 @@
 	{
 		this.animator.stopAll();
 		this.triggers.reset();
+
+		if (this.links != null)
+		{
+			this.links.reset();
+		}
+
 		this.overlay.clear();
 		this.overlay.flush(false);
 	};
@@ -1181,6 +1219,14 @@
 			this.dom = null;
 		}
 		this.events.uninstall();
+
+		if (this.links != null)
+		{
+			this.links.closeAllWindows();
+			this.links.uninstall();
+			this.off('alarm', this.linksAlarmListener);
+		}
+
 		this.sources.stop();
 		this.simulator.stop();
 		this.animator.stopAll();

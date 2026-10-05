@@ -136,6 +136,24 @@
 			ly = y + h - lh;
 		}
 
+		// Combined vertical and horizontal percent fill (InTouch percent fill
+		// links): hmiLevelH is the horizontal percentage (0..100) and
+		// hmiLevelHDirection 'right' fills from the left, 'left' from the right
+		var hLevel = parseFloat(style.hmiLevelH);
+
+		if (!isNaN(hLevel) && (dir == 'up' || dir == 'down'))
+		{
+			var hf = Math.max(0, Math.min(1, hLevel / 100));
+
+			if (hf <= 0)
+			{
+				return;
+			}
+
+			lw = w * hf;
+			lx = (mxUtils.getValue(style, 'hmiLevelHDirection', 'right') == 'left') ? x + w - lw : x;
+		}
+
 		var count = rootNode.childNodes.length;
 
 		c.save();

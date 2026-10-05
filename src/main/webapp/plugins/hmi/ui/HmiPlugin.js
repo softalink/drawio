@@ -329,6 +329,8 @@
 			['hmiSources', 'SourcesDialog'],
 			['hmiTags', 'TagsDialog'],
 			['hmiTagBrowser', 'TagBrowser'],
+			['hmiAnimationLinks', 'LinksDialog'],
+			['hmiSubstituteTags', 'SubstituteTags'],
 			['hmiDiagnostics', 'Diagnostics'],
 			['hmiValidate', 'Validator']
 		];
@@ -347,6 +349,82 @@
 			})(optional[i][0], optional[i][1]);
 		}
 
+		ui.actions.addAction('hmiDefineMissingTags...', function()
+		{
+			if (Hmi.SubstituteTags != null)
+			{
+				Hmi.SubstituteTags.defineMissing(ui);
+			}
+		});
+
+		// Animation links and tag substitution work on the selection
+		var selectionActions = ['hmiAnimationLinks', 'hmiSubstituteTags'];
+
+		var updateSelectionActions = function()
+		{
+			var enabled = graph.isEnabled() && !graph.isSelectionEmpty();
+
+			for (var k = 0; k < selectionActions.length; k++)
+			{
+				var act = ui.actions.get(selectionActions[k]);
+
+				if (act != null)
+				{
+					act.setEnabled(enabled);
+				}
+			}
+		};
+
+		graph.getSelectionModel().addListener(mxEvent.CHANGE, updateSelectionActions);
+		updateSelectionActions();
+
+		// Context menu: Animation Links... and Substitute Tags...
+		var createPopupMenu = ui.menus.createPopupMenu;
+
+		ui.menus.createPopupMenu = function(menu, cell, evt)
+		{
+			createPopupMenu.apply(this, arguments);
+
+			if (graph.isEnabled() && !graph.isSelectionEmpty() && Hmi.LinksDialog != null)
+			{
+				menu.addSeparator();
+				menu.addItem(mxResources.get('hmiAnimationLinks') + '...', null, function()
+				{
+					Hmi.LinksDialog.show(ui, graph.getSelectionCells());
+				});
+
+				if (Hmi.SubstituteTags != null)
+				{
+					menu.addItem(mxResources.get('hmiSubstituteTags') + '...', null, function()
+					{
+						Hmi.SubstituteTags.show(ui, graph.getSelectionCells());
+					});
+				}
+			}
+		};
+
+		// Alt+double-click on a cell opens the Animation Links dialog
+		var dblClick = graph.dblClick;
+
+		graph.dblClick = function(evt, cell)
+		{
+			if (evt != null && cell != null && mxEvent.isAltDown(evt) && this.isEnabled() &&
+				Hmi.LinksDialog != null && (this.model.isVertex(cell) || this.model.isEdge(cell)))
+			{
+				if (!this.isCellSelected(cell))
+				{
+					this.setSelectionCell(cell);
+				}
+
+				Hmi.LinksDialog.show(ui, this.getSelectionCells());
+				mxEvent.consume(evt);
+
+				return;
+			}
+
+			dblClick.apply(this, arguments);
+		};
+
 		ui.actions.addAction('hmiDocs', function()
 		{
 			ui.openLink('https://github.com/softalink/drawio/blob/claude/confident-gates-rqzs24/docs/hmi/USER_GUIDE.md');
@@ -355,12 +433,13 @@
 		ui.menus.put('hmi', new Menu(function(menu, parent)
 		{
 			ui.menus.addMenuItems(menu, ['hmiLivePreview', 'hmiInteractive', 'hmiSimulate',
-				'hmiRun', '-', 'hmiSources...', 'hmiTags...', 'hmiTagBrowser...',
-				'hmiDiagnostics...', 'hmiValidate...'], parent);
+				'hmiRun', '-', 'hmiSources', 'hmiTags', 'hmiTagBrowser', '-',
+				'hmiAnimationLinks', 'hmiSubstituteTags', 'hmiDefineMissingTags', '-',
+				'hmiDiagnostics', 'hmiValidate'], parent);
 
-			if (ui.actions.get('hmiImportMeta2d...') != null)
+			if (ui.actions.get('hmiImportMeta2d') != null)
 			{
-				ui.menus.addMenuItems(menu, ['-', 'hmiImportMeta2d...', 'hmiExportHtml...'], parent);
+				ui.menus.addMenuItems(menu, ['-', 'hmiImportMeta2d', 'hmiExportHtml'], parent);
 			}
 
 			ui.menus.addMenuItems(menu, ['-', 'hmiDocs'], parent);

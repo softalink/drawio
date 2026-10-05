@@ -17,6 +17,235 @@
 		return (q == 'bad') ? '#C62828' : (q == 'stale') ? '#F9A825' : '#2E7D32';
 	};
 
+	/**
+	 * Returns true if the name matches the filter. A filter without
+	 * wildcards is a case-insensitive substring match; with the InTouch
+	 * wildcards * (any run of characters) and ? (one character) it has to
+	 * match the whole name (page 81).
+	 */
+	TagBrowser.matches = function(name, filter)
+	{
+		if (filter == null || filter === '')
+		{
+			return true;
+		}
+
+		if (filter.indexOf('*') < 0 && filter.indexOf('?') < 0)
+		{
+			return name.toLowerCase().indexOf(filter.toLowerCase()) >= 0;
+		}
+
+		var re = '^' + filter.replace(/[\\^$.+()|{}\[\]]/g, '\\$&').replace(/\*/g, '.*').
+			replace(/\?/g, '.') + '$';
+
+		try
+		{
+			return new RegExp(re, 'i').test(name);
+		}
+		catch (e)
+		{
+			return false;
+		}
+	};
+
+	/**
+	 * Fills the container with the (filtered) tags of the catalogue as a
+	 * list (names only) or details (name, type, unit, description) view.
+	 * opts = {filter, view: 'list'|'details', selected, onSelect(name),
+	 * onPick(name)}. Returns the number of matching tags.
+	 */
+	TagBrowser.renderPicker = function(ui, container, opts)
+	{
+		container.innerHTML = '';
+		var defs = {};
+
+		try
+		{
+			var cfg = Hmi.Model.getEffectiveConfig(ui);
+
+			for (var i = 0; i < cfg.tags.length; i++)
+			{
+				defs[cfg.tags[i].name] = cfg.tags[i];
+			}
+		}
+		catch (e)
+		{
+			// ignore
+		}
+
+		var names = Hmi.Editors.getKnownTags(ui).filter(function(n)
+		{
+			return TagBrowser.matches(n, opts.filter);
+		});
+		var rowEls = {};
+		var parent = container;
+
+		if (opts.view == 'details')
+		{
+			var table = document.createElement('table');
+			table.className = 'geHmiPickTable';
+			var head = document.createElement('tr');
+
+			[mxResources.get('name'), mxResources.get('hmiType'), mxResources.get('hmiUnit'),
+				mxResources.get('hmiDescription')].forEach(function(t)
+			{
+				var th = document.createElement('th');
+				mxUtils.write(th, t);
+				head.appendChild(th);
+			});
+
+			table.appendChild(head);
+			container.appendChild(table);
+			parent = table;
+		}
+		else
+		{
+			parent = document.createElement('div');
+			parent.className = 'geHmiPickList';
+			container.appendChild(parent);
+		}
+
+		function select(name)
+		{
+			for (var key in rowEls)
+			{
+				rowEls[key].className = rowEls[key].className.replace(/ ?geHmiSel/, '');
+			}
+
+			if (rowEls[name] != null)
+			{
+				rowEls[name].className += ' geHmiSel';
+			}
+
+			opts.selected = name;
+
+			if (opts.onSelect != null)
+			{
+				opts.onSelect(name);
+			}
+		};
+
+		names.forEach(function(name)
+		{
+			var def = defs[name] || {};
+			var el = document.createElement(opts.view == 'details' ? 'tr' : 'div');
+			el.className = 'geHmiPickRow';
+
+			if (opts.view == 'details')
+			{
+				[name, def.type || '', def.unit || '', def.description || ''].forEach(function(t)
+				{
+					var td = document.createElement('td');
+					mxUtils.write(td, t);
+					el.appendChild(td);
+				});
+			}
+			else
+			{
+				mxUtils.write(el, name);
+			}
+
+			mxEvent.addListener(el, 'click', function()
+			{
+				select(name);
+			});
+
+			mxEvent.addListener(el, 'dblclick', function()
+			{
+				select(name);
+
+				if (opts.onPick != null)
+				{
+					opts.onPick(name);
+				}
+			});
+
+			rowEls[name] = el;
+			parent.appendChild(el);
+		});
+
+		if (names.length == 0)
+		{
+			var empty = document.createElement('div');
+			empty.className = 'geDialogHint';
+			empty.style.padding = '8px';
+			mxUtils.write(empty, mxResources.get('hmiNoItems'));
+			container.appendChild(empty);
+		}
+
+		if (opts.selected != null)
+		{
+			select(opts.selected);
+		}
+
+		return names.length;
+	};
+
+	/**
+	 * Select mode: shows a modal dialog with a wildcard filter (* and ?)
+	 * and list/details views, and calls callback(name) with the chosen tag
+	 * name. opts = {filter, selected, title}.
+	 */
+	TagBrowser.select = function(ui, callback, opts)
+	{
+		opts = opts || {};
+		Hmi.Editors.installStyle();
+		var div = document.createElement('div');
+		var hd = document.createElement('h3');
+		mxUtils.write(hd, opts.title || mxResources.get('hmiSelectTag'));
+		div.appendChild(hd);
+
+		var section = document.createElement('div');
+		section.className = 'geDialogSection';
+		div.appendChild(section);
+
+		var filterRow = Hmi.Editors.row(section, mxResources.get('hmiFilter') + ':');
+		var filter = Hmi.Editors.textInput(opts.filter || '', mxResources.get('hmiFilterHint'));
+		filterRow.appendChild(filter);
+
+		var viewRow = Hmi.Editors.row(section, mxResources.get('hmiView') + ':');
+		var view = Hmi.Editors.select([{value: 'list', label: mxResources.get('hmiViewList')},
+			{value: 'details', label: mxResources.get('hmiViewDetails')}], 'details');
+		viewRow.appendChild(view);
+
+		var listWrap = document.createElement('div');
+		listWrap.className = 'geHmiPick';
+		listWrap.style.height = '240px';
+		section.appendChild(listWrap);
+
+		var chosen = opts.selected || null;
+		var dlg = null;
+
+		function render()
+		{
+			TagBrowser.renderPicker(ui, listWrap, {filter: filter.value, view: view.value,
+				selected: chosen, onSelect: function(name)
+				{
+					chosen = name;
+				}, onPick: function(name)
+				{
+					chosen = name;
+					dlg.okButton.click();
+				}});
+		};
+
+		mxEvent.addListener(filter, 'input', render);
+		mxEvent.addListener(view, 'change', render);
+		render();
+
+		dlg = new CustomDialog(ui, div, function()
+		{
+			if (chosen != null)
+			{
+				callback(chosen);
+			}
+		}, null, mxResources.get('ok'));
+		ui.showDialog(dlg.container, 460, null, true, true);
+		filter.focus();
+
+		return dlg;
+	};
+
 	TagBrowser.show = function(ui)
 	{
 		if (ui.hmiTagBrowserWindow != null)
@@ -29,11 +258,21 @@
 		var div = document.createElement('div');
 		div.style.cssText = 'overflow:hidden;padding:6px;box-sizing:border-box;';
 
+		var searchRow = document.createElement('div');
+		searchRow.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;';
+		div.appendChild(searchRow);
+
 		var search = document.createElement('input');
 		search.setAttribute('type', 'text');
-		search.setAttribute('placeholder', mxResources.get('search') || 'Search');
-		search.style.cssText = 'width:100%;box-sizing:border-box;margin-bottom:6px;';
-		div.appendChild(search);
+		search.setAttribute('placeholder', mxResources.get('hmiFilterHint'));
+		search.style.cssText = 'flex:1;min-width:0;box-sizing:border-box;';
+		searchRow.appendChild(search);
+
+		var viewSelect = Hmi.Editors.select([
+			{value: 'details', label: mxResources.get('hmiViewDetails')},
+			{value: 'list', label: mxResources.get('hmiViewList')}], 'details');
+		viewSelect.style.cssText = 'flex:0 0 auto;';
+		searchRow.appendChild(viewSelect);
 
 		var tableWrap = document.createElement('div');
 		tableWrap.style.cssText = 'overflow-y:auto;height:280px;';
@@ -95,9 +334,10 @@
 		{
 			table.innerHTML = '';
 			rows = {};
-			var filter = search.value.toLowerCase();
+			var filter = search.value;
 			var list = getRows();
 			var rt = ui.hmi != null ? ui.hmi.getRuntime() : null;
+			var listView = (viewSelect.value == 'list');
 
 			var head = document.createElement('tr');
 
@@ -110,13 +350,17 @@
 				mxUtils.write(th, t);
 				head.appendChild(th);
 			});
-			table.appendChild(head);
+
+			if (!listView)
+			{
+				table.appendChild(head);
+			}
 
 			for (var i = 0; i < list.length; i++)
 			{
 				var item = list[i];
 
-				if (filter !== '' && item.name.toLowerCase().indexOf(filter) < 0)
+				if (!TagBrowser.matches(item.name, filter))
 				{
 					continue;
 				}
@@ -140,6 +384,15 @@
 				nameTd.style.cssText = 'padding:2px 6px;';
 				mxUtils.write(nameTd, item.name);
 				tr.appendChild(nameTd);
+
+				if (listView)
+				{
+					nameTd.style.display = 'inline-block';
+					nameTd.style.width = '130px';
+					tr.style.display = 'inline-block';
+					table.appendChild(tr);
+					continue;
+				}
 
 				var valueTd = document.createElement('td');
 				valueTd.style.cssText = 'padding:2px 6px;cursor:pointer;';
@@ -202,6 +455,7 @@
 		};
 
 		mxEvent.addListener(search, 'input', render);
+		mxEvent.addListener(viewSelect, 'change', render);
 		render();
 
 		var lastRefresh = 0;

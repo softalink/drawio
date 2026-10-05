@@ -20,11 +20,32 @@
         "quality": { "enum": ["outline", "none"], "default": "outline" },
         "theme": { "enum": ["default", "isa101"], "default": "default" },
         "width": { "type": "number" },
-        "height": { "type": "number" }
+        "height": { "type": "number" },
+        "blink": {
+          "type": "object",
+          "description": "Blink half-periods in ms for InTouch blink links (INTOUCH_LINKS.md §7).",
+          "properties": {
+            "slow": { "type": "number", "default": 1000 },
+            "medium": { "type": "number", "default": 500 },
+            "fast": { "type": "number", "default": 250 }
+          }
+        }
       },
       "additionalProperties": true
     },
-    "scripts": { "enum": ["inherit", "off"], "default": "inherit" }
+    "scripts": { "enum": ["inherit", "off"], "default": "inherit" },
+    "window": {
+      "type": "object",
+      "description": "InTouch window type of this page (INTOUCH_LINKS.md §8).",
+      "properties": {
+        "type": { "enum": ["replace", "overlay", "popup"], "default": "replace" },
+        "x": { "type": ["number", "null"] },
+        "y": { "type": ["number", "null"] },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "title": { "type": "string" }
+      }
+    }
   },
   "additionalProperties": true
 }

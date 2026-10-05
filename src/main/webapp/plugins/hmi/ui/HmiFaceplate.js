@@ -10,7 +10,12 @@
  * through the real writer/sources/scripts of the owning runtime.
  *
  * Limitation: animations are not driven inside faceplates (no rAF loop);
- * bindings and click actions work fully.
+ * bindings, InTouch animation links and click actions work fully.
+ *
+ * action = {title, width, height, x, y, screen: {x, y, anchor}, windowType}
+ * where x/y are the window's top-left screen position and screen places the
+ * window centre ('center') or top-left corner ('topleft') at a screen point
+ * (ShowAt/ShowTopLeftAt, INTOUCH_LINKS.md §8). windowType 'popup' is modal.
  */
 (function()
 {
@@ -77,6 +82,7 @@
 		};
 
 		var proxy = Object.create(rt);
+		proxy.mainRuntime = rt.mainRuntime || rt;
 		proxy.graph = graph;
 		proxy.overlay = overlay;
 		proxy.index = Hmi.Model.scan(graph);
@@ -95,10 +101,17 @@
 
 		proxy.bindings = new Hmi.BindingEngine(proxy);
 		proxy.bindings.build(proxy.index);
+		proxy.links = (Hmi.LinkEngine != null) ? new Hmi.LinkEngine(proxy) : null;
 		proxy.events = new Hmi.EventDispatcher(proxy);
 		proxy.actions = new Hmi.Actions(proxy);
 		proxy.events.install();
 		proxy.events.decorate();
+
+		if (proxy.links != null)
+		{
+			proxy.links.build(proxy.index);
+			proxy.links.install();
+		}
 
 		var updateAll = function()
 		{
@@ -110,6 +123,12 @@
 			}
 
 			proxy.bindings.update(names);
+
+			if (proxy.links != null)
+			{
+				proxy.links.update(names);
+			}
+
 			overlay.flush(false);
 		};
 		updateAll();
@@ -117,25 +136,62 @@
 		var tagsListener = function(names)
 		{
 			proxy.bindings.update(names);
+
+			if (proxy.links != null)
+			{
+				proxy.links.update(names);
+			}
+
 			overlay.flush(false);
 		};
 		rt.on('tags', tagsListener);
 
+		var alarmListener = function(evt)
+		{
+			if (proxy.links != null && evt != null && evt.changed != null)
+			{
+				proxy.links.update(evt.changed);
+				overlay.flush(false);
+			}
+		};
+		rt.on('alarm', alarmListener);
+
 		graph.fit(30);
 		graph.view.setTranslate(30, 30);
+
+		if (proxy.links != null)
+		{
+			proxy.links.decorate();
+		}
 
 		var title = (action != null && action.title != null) ? action.title : page.getName();
 		var width = (action != null && action.width) || 480;
 		var height = (action != null && action.height) || 360;
 
-		var x = Math.max(0, (document.body.offsetWidth - width) / 2 + (seq % 5) * 24);
-		var y = Math.max(40, (document.body.offsetHeight - height) / 3 + (seq % 5) * 24);
-		seq++;
+		var pos = Faceplate.getPosition(action, width, height);
 
-		var wnd = new mxWindow(title, container, x, y, width, height, true, true);
+		var wnd = new mxWindow(title, container, pos.x, pos.y, width, height, true, true);
 		wnd.setMaximizable(true);
 		wnd.setResizable(true);
 		wnd.setClosable(true);
+		wnd.destroyOnClose = true;
+		proxy.faceplateWindow = wnd;
+		wnd.hmiRuntime = proxy;
+
+		// Popup windows are modal (InTouch popup window type)
+		var backdrop = null;
+
+		if (action != null && action.windowType == 'popup')
+		{
+			backdrop = document.createElement('div');
+			backdrop.className = 'geHmiPopupBackdrop';
+			var z = parseInt(wnd.div.style.zIndex) || 3;
+			backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.15);' +
+				'z-index:' + z + ';';
+			wnd.div.style.zIndex = z + 1;
+			document.body.appendChild(backdrop);
+		}
+
 		wnd.setVisible(true);
 
 		wnd.addListener('resize', function()
@@ -144,14 +200,67 @@
 			graph.fit(30);
 		});
 
-		wnd.addListener('close', function()
+		var closed = false;
+		var cleanup = function()
 		{
-			rt.off('tags', tagsListener);
-			proxy.events.uninstall();
-			graph.destroy();
-		});
+			if (!closed)
+			{
+				closed = true;
+				rt.off('tags', tagsListener);
+				rt.off('alarm', alarmListener);
+				proxy.events.uninstall();
+
+				if (proxy.links != null)
+				{
+					proxy.links.uninstall();
+				}
+
+				if (backdrop != null && backdrop.parentNode != null)
+				{
+					backdrop.parentNode.removeChild(backdrop);
+				}
+
+				graph.destroy();
+			}
+		};
+
+		wnd.addListener(mxEvent.CLOSE, cleanup);
+		wnd.addListener(mxEvent.DESTROY, cleanup);
 
 		return wnd;
+	};
+
+	/**
+	 * Returns the top-left screen position of a new window.
+	 */
+	Faceplate.getPosition = function(action, width, height)
+	{
+		var x = null;
+		var y = null;
+
+		if (action != null && action.screen != null)
+		{
+			var anchor = action.screen.anchor || 'center';
+			x = (anchor == 'topleft') ? action.screen.x : action.screen.x - width / 2;
+			y = (anchor == 'topleft') ? action.screen.y : action.screen.y - height / 2;
+		}
+		else if (action != null && action.x != null && action.y != null &&
+			!isNaN(parseFloat(action.x)) && !isNaN(parseFloat(action.y)))
+		{
+			x = parseFloat(action.x);
+			y = parseFloat(action.y);
+		}
+
+		if (x == null || y == null)
+		{
+			var vw = window.innerWidth || document.body.offsetWidth;
+			var vh = window.innerHeight || document.body.offsetHeight;
+			x = (vw - width) / 2 + (seq % 5) * 24;
+			y = Math.max(40, (vh - height) / 3 + (seq % 5) * 24);
+			seq++;
+		}
+
+		return {x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y))};
 	};
 
 	Faceplate.showUrl = function(rt, url, action)

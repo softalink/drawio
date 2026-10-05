@@ -278,7 +278,7 @@ Source instances call `mgr.receive(source, message, ctx)`. This runs the parser 
 
 ### 3.4 `Hmi.Overlay` (runtime/HmiOverlay.js, DOM-bound; owned by the runtime)
 
-The overlay is layered. Precedence from low to high: `binding` < `trigger` < `action` < `anim`.
+The overlay is layered. Precedence from low to high: `binding` < `link` < `trigger` < `action` < `anim` < `blink`. The `link` and `blink` layers belong to the InTouch animation links (`INTOUCH_LINKS.md` §7).
 
 ```
 setStyle(cellId, key, value, layer)       // value null → remove
@@ -338,6 +338,15 @@ Hmi.ScriptHost({policy: 'off'|'prompt'|'on', timeout: 50}): run(code, args, api)
   - plays the optional alarm sound (`runtime.alarmSound` or `DRAWIO_CONFIG.hmi.alarmSound`: `true` or a maximum severity number)
   - publishes acknowledgements to `runtime.ackTarget = {source, topic, payload, url, method}`
 - **`Hmi.DomWidgets(rt)`** (runtime/HmiDomWidgets.js) positions runtime-only DOM elements over `mxgraph.hmi.iframe|video|echarts` cells. Its lifecycle is `install()`, `refresh()` (after each page build) and `uninstall()`.
+- **`Hmi.LinkEngine(rt)`** (runtime/HmiLinkEngine.js) runs the InTouch animation links of cells with an `hmiLinks` attribute (`INTOUCH_LINKS.md`). It provides:
+  - `build(index)` and `update(names)`: display links into overlay layer `link`
+  - synchronised blinking in layer `blink`
+  - touch-link handlers called by `Hmi.EventDispatcher`: `mouseDown`, `mouseUp`, `dragMove`, `click`, `dblClick`, `hover`, `isDisabled`, `findTouch`
+  - key equivalents (one document listener for all engines; the newest engine wins)
+  - the QuickScript API, and pages as replace / overlay / popup windows through `Hmi.Faceplate`
+
+  Faceplates get their own engine on the proxy runtime.
+- **`Hmi.Keypad`** (runtime/HmiKeypad.js) is the on-screen numeric keypad, keyboard and choice modal: `numeric(opts)`, `keyboard(opts)` and `choice(title, labels)`, which return Promises.
 - **`Hmi.Viewer`** (viewer/HmiViewer.js, only in `js/hmi-viewer.min.js`) adapts a `GraphViewer` to the runtime. It supplies `ViewerUi`, which provides the subset of `EditorUi` the runtime uses:
   - `editor.graph`, `editor.addListener`
   - `pages`, `currentPage`, `selectPage`, `updatePageRoot`

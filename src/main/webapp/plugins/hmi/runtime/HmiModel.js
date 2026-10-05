@@ -36,6 +36,54 @@
 	 */
 	Model.DOC_ATTR = 'hmi';
 
+	/**
+	 * Name of the animation links attribute (INTOUCH_LINKS.md §2): a JSON
+	 * object keyed by link type, not an array.
+	 */
+	Model.LINKS_ATTR = 'hmiLinks';
+
+	/**
+	 * Parses the links attribute. Returns {} when absent or invalid.
+	 */
+	function parseLinks(json)
+	{
+		if (json == null || json === '')
+		{
+			return {};
+		}
+
+		var obj = null;
+
+		try
+		{
+			obj = JSON.parse(json);
+		}
+		catch (e)
+		{
+			return {};
+		}
+
+		if (obj == null || typeof obj !== 'object' || obj.length != null)
+		{
+			return {};
+		}
+
+		try
+		{
+			if (Hmi.Schema != null && Hmi.Schema.defaults != null &&
+				Hmi.Schema.validate('links', {}).join(' ').indexOf('unknown schema kind') < 0)
+			{
+				obj = Hmi.Schema.defaults('links', obj) || obj;
+			}
+		}
+		catch (e2)
+		{
+			// schema for links not available: keep the parsed object
+		}
+
+		return obj;
+	};
+
 	function getAttr(cell, name)
 	{
 		return (cell != null && cell.value != null && typeof cell.value === 'object' &&
@@ -114,12 +162,13 @@
 	};
 
 	/**
-	 * Returns {bindings, events, triggers, animations, roles} for the cell.
-	 * Missing entries are empty arrays.
+	 * Returns {bindings, events, triggers, animations, roles, links} for the
+	 * cell. Missing entries are empty arrays (links: empty object).
 	 */
 	Model.getCellConfig = function(cell)
 	{
-		var result = {bindings: [], events: [], triggers: [], animations: [], roles: []};
+		var result = {bindings: [], events: [], triggers: [], animations: [], roles: [],
+			links: parseLinks(getAttr(cell, Model.LINKS_ATTR))};
 
 		for (var attr in Model.CELL_ATTRS)
 		{
@@ -159,13 +208,15 @@
 			}
 		}
 
-		return false;
+		var links = getAttr(cell, Model.LINKS_ATTR);
+
+		return links != null && links !== '' && links !== '{}';
 	};
 
 	/**
 	 * Sets one per-cell configuration list (undoable). Empty lists remove
 	 * the attribute. key is one of bindings, events, triggers, animations
-	 * or roles (array of strings).
+	 * or roles (array of strings), or links (object; empty removes it).
 	 */
 	Model.setCellConfig = function(graph, cells, key, value)
 	{
@@ -173,7 +224,14 @@
 			key.charAt(0).toUpperCase() + key.substring(1);
 		var str = null;
 
-		if (value != null && value.length > 0)
+		if (key == 'links')
+		{
+			if (value != null && typeof value === 'object' && Object.keys(value).length > 0)
+			{
+				str = JSON.stringify(value);
+			}
+		}
+		else if (value != null && value.length > 0)
 		{
 			str = (key == 'roles') ? value.join(',') : JSON.stringify(value);
 		}
@@ -388,7 +446,7 @@
 	 * Builds the runtime index for the current page of the graph.
 	 *
 	 * index = {cells: {id: {cell, bindings, events, triggers, animations,
-	 *   roles}}, tagToCells: {tag: [ids]}, tags: {tag: true}, errors: []}
+	 *   roles, links}}, tagToCells: {tag: [ids]}, tags: {tag: true}, errors: []}
 	 */
 	Model.scan = function(graph)
 	{
@@ -458,6 +516,25 @@
 					if (params != null && params.rpmTag != null)
 					{
 						addTag(params.rpmTag, cell.id);
+					}
+				}
+
+				if (Hmi.Links != null && Hmi.Links.refs != null && cfg.links != null)
+				{
+					var linkRefs = [];
+
+					try
+					{
+						linkRefs = Hmi.Links.refs(cfg.links) || [];
+					}
+					catch (e)
+					{
+						linkRefs = [];
+					}
+
+					for (var j = 0; j < linkRefs.length; j++)
+					{
+						addTag(linkRefs[j], cell.id);
 					}
 				}
 			}

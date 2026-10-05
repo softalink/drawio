@@ -108,6 +108,12 @@
 		var model = this.rt.graph.model;
 		var current = cell;
 
+		// Cells disabled by an InTouch disable link ignore HMI events
+		if (this.rt.links != null && this.rt.links.isDisabled(cell))
+		{
+			return false;
+		}
+
 		while (current != null && current != model.getRoot())
 		{
 			var handlers = this.getHandlers(current, name);
@@ -331,6 +337,9 @@
 					self.pressStart = Date.now();
 					self.pressX = me.getX();
 					self.pressY = me.getY();
+
+					// InTouch touch links run before HMI events
+					var linked = rt.links != null && rt.links.mouseDown(cell, me);
 					self.fire(cell, 'mousedown');
 					self.widgetMouseDown(cell, me);
 
@@ -349,7 +358,7 @@
 						}
 					}, LONGPRESS_MS);
 
-					if (self.isHandled(cell))
+					if (linked || self.isHandled(cell))
 					{
 						me.consume();
 					}
@@ -364,7 +373,11 @@
 
 				self.updateHover(self.getEventCell(me));
 
-				if (self.dragging != null)
+				if (rt.links != null && rt.links.dragMove(me))
+				{
+					me.consume();
+				}
+				else if (self.dragging != null)
 				{
 					self.widgetDrag(me);
 					me.consume();
@@ -389,6 +402,16 @@
 				{
 					self.widgetDragEnd(me);
 					me.consume();
+				}
+
+				if (rt.links != null && rt.links.drag != null)
+				{
+					me.consume();
+				}
+
+				if (rt.links != null)
+				{
+					rt.links.mouseUp(me);
 				}
 
 				if (self.pressed != null)
@@ -500,7 +523,9 @@
 	EventDispatcher.prototype.handleClick = function(cell)
 	{
 		var now = Date.now();
-		var handled = this.fire(cell, 'click');
+		var links = this.rt.links;
+		var linked = links != null && links.click(cell);
+		var handled = this.fire(cell, 'click') || linked;
 
 		if (!handled)
 		{
@@ -509,6 +534,11 @@
 
 		if (this.lastClickCell == cell && now - this.lastClickTime < EventDispatcher.DBLCLICK_DELAY)
 		{
+			if (links != null && links.dblClick(cell))
+			{
+				handled = true;
+			}
+
 			handled = this.fire(cell, 'dblclick') || handled;
 			this.lastClickCell = null;
 		}
@@ -528,6 +558,18 @@
 	{
 		var model = this.rt.graph.model;
 		var current = cell;
+
+		if (this.rt.links != null)
+		{
+			if (this.rt.links.isDisabled(cell))
+			{
+				return false;
+			}
+			else if (this.rt.links.findTouch(cell) != null)
+			{
+				return true;
+			}
+		}
 
 		while (current != null)
 		{
@@ -566,12 +608,19 @@
 			this.fire(cell, 'enter');
 		}
 
-		// Pointer cursor for interactive cells
+		if (this.rt.links != null)
+		{
+			this.rt.links.hover(cell);
+		}
+
+		// Pointer cursor for interactive cells, not-allowed for disabled ones
 		var container = this.rt.graph.container;
 
 		if (container != null)
 		{
-			container.style.cursor = (cell != null && this.isHandled(cell)) ? 'pointer' : '';
+			container.style.cursor = (cell != null && this.rt.links != null &&
+				this.rt.links.isDisabled(cell) && this.rt.links.findTouchIgnoreDisabled(cell)) ?
+				'not-allowed' : ((cell != null && this.isHandled(cell)) ? 'pointer' : '');
 		}
 	};
 
@@ -595,6 +644,11 @@
 			}
 
 			if (mxUtils.getValue(state.style, 'hmiDisabled', '0') == '1')
+			{
+				return null;
+			}
+
+			if (this.rt.links != null && this.rt.links.isDisabled(cell))
 			{
 				return null;
 			}
@@ -932,7 +986,9 @@
 
 		if (evt.keyCode == 13 || evt.keyCode == 32)
 		{
-			if (!this.fire(cell, 'click'))
+			var linked = this.rt.links != null && this.rt.links.click(cell);
+
+			if (!this.fire(cell, 'click') && !linked)
 			{
 				this.widgetClick(cell);
 			}

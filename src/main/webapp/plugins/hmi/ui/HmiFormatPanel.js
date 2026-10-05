@@ -192,6 +192,31 @@
 		btn3.style.marginTop = '4px';
 		div.appendChild(btn3);
 
+		var btnSub = mxUtils.button(mxResources.get('hmiSubstituteTags') + '...', function()
+		{
+			if (Hmi.SubstituteTags != null)
+			{
+				Hmi.SubstituteTags.show(ui, []);
+			}
+		});
+		btnSub.className = 'geFullWidthElement';
+		btnSub.style.display = 'block';
+		btnSub.style.marginTop = '4px';
+		btnSub.setAttribute('title', mxResources.get('hmiSubstituteHintPage').replace('{1}', ''));
+		div.appendChild(btnSub);
+
+		var btnDef = mxUtils.button(mxResources.get('hmiDefineMissingTags') + '...', function()
+		{
+			if (Hmi.SubstituteTags != null)
+			{
+				Hmi.SubstituteTags.defineMissing(ui);
+			}
+		});
+		btnDef.className = 'geFullWidthElement';
+		btnDef.style.display = 'block';
+		btnDef.style.marginTop = '4px';
+		div.appendChild(btnDef);
+
 		this.addDocTriggersSection(div);
 
 		var previewAction = ui.actions.get('hmiLivePreview');
@@ -268,6 +293,7 @@
 
 		this.container.appendChild(div);
 
+		this.addLinksSection(div, cells);
 		this.addQuickAdd(div, cells);
 		this.addListSection(div, cells, 'bindings', mxResources.get('hmiBindings'),
 			function(b)
@@ -327,6 +353,70 @@
 		if (cell.getEdge != null || graph.model.isEdge(cell))
 		{
 			this.addFlowSection(div, cells);
+		}
+	};
+
+	/**
+	 * Animation Links (INTOUCH_LINKS.md §10): summary of the configured
+	 * links of the first selected cell and the button that opens the
+	 * Animation Links dialog for all selected cells.
+	 */
+	HmiFormatPanel.prototype.addLinksSection = function(div, cells)
+	{
+		var ui = this.editorUi;
+
+		if (Hmi.LinksDialog == null)
+		{
+			return;
+		}
+
+		Hmi.Editors.installStyle();
+		var section = this.createCollapsibleSection(mxResources.get('hmiAnimationLinks'), false);
+		div.appendChild(section.wrapper);
+		var content = section.contentDiv;
+		content.style.padding = '6px 0';
+		var lines = Hmi.LinksDialog.summary(Hmi.Model.getCellConfig(cells[0]).links);
+		var list = document.createElement('div');
+		list.className = 'geHmiSummary';
+		list.setAttribute('data-role', 'links-summary');
+
+		if (lines.length == 0)
+		{
+			var none = document.createElement('div');
+			none.className = 'geDialogHint';
+			mxUtils.write(none, mxResources.get('hmiLnkNoLinks'));
+			list.appendChild(none);
+		}
+
+		for (var i = 0; i < lines.length; i++)
+		{
+			var line = document.createElement('div');
+			line.setAttribute('title', lines[i]);
+			mxUtils.write(line, lines[i]);
+			list.appendChild(line);
+		}
+
+		content.appendChild(list);
+
+		var btn = mxUtils.button(mxResources.get('hmiAnimationLinks') + '...', function()
+		{
+			Hmi.LinksDialog.show(ui, cells);
+		});
+		btn.className = 'geFullWidthElement';
+		btn.style.display = 'block';
+		btn.setAttribute('data-role', 'links-button');
+		content.appendChild(btn);
+
+		if (Hmi.SubstituteTags != null)
+		{
+			var btn2 = mxUtils.button(mxResources.get('hmiSubstituteTags') + '...', function()
+			{
+				Hmi.SubstituteTags.show(ui, cells);
+			});
+			btn2.className = 'geFullWidthElement';
+			btn2.style.display = 'block';
+			btn2.style.marginTop = '4px';
+			content.appendChild(btn2);
 		}
 	};
 
@@ -896,6 +986,11 @@
 			}
 
 			format.hmiTabActive = (target == label);
+
+			if (Hmi.LinksDialog != null)
+			{
+				Hmi.LinksDialog.decorate(ui, format.hmiTabActive);
+			}
 		};
 
 		mxEvent.addListener(titleContainer, 'click', function(evt)
@@ -967,7 +1062,7 @@
 	// ---------------------------------------------------------------
 
 	var HIDDEN_ATTRS = {hmiBindings: true, hmiEvents: true, hmiTriggers: true,
-		hmiAnimations: true, hmiRoles: true, hmi: true};
+		hmiAnimations: true, hmiRoles: true, hmiLinks: true, hmi: true};
 
 	FormatPanel.installEditDataFilter = function(ui)
 	{

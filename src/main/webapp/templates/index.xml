@@ -132,6 +132,7 @@
 <template url="hmi/tank_farm.xml" name="Tank Farm" tags="Hmi;Scada;Tank;Farm;Storage;Level;Valve;Alarm"/>
 <template url="hmi/motor_control_center.xml" name="Motor Control Center" tags="Hmi;Scada;Motor;Control;Center;Mcc;Starter;Faceplate"/>
 <template url="hmi/building_hvac.xml" name="Building HVAC" tags="Hmi;Scada;Building;Hvac;Ahu;Isa101;Fan;Damper"/>
+<template url="hmi/intouch_links_demo.xml" name="InTouch Animation Links" tags="Hmi;Scada;Intouch;Animation;Links;Touch;Blink;Window"/>
 <template url="maps/concept_map_1.xml" name="Concept map 1" libs="general" tags="Concept;map"/>
 <template url="maps/concept_map_2.xml" name="Concept map 2" libs="general" tags="Concept;map"/>
 <template url="maps/living_beings_mind_map.xml" name="Living beings mind map" libs="general" tags="Living;beings;mind;map"/>

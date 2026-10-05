@@ -1129,5 +1129,221 @@
 		container.appendChild(addBtn);
 	};
 
+	// ---------------------------------------------------------------
+	// Shared style for the animation link dialogs (light/dark via the
+	// theme variables of grapheditor.css)
+	// ---------------------------------------------------------------
+
+	Editors.installStyle = function()
+	{
+		if (document.getElementById('geHmiLinksStyle') != null)
+		{
+			return;
+		}
+
+		var style = document.createElement('style');
+		style.setAttribute('id', 'geHmiLinksStyle');
+		style.textContent =
+			'.geHmiLinkGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));' +
+				'gap:10px;align-items:start;margin-bottom:10px;}' +
+			'.geHmiLinkGrid>.geDialogSection{margin-bottom:0;}' +
+			'.geHmiGroupTitle{font-size:13px;font-weight:600;margin-bottom:4px;' +
+				'color:light-dark(var(--strong-text-color),var(--dark-strong-text-color));}' +
+			'.geHmiBand{font-size:13px;font-weight:600;margin:4px 0 6px 2px;' +
+				'color:light-dark(var(--secondary-text-color),var(--dark-secondary-text-color));}' +
+			'.geHmiSubHead{margin:10px 0 4px 0;line-height:normal;}' +
+			'.geDialogSection>.geHmiSubHead:first-child{margin-top:0;}' +
+			'.geHmiCard{border:1px solid light-dark(var(--field-border-color),var(--dark-field-border-color));' +
+				'background:light-dark(var(--field-color),var(--dark-field-color));border-radius:6px;' +
+				'padding:8px;margin-top:6px;}' +
+			'.geHmiLinkRow{display:flex;align-items:center;min-height:28px;}' +
+			'.geHmiLinkRow label{flex:1;min-width:0;white-space:nowrap;overflow:hidden;' +
+				'text-overflow:ellipsis;line-height:normal;}' +
+			'.geHmiLinkRow .geBtn{margin:0;padding:0 8px;min-width:30px;height:24px;flex:0 0 auto;}' +
+			'.geHmiLinkRow.geHmiOff .geBtn{opacity:0.45;}' +
+			'.geHmiPick{border:1px solid light-dark(var(--field-border-color),var(--dark-field-border-color));' +
+				'background:light-dark(var(--field-color),var(--dark-field-color));border-radius:6px;' +
+				'overflow:auto;margin-top:6px;}' +
+			'.geHmiPickList{column-width:150px;padding:4px;}' +
+			'.geHmiPickRow{cursor:pointer;padding:3px 6px;border-radius:4px;line-height:normal;' +
+				'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
+			'.geHmiPickRow:hover{background:light-dark(var(--soft-hover-color),var(--dark-soft-hover-color));}' +
+			'.geHmiPickRow.geHmiSel{background:light-dark(var(--selected-color),' +
+				'color-mix(in srgb,var(--dark-focus-color) 35%,transparent));}' +
+			'.geHmiPickTable{width:100%;border-collapse:collapse;font-size:13px;}' +
+			'.geHmiPickTable th{text-align:left;padding:4px 6px;position:sticky;top:0;font-weight:600;' +
+				'background:light-dark(var(--field-color),var(--dark-field-color));' +
+				'border-bottom:1px solid light-dark(var(--field-border-color),var(--dark-field-border-color));}' +
+			'.geHmiPickTable td{padding:3px 6px;line-height:normal;}' +
+			'.geHmiTable{width:100%;border-collapse:collapse;}' +
+			'.geHmiTable th{text-align:left;padding:4px 6px;font-weight:600;' +
+				'border-bottom:1px solid light-dark(var(--field-border-color),var(--dark-field-border-color));}' +
+			'.geHmiTable td{padding:3px 6px;line-height:normal;vertical-align:middle;}' +
+			'.geHmiTable input[type="text"]{width:100%;box-sizing:border-box;}' +
+			'.geHmiPickerBtn{flex:0 0 auto;margin:0 !important;padding:0 8px;min-width:30px;height:26px;}' +
+			'.geHmiTagWrap{display:flex;flex:1;min-width:0;column-gap:4px;align-items:center;}' +
+			'.geHmiTagWrap input{flex:1;min-width:0;}' +
+			'.geHmiSwatch{width:26px;height:26px;flex:0 0 auto;box-sizing:border-box;cursor:pointer;' +
+				'border-radius:4px;border:1px solid light-dark(var(--strong-border-color),var(--dark-strong-border-color));}' +
+			'.geHmiColorWrap{display:flex;flex:1;min-width:0;column-gap:6px;align-items:center;}' +
+			'.geHmiColorWrap input[type="text"]{flex:1;min-width:0;}' +
+			'.geHmiMono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace !important;' +
+				'font-size:12px !important;line-height:1.4 !important;}' +
+			'.geHmiError{font-size:12px;color:var(--error-color);}' +
+			'.geHmiSummary{display:flex;flex-direction:column;gap:2px;padding:2px 0 6px 0;}' +
+			'.geHmiSummary div{font-size:12px;line-height:normal;overflow:hidden;text-overflow:ellipsis;' +
+				'white-space:nowrap;color:light-dark(var(--strong-text-color),var(--dark-strong-text-color));}';
+		document.getElementsByTagName('head')[0].appendChild(style);
+	};
+
+	/**
+	 * Re-computes the height of the enclosing dialog after the content grew
+	 * or shrank (Dialog measures the height once when it opens, see
+	 * EditorUi.addAdvancedSection).
+	 */
+	Editors.fitDialog = function(el)
+	{
+		var dlg = (el != null && el.closest != null) ? el.closest('.geDialog') : null;
+
+		if (dlg != null && dlg.firstElementChild != null)
+		{
+			dlg.style.height = '';
+			dlg.style.height = (dlg.firstElementChild.scrollHeight + 48) + 'px';
+		}
+	};
+
+	// ---------------------------------------------------------------
+	// Tag picker field: text input + "..." button (Tag Browser select
+	// mode, double-click on the field does the same)
+	// ---------------------------------------------------------------
+
+	/**
+	 * Returns a <span class="geHmiTagWrap"> with .input and getValue().
+	 * opts.expression inserts the picked tag at the cursor instead of
+	 * replacing the text.
+	 */
+	Editors.tagPicker = function(ui, value, opts)
+	{
+		opts = opts || {};
+		Editors.installStyle();
+		var wrap = document.createElement('span');
+		wrap.className = 'geHmiTagWrap';
+		var tag = Editors.tagInput(ui, value);
+		var input = tag.input;
+
+		if (opts.placeholder != null)
+		{
+			input.setAttribute('placeholder', opts.placeholder);
+		}
+
+		wrap.appendChild(tag);
+
+		var open = function()
+		{
+			if (Hmi.TagBrowser == null || Hmi.TagBrowser.select == null)
+			{
+				return;
+			}
+
+			Hmi.TagBrowser.select(ui, function(name)
+			{
+				if (opts.expression)
+				{
+					var start = (input.selectionStart != null) ? input.selectionStart : input.value.length;
+					var end = (input.selectionEnd != null) ? input.selectionEnd : start;
+					input.value = input.value.substring(0, start) + name + input.value.substring(end);
+				}
+				else
+				{
+					input.value = name;
+				}
+
+				input.dispatchEvent(new Event('input', {bubbles: true}));
+				input.dispatchEvent(new Event('change', {bubbles: true}));
+			}, {selected: opts.expression ? null : input.value});
+		};
+
+		var btn = Editors.button('…', open);
+		btn.className = 'geBtn geHmiPickerBtn';
+		btn.setAttribute('title', mxResources.get('hmiSelectTag'));
+		wrap.appendChild(btn);
+		mxEvent.addListener(input, 'dblclick', open);
+
+		wrap.input = input;
+		wrap.getValue = function()
+		{
+			return input.value;
+		};
+		wrap.openPicker = open;
+
+		return wrap;
+	};
+
+	/**
+	 * Returns a <span> with a colour swatch (opens the draw.io colour
+	 * dialog) and a hex text field. getValue() returns '#RRGGBB' or ''.
+	 */
+	Editors.colorInput = function(ui, value)
+	{
+		Editors.installStyle();
+		var wrap = document.createElement('span');
+		wrap.className = 'geHmiColorWrap';
+		var swatch = document.createElement('div');
+		swatch.className = 'geHmiSwatch';
+		swatch.setAttribute('title', mxResources.get('hmiPickColor'));
+		wrap.appendChild(swatch);
+		var input = Editors.textInput(value || '', '#RRGGBB');
+		wrap.appendChild(input);
+
+		function normalize(v)
+		{
+			v = (v == null) ? '' : String(v).replace(/^\s+|\s+$/g, '');
+
+			if (/^[0-9a-f]{6}$/i.test(v))
+			{
+				v = '#' + v;
+			}
+
+			return (/^#[0-9a-f]{6}$/i.test(v)) ? v.toUpperCase() : (v == 'none' ? '' : v);
+		};
+
+		function sync()
+		{
+			var v = normalize(input.value);
+			swatch.style.background = (/^#[0-9a-f]{6}$/i.test(v)) ? v :
+				'repeating-conic-gradient(#bbb 0% 25%, #fff 0% 50%) 50% / 10px 10px';
+		};
+
+		mxEvent.addListener(input, 'input', sync);
+		mxEvent.addListener(input, 'change', function()
+		{
+			input.value = normalize(input.value);
+			sync();
+		});
+		mxEvent.addListener(swatch, 'click', function()
+		{
+			ui.pickColor(normalize(input.value) || null, function(color)
+			{
+				input.value = normalize(color);
+				sync();
+			});
+		});
+
+		input.value = normalize(value);
+		sync();
+		wrap.input = input;
+		wrap.getValue = function()
+		{
+			return normalize(input.value);
+		};
+		wrap.setValue = function(v)
+		{
+			input.value = normalize(v);
+			sync();
+		};
+
+		return wrap;
+	};
+
 	Hmi.Editors = Editors;
 })();

@@ -12,6 +12,8 @@
 		this.rt = rt;
 		this.defs = {};   // tag -> tagDef.alarms
 		this.active = {}; // tag -> {level, severity, message, state, ts, value}
+		this.last = {};   // tag -> {value, ts, roc} previous sample for rate-of-change alarms
+		this.targetDeps = {}; // deviation target tag -> [alarm tags]
 	};
 
 	/**
@@ -20,6 +22,8 @@
 	Alarms.prototype.configure = function(tagDefs)
 	{
 		this.defs = {};
+		this.last = {};
+		this.targetDeps = {};
 
 		if (tagDefs == null)
 		{
@@ -33,8 +37,43 @@
 			if (def != null && def.alarms != null && def.name != null)
 			{
 				this.defs[def.name] = def.alarms;
+
+				var dev = deviationOf(def.alarms);
+
+				if (dev != null && typeof dev.target === 'string' && dev.target !== '')
+				{
+					(this.targetDeps[dev.target] = this.targetDeps[dev.target] || []).push(def.name);
+				}
 			}
 		}
+	};
+
+	/**
+	 * Deviation settings: flat ({target, minorDev, majorDev}) or nested
+	 * ({deviation: {...}}). Returns null when none is configured.
+	 */
+	function deviationOf(alarmDef)
+	{
+		var d = (alarmDef.deviation != null && typeof alarmDef.deviation === 'object') ? alarmDef.deviation : alarmDef;
+
+		if (d.target == null || (d.minorDev == null && d.majorDev == null))
+		{
+			return null;
+		}
+
+		return d;
+	};
+
+	function rocOf(alarmDef)
+	{
+		var r = alarmDef.roc;
+
+		if (r != null && typeof r === 'object')
+		{
+			r = r.limit != null ? r.limit : r.roc;
+		}
+
+		return (typeof r === 'number' && !isNaN(r)) ? r : null;
 	};
 
 	function severityFor(alarmDef, level)
@@ -44,7 +83,7 @@
 			return alarmDef.severity[level];
 		}
 
-		return (level === 'hihi' || level === 'lolo' || level === 'bool') ? 1 : 2;
+		return (level === 'hihi' || level === 'lolo' || level === 'bool' || level === 'major') ? 1 : 2;
 	};
 
 	function messageFor(alarmDef, level, tag)
@@ -52,6 +91,16 @@
 		if (alarmDef.messages != null && alarmDef.messages[level] != null)
 		{
 			return alarmDef.messages[level];
+		}
+
+		if (level === 'minor' || level === 'major')
+		{
+			return tag + ' ' + level.toUpperCase() + ' DEVIATION';
+		}
+
+		if (level === 'roc')
+		{
+			return tag + ' RATE OF CHANGE';
 		}
 
 		return tag + ' ' + level.toUpperCase();
@@ -63,7 +112,118 @@
 	 * hysteresis against the tag's previous alarm state so a clearing alarm
 	 * doesn't chatter at the threshold.
 	 */
-	Alarms.prototype.evaluateLevel = function(tag, alarmDef, value)
+	Alarms.prototype.evaluateLevel = function(tag, alarmDef, value, ts)
+	{
+		var valueLevel = this.valueLevel(tag, alarmDef, value);
+		var devLevel = this.deviationLevel(alarmDef, value);
+		var rocLevel = this.rocLevel(tag, alarmDef, value, ts);
+		var order = ['hihi', 'lolo', 'major', 'hi', 'lo', 'minor', 'roc', 'bool'];
+		var found = [valueLevel, devLevel, rocLevel];
+
+		for (var i = 0; i < order.length; i++)
+		{
+			if (found.indexOf(order[i]) >= 0)
+			{
+				return order[i];
+			}
+		}
+
+		return null;
+	};
+
+	/**
+	 * 'major' | 'minor' | null: absolute deviation from the target (a
+	 * number or the name of a tag).
+	 */
+	Alarms.prototype.deviationLevel = function(alarmDef, value)
+	{
+		var dev = deviationOf(alarmDef);
+
+		if (dev == null)
+		{
+			return null;
+		}
+
+		var target = dev.target;
+
+		if (typeof target === 'string')
+		{
+			var rt = this.rt;
+			target = (rt.tags != null && typeof rt.tags.getValue === 'function') ? rt.tags.getValue(target) : undefined;
+		}
+
+		var t = (target == null || target === '' || typeof target === 'boolean') ? NaN : Number(target);
+		var v = Number(value);
+
+		if (isNaN(t) || isNaN(v))
+		{
+			return null;
+		}
+
+		var diff = Math.abs(v - t);
+
+		if (dev.majorDev != null && diff >= dev.majorDev)
+		{
+			return 'major';
+		}
+
+		if (dev.minorDev != null && diff >= dev.minorDev)
+		{
+			return 'minor';
+		}
+
+		return null;
+	};
+
+	/**
+	 * 'roc' while the absolute rate between the last two samples exceeds
+	 * the limit; re-evaluated only for a new sample.
+	 */
+	Alarms.prototype.rocLevel = function(tag, alarmDef, value, ts)
+	{
+		var limit = rocOf(alarmDef);
+
+		if (limit == null)
+		{
+			return null;
+		}
+
+		var v = Number(value);
+		var now = (ts != null) ? ts : Date.now();
+		var prev = this.last[tag];
+
+		if (isNaN(v))
+		{
+			return null;
+		}
+
+		if (prev == null)
+		{
+			this.last[tag] = { value: v, ts: now, roc: false };
+
+			return null;
+		}
+
+		if (prev.ts === now && prev.value === v)
+		{
+			return prev.roc ? 'roc' : null;
+		}
+
+		var dt = (now - prev.ts) / 1000;
+
+		if (dt <= 0)
+		{
+			return prev.roc ? 'roc' : null;
+		}
+
+		var rate = Math.abs(v - prev.value) / dt;
+		var roc = rate > limit;
+		this.last[tag] = { value: v, ts: now, roc: roc };
+
+		return roc ? 'roc' : null;
+	};
+
+	Alarms.prototype.valueLevel = function(tag, alarmDef, value)
 	{
 		var deadband = alarmDef.deadband || 0;
 		var prevLevel = this.active[tag] != null ? this.active[tag].level : null;
@@ -139,6 +299,25 @@
 		var changedAlarms = [];
 		var tags = changedTags;
 
+		if (tags != null)
+		{
+			tags = tags.slice();
+
+			for (var ci = 0; ci < changedTags.length; ci++)
+			{
+				var deps = Object.prototype.hasOwnProperty.call(this.targetDeps, changedTags[ci]) ?
+					this.targetDeps[changedTags[ci]] : null;
+
+				for (var di = 0; deps != null && di < deps.length; di++)
+				{
+					if (tags.indexOf(deps[di]) < 0)
+					{
+						tags.push(deps[di]);
+					}
+				}
+			}
+		}
+
 		if (tags == null)
 		{
 			tags = [];
@@ -169,7 +348,7 @@
 				continue;
 			}
 
-			var level = this.evaluateLevel(tag, alarmDef, entry.value);
+			var level = this.evaluateLevel(tag, alarmDef, entry.value, entry.ts);
 			var current = this.active[tag];
 
 			if (level != null)
@@ -239,6 +418,28 @@
 		}
 
 		return out;
+	};
+
+	/**
+	 * stateOf(tag) -> {active, level, acked, severity} | {active: false}.
+	 * level is hihi|hi|lo|lolo for value alarms, minor|major for deviation,
+	 * roc for rate of change and 'alarm' for discrete (bool) alarms.
+	 */
+	Alarms.prototype.stateOf = function(tag)
+	{
+		var a = Object.prototype.hasOwnProperty.call(this.active, tag) ? this.active[tag] : null;
+
+		if (a == null || a.state === 'cleared-unack')
+		{
+			return { active: false };
+		}
+
+		return {
+			active: true,
+			level: (a.level === 'bool') ? 'alarm' : a.level,
+			acked: a.state === 'active-ack',
+			severity: a.severity
+		};
 	};
 
 	/**

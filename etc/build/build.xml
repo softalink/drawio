@@ -653,6 +653,8 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="core/HmiTagStore.js" />
 				<file name="core/HmiSimulator.js" />
 				<file name="core/HmiSchema.js" />
+				<file name="core/HmiLinks.js" />
+				<file name="core/HmiQuickScript.js" />
 				<file name="sources/HmiPayload.js" />
 				<file name="sources/HmiSourceManager.js" />
 				<file name="sources/HmiMqttSource.js" />
@@ -674,6 +676,8 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="runtime/HmiEventDispatcher.js" />
 				<file name="runtime/HmiSystem.js" />
 				<file name="runtime/HmiDomWidgets.js" />
+				<file name="runtime/HmiKeypad.js" />
+				<file name="runtime/HmiLinkEngine.js" />
 				<file name="runtime/HmiRuntime.js" />
 				<file name="runtime/HmiEmbed.js" />
 				<file name="ui/HmiResources.js" />
@@ -687,6 +691,8 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="ui/HmiValidator.js" />
 				<file name="ui/HmiFaceplate.js" />
 				<file name="ui/HmiImport.js" />
+				<file name="ui/HmiLinksDialog.js" />
+				<file name="ui/HmiSubstituteTags.js" />
 				<file name="ui/HmiPlugin.js" />
 				<!-- HMI: files end -->
 			</sources>
@@ -713,7 +719,7 @@ OUTPUT FILES (in src/main/webapp/js/):
 	<target name="hmi-viewer" if="hmi.viewer.base">
 		<!-- Resolves shapes/stencils/images next to the bundle's js/ folder so
 		     other draw.io shapes load on demand, also when embedded elsewhere -->
-		<echo file="${basedir}/.tmp-hmi-paths.js">(function(){try{var s=document.currentScript;var i=(s!=null&amp;&amp;s.src!=null)?s.src.lastIndexOf('/js/'):-1;if(i>=0){var b=s.src.substring(0,i+1);window.SHAPES_PATH=window.SHAPES_PATH||b+'shapes';window.STENCIL_PATH=window.STENCIL_PATH||b+'stencils';window.IMAGE_PATH=window.IMAGE_PATH||b+'images';window.GRAPH_IMAGE_PATH=window.GRAPH_IMAGE_PATH||b+'img';window.STYLE_PATH=window.STYLE_PATH||b+'styles';window.DRAW_MATH_URL=window.DRAW_MATH_URL||b+'math4/es5';}}catch(e){}})();</echo>
+		<echo file="${basedir}/.tmp-hmi-paths.js">(function(){try{var s=document.currentScript;var i=(s!=null&amp;&amp;s.src!=null)?s.src.lastIndexOf('/js/'):-1;if(i>=0){var b=s.src.substring(0,i+1);window.SHAPES_PATH=window.SHAPES_PATH||b+'shapes';window.STENCIL_PATH=window.STENCIL_PATH||b+'stencils';window.IMAGE_PATH=window.IMAGE_PATH||b+'images';window.GRAPH_IMAGE_PATH=window.GRAPH_IMAGE_PATH||b+'img';window.STYLE_PATH=window.STYLE_PATH||b+'styles';window.DRAW_MATH_URL=window.DRAW_MATH_URL||b+'math4/es5';window.mxImageBasePath=window.mxImageBasePath||b+'mxgraph/images';window.mxBasePath=window.mxBasePath||b+'mxgraph/';}}catch(e){}})();</echo>
 
 		<jscomp warning="${jscomp.warning}" compilationLevel="simple" debug="false" forceRecompile="true" output="${basedir}/.tmp-hmi-viewer.min.js">
 			<sources dir="${basedir}">
@@ -735,6 +741,8 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="core/HmiTagStore.js" />
 				<file name="core/HmiSimulator.js" />
 				<file name="core/HmiSchema.js" />
+				<file name="core/HmiLinks.js" />
+				<file name="core/HmiQuickScript.js" />
 				<file name="sources/HmiPayload.js" />
 				<file name="sources/HmiSourceManager.js" />
 				<file name="sources/HmiMqttSource.js" />
@@ -756,6 +764,8 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="runtime/HmiEventDispatcher.js" />
 				<file name="runtime/HmiSystem.js" />
 				<file name="runtime/HmiDomWidgets.js" />
+				<file name="runtime/HmiKeypad.js" />
+				<file name="runtime/HmiLinkEngine.js" />
 				<file name="runtime/HmiRuntime.js" />
 				<file name="runtime/HmiEmbed.js" />
 				<file name="ui/HmiResources.js" />
