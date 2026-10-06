@@ -217,6 +217,18 @@
 		btnDef.style.marginTop = '4px';
 		div.appendChild(btnDef);
 
+		var btnHalo = mxUtils.button(mxResources.get('hmiHoverHalo') + '...', function()
+		{
+			if (Hmi.HaloDialog != null)
+			{
+				Hmi.HaloDialog.show(ui);
+			}
+		});
+		btnHalo.className = 'geFullWidthElement';
+		btnHalo.style.display = 'block';
+		btnHalo.style.marginTop = '4px';
+		div.appendChild(btnHalo);
+
 		this.addDocTriggersSection(div);
 
 		var previewAction = ui.actions.get('hmiLivePreview');
@@ -349,6 +361,7 @@
 			});
 
 		this.addRolesSection(div, cells);
+		this.addHaloSection(div, cells);
 
 		if (cell.getEdge != null || graph.model.isEdge(cell))
 		{
@@ -612,6 +625,105 @@
 			});
 			FormatPanel.applyToCells(graph, cells, 'roles', roles);
 		});
+	};
+
+	/**
+	 * Hover halo of the selected objects (style keys hmiHalo, hmiHaloStyle
+	 * and hmiHaloColor, see runtime/HmiHalo.js). Page default uses the
+	 * page's Hover Halo settings.
+	 */
+	HmiFormatPanel.prototype.addHaloSection = function(div, cells)
+	{
+		var ui = this.editorUi;
+		var graph = ui.editor.graph;
+		var section = this.createCollapsibleSection(mxResources.get('hmiHoverHalo'), true);
+		div.appendChild(section.wrapper);
+		var content = section.contentDiv;
+		content.style.padding = '6px 0';
+		var style = graph.getCurrentCellStyle(cells[0]) || {};
+
+		var current = (mxUtils.getValue(style, 'hmiHalo', '1') == '0') ? 'off' :
+			mxUtils.getValue(style, 'hmiHaloStyle', 'default');
+		var options = [['default', 'hmiHaloPageDefault'], ['glow', 'hmiHaloGlow'],
+			['outline', 'hmiHaloOutline'], ['glowOutline', 'hmiHaloGlowOutline'], ['off', 'hmiHaloPreset_off']];
+		var select = document.createElement('select');
+		select.className = 'geHmiHaloSelect';
+
+		for (var i = 0; i < options.length; i++)
+		{
+			var opt = document.createElement('option');
+			opt.value = options[i][0];
+			mxUtils.write(opt, mxResources.get(options[i][1]));
+			select.appendChild(opt);
+		}
+
+		select.value = current;
+		select.style.position = 'static';
+		select.style.marginLeft = '6px';
+		var row = Hmi.Editors.row(content, mxResources.get('hmiHaloStyle') + ':');
+		row.appendChild(select);
+
+		var color = Hmi.Editors.colorInput(ui, mxUtils.getValue(style, 'hmiHaloColor', ''));
+		color.input.setAttribute('placeholder', mxResources.get('hmiHaloPageDefault'));
+		var colorRow = Hmi.Editors.row(content, mxResources.get('color') + ':');
+		colorRow.appendChild(color);
+
+		var apply = function()
+		{
+			var value = select.value;
+			var c = color.getValue();
+			graph.getModel().beginUpdate();
+
+			try
+			{
+				graph.setCellStyles('hmiHalo', (value == 'off') ? '0' : null, cells);
+				graph.setCellStyles('hmiHaloStyle', (value == 'off' || value == 'default') ?
+					null : value, cells);
+				graph.setCellStyles('hmiHaloColor', (c != null && c !== '') ? c : null, cells);
+			}
+			finally
+			{
+				graph.getModel().endUpdate();
+			}
+		};
+
+		mxEvent.addListener(select, 'change', apply);
+		mxEvent.addListener(color.input, 'change', apply);
+
+		// The colour picker sets the value without a change event
+		var swatch = color.querySelector('.geHmiSwatch');
+
+		if (swatch != null)
+		{
+			mxEvent.addListener(swatch, 'click', function()
+			{
+				var before = color.getValue();
+				var wait = setInterval(function()
+				{
+					if (document.querySelector('.geDialog') == null)
+					{
+						clearInterval(wait);
+
+						if (color.getValue() != before)
+						{
+							apply();
+						}
+					}
+				}, 200);
+			});
+		}
+
+		var btn = mxUtils.button(mxResources.get('hmiHaloPageSettings') + '...', function()
+		{
+			if (Hmi.HaloDialog != null)
+			{
+				Hmi.HaloDialog.show(ui);
+			}
+		});
+		btn.className = 'geFullWidthElement';
+		btn.style.display = 'block';
+		btn.style.marginTop = '6px';
+		content.appendChild(btn);
 	};
 
 	// ---------------------------------------------------------------

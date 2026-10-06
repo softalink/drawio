@@ -331,6 +331,7 @@
 			['hmiTagBrowser', 'TagBrowser'],
 			['hmiAnimationLinks', 'LinksDialog'],
 			['hmiSubstituteTags', 'SubstituteTags'],
+			['hmiHoverHalo', 'HaloDialog'],
 			['hmiDiagnostics', 'Diagnostics'],
 			['hmiValidate', 'Validator']
 		];
@@ -434,7 +435,7 @@
 		{
 			ui.menus.addMenuItems(menu, ['hmiLivePreview', 'hmiInteractive', 'hmiSimulate',
 				'hmiRun', '-', 'hmiSources', 'hmiTags', 'hmiTagBrowser', '-',
-				'hmiAnimationLinks', 'hmiSubstituteTags', 'hmiDefineMissingTags', '-',
+				'hmiAnimationLinks', 'hmiSubstituteTags', 'hmiDefineMissingTags', 'hmiHoverHalo', '-',
 				'hmiDiagnostics', 'hmiValidate'], parent);
 
 			if (ui.actions.get('hmiImportMeta2d') != null)

@@ -346,7 +346,7 @@ Hmi.ScriptHost({policy: 'off'|'prompt'|'on', timeout: 50}): run(code, args, api)
   - the QuickScript API, and pages as replace / overlay / popup windows through `Hmi.Faceplate`
 
   Faceplates get their own engine on the proxy runtime.
-- **`Hmi.Halo(rt)`** (runtime/HmiHalo.js) draws the hover and focus glow of interactive objects. It uses a CSS `drop-shadow` filter on the rendered nodes only. `Hmi.EventDispatcher.getHaloCell` chooses the target, and the glow is re-applied after overlay redraws. Configure it with `hoverHalo` (global or `runtime.hoverHalo`) or turn it off per cell with `hmiHalo=0`.
+- **`Hmi.Halo(rt)`** (runtime/HmiHalo.js) draws the hover, pressed and focus halo of interactive objects. The glow is a CSS `drop-shadow` filter on the rendered nodes; the outline is an SVG rectangle in the view's overlay pane. `Hmi.EventDispatcher.getHaloCell` chooses the target, and the halo is re-applied after overlay redraws and view changes. `Hmi.Halo.normalize`, `PRESETS`, `filterFor` and `colorFor` are shared with **`Hmi.HaloDialog`** (ui/HmiHaloDialog.js, the page settings dialog). Settings come from `hoverHalo` (global, then `runtime.hoverHalo`), and the per-cell styles `hmiHalo=0`, `hmiHaloStyle` and `hmiHaloColor` override them.
 - **`Hmi.Keypad`** (runtime/HmiKeypad.js) is the on-screen numeric keypad, keyboard and choice modal: `numeric(opts)`, `keyboard(opts)` and `choice(title, labels)`, which return Promises.
 - **`Hmi.Viewer`** (viewer/HmiViewer.js, only in `js/hmi-viewer.min.js`) adapts a `GraphViewer` to the runtime. It supplies `ViewerUi`, which provides the subset of `EditorUi` the runtime uses:
   - `editor.graph`, `editor.addListener`

@@ -63,6 +63,7 @@
 		'ui/HmiImport.js',
 		'ui/HmiLinksDialog.js',
 		'ui/HmiSubstituteTags.js',
+		'ui/HmiHaloDialog.js',
 		'ui/HmiPlugin.js'
 	];
 

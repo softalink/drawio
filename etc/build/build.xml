@@ -694,6 +694,7 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="ui/HmiImport.js" />
 				<file name="ui/HmiLinksDialog.js" />
 				<file name="ui/HmiSubstituteTags.js" />
+				<file name="ui/HmiHaloDialog.js" />
 				<file name="ui/HmiPlugin.js" />
 				<!-- HMI: files end -->
 			</sources>

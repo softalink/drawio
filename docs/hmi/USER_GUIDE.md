@@ -493,12 +493,18 @@ Both runtimes are locked views: no editing, no selection handles, no sidebar or 
 
 ### Hover halo
 
-In a running screen, an interactive object glows when the mouse is over it. Interactive objects are those with a touch link, a click/press/hover event, or a control widget such as a button or switch. The glow follows the object's shape and gets stronger while the mouse button is held down. The object focused with Tab glows the same way. Disabled and hidden objects, and objects that only display data, do not glow.
+In a running screen, an interactive object is highlighted when the mouse is over it. Interactive objects are those with a touch link, a click/press/hover event, or a control widget such as a button or switch. The highlight gets stronger while the mouse button is held down. The object focused with Tab is highlighted the same way. Disabled and hidden objects, and objects that only display data, are not highlighted.
 
-Configure the halo globally with `DRAWIO_CONFIG.hmi.hoverHalo` or per document with `runtime.hoverHalo`. The document setting wins.
-- `false` turns the halo off.
-- An object changes it: `{color: '#1E88E5', size: 6, pressColor, pressSize, press: true}`. `size` is the glow radius in pixels (1–40). `press: false` turns off the stronger glow while pressed.
-- The style `hmiHalo=0` turns it off for one object.
+**Page settings.** Open *Extras → HMI / SCADA → Hover Halo…*, or use **Hover Halo…** in the HMI tab when nothing is selected. The dialog has a live preview on a light and a dark background; point at or click the samples to see the hover and pressed looks.
+- **Presets:** Soft glow (the default), Subtle glow, Strong glow, Crisp outline, Dashed outline, Glow and outline, and Off. A preset keeps your colour.
+- **Style:** Glow follows the object's shape. Outline rectangle draws a crisp frame around the object's bounds. Glow and outline draws both.
+- **Color**, **Glow size** (1–40 px), **Glow intensity** (10–100 %) and **Outline width** (1–8 px).
+- **Advanced:** outline padding and corner radius, dashed outline, the stronger halo while pressed (on or off), and a separate pressed colour.
+- **Reset** restores the defaults. The settings are stored in the page's `runtime.hoverHalo` and the change can be undone.
+
+**Per object.** Select objects and open the **Hover Halo** section of the HMI tab. Choose Page default, Glow, Outline rectangle, Glow and outline, or Off, and optionally a colour (empty means the page colour). These are stored as the styles `hmiHaloStyle`, `hmiHaloColor` and `hmiHalo=0`.
+
+**For administrators.** `DRAWIO_CONFIG.hmi.hoverHalo` sets the default for every screen; a page's own settings win. It is `false` (off) or an object with any of `preset`, `style` (`glow`, `outline`, `glowOutline`), `color`, `size`, `intensity`, `width`, `padding`, `radius`, `dashed`, `press`, `pressColor` and `pressSize`, for example `{preset: 'crispOutline', color: '#FFB300'}`.
 
 ### Kiosk URL parameters
 
