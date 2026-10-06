@@ -176,13 +176,17 @@ test('Animation Links dialog: tabs, counts, keyboard and fixed size', async func
 	assert.strictEqual(await page.getAttribute('.geDialog [role="tablist"]', 'role'), 'tablist');
 	assert.deepStrictEqual(await selectedTab(page), {selected: ['display'], visiblePanels: ['display']});
 
-	// The subtitle names the object and has the cell id in its tooltip
-	var info = await page.$eval('.geDialog [data-dialog="animation-links"] .geDialogHint', function(e)
+	// There is no subtitle under the title (no object name, no count of objects)
+	var sub = await page.evaluate(function()
 	{
-		return {text: e.textContent, title: e.getAttribute('title')};
+		var dlg = document.querySelector('.geDialog [data-dialog="animation-links"]');
+		var next = dlg.querySelector('h3').nextElementSibling;
+
+		return {next: next.getAttribute('role') || next.className, text: dlg.textContent};
 	});
-	assert.strictEqual(info.text, 'Object: Tank');
-	assert.match(info.title, /^ID: c\d+/);
+	assert.ok(sub.next.indexOf('geHmiTabs') >= 0 || sub.next == 'tablist', sub.next);
+	assert.ok(!/Object: |Applies to \d+ objects|different links/.test(sub.text), sub.text.substring(0, 80));
+	assert.strictEqual(await page.$('.geDialog [data-dialog="animation-links"] .geDialogHint[title]'), null);
 
 	// Rows of hidden tabs stay in the DOM
 	assert.strictEqual(await page.$$eval('.geDialog [data-link]', function(r) { return r.length; }), 50);

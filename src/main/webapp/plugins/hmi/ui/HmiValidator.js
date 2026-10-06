@@ -576,6 +576,8 @@
 		var warnCount = results.filter(function(r) { return r.level == 'warning'; }).length;
 		mxUtils.write(summary, errCount + ' ' + mxResources.get('hmiErrors') + ', ' +
 			warnCount + ' ' + mxResources.get('hmiWarnings'));
+		Hmi.Editors.help(summary, 'validator.summary');
+		Hmi.Editors.help(summary, 'validator.list');
 		div.appendChild(summary);
 
 		var list = document.createElement('div');
@@ -635,6 +637,7 @@
 		wnd.setResizable(true);
 		wnd.setClosable(true);
 		wnd.setVisible(true);
+		Hmi.Editors.windowHelp(wnd, 'validator.window');
 	};
 
 	Hmi.Validator = Validator;

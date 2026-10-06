@@ -10,6 +10,11 @@
 
 	var SourcesDialog = {};
 
+	// The settings that the source editor has fields for
+	var MANAGED = ['id', 'name', 'type', 'enabled', 'scope', 'prefix', 'url', 'format', 'parser',
+		'preConnect', 'credentials', 'clientId', 'keepalive', 'cleanSession', 'topics',
+		'initMessage', 'method', 'interval', 'body', 'events'];
+
 	function newId(prefix)
 	{
 		return prefix + Math.random().toString(36).substring(2, 8);
@@ -27,7 +32,15 @@
 		var div = document.createElement('div');
 		var hd = document.createElement('h3');
 		mxUtils.write(hd, mxResources.get('hmiSources'));
+		Hmi.Editors.help(hd, 'sources.dialog');
 		div.appendChild(hd);
+
+		var listHead = document.createElement('div');
+		listHead.className = 'geDialogHint';
+		var listCount = document.createElement('span');
+		listHead.appendChild(listCount);
+		Hmi.Editors.help(listHead, 'sources.list');
+		div.appendChild(listHead);
 
 		var listDiv = document.createElement('div');
 		div.appendChild(listDiv);
@@ -35,6 +48,7 @@
 		var render = function()
 		{
 			listDiv.innerHTML = '';
+			listCount.textContent = mxResources.get('hmiSources') + ': ' + cfg.sources.length;
 
 			if (cfg.sources.length == 0)
 			{
@@ -117,7 +131,10 @@
 			});
 		});
 		addBtn.style.marginTop = '6px';
-		div.appendChild(addBtn);
+		var addRow = document.createElement('div');
+		addRow.appendChild(addBtn);
+		Hmi.Editors.help(addRow, 'sources.add');
+		div.appendChild(addRow);
 
 		var dlg = new CustomDialog(ui, div, function()
 		{
@@ -138,6 +155,7 @@
 		var div = document.createElement('div');
 		var hd = document.createElement('h3');
 		mxUtils.write(hd, mxResources.get('hmiEditSource'));
+		Hmi.Editors.help(hd, 'source.dialog');
 		div.appendChild(hd);
 
 		var section = document.createElement('div');
@@ -146,17 +164,18 @@
 
 		var r1 = Hmi.Editors.inlineFields(section);
 		var nameInput = Hmi.Editors.textInput(src.name || src.id);
-		Hmi.Editors.inlineField(r1, mxResources.get('name') + ':', nameInput);
+		Hmi.Editors.inlineField(r1, mxResources.get('name') + ':', nameInput, 'source.name');
 		var typeSelect = Hmi.Editors.select(['mqtt', 'ws', 'http', 'sse', 'host'], src.type);
-		Hmi.Editors.inlineField(r1, mxResources.get('hmiSourceType') + ':', typeSelect);
+		Hmi.Editors.inlineField(r1, mxResources.get('hmiSourceType') + ':', typeSelect, 'source.type');
 
 		var r2 = Hmi.Editors.inlineFields(section);
 		var scopeSelect = Hmi.Editors.select(['file', 'page'], src.scope || 'file');
-		Hmi.Editors.inlineField(r2, mxResources.get('hmiScope') + ':', scopeSelect);
+		Hmi.Editors.inlineField(r2, mxResources.get('hmiScope') + ':', scopeSelect, 'source.scope');
 		var prefixInput = Hmi.Editors.textInput(src.prefix || '');
-		Hmi.Editors.inlineField(r2, mxResources.get('hmiPrefix') + ':', prefixInput);
+		Hmi.Editors.inlineField(r2, mxResources.get('hmiPrefix') + ':', prefixInput, 'source.prefix');
 
 		var urlRow = Hmi.Editors.row(section, mxResources.get('hmiUrl') + ':');
+		var urlLabel = urlRow.querySelector('.geDialogFormLabel');
 		var urlInput = Hmi.Editors.textInput(src.url || '');
 		urlRow.appendChild(urlInput);
 
@@ -171,15 +190,26 @@
 			var t = typeSelect.value;
 			urlRow.style.display = (t == 'host') ? 'none' : '';
 
+			// The URL help depends on the protocol
+			var oldIcon = urlLabel.querySelector('.geHmiHelp');
+
+			if (oldIcon != null)
+			{
+				urlLabel.removeChild(oldIcon);
+			}
+
+			Hmi.Editors.help(urlLabel, ['source.url.' + t, 'source.url']);
+			urlLabel.className = 'geDialogFormLabel geHmiHelpLabel';
+
 			if (t == 'mqtt')
 			{
 				var r = Hmi.Editors.inlineFields(typeBody);
 				typeFields.clientId = Hmi.Editors.textInput(src.clientId || '');
-				Hmi.Editors.inlineField(r, mxResources.get('hmiClientId') + ':', typeFields.clientId);
+				Hmi.Editors.inlineField(r, mxResources.get('hmiClientId') + ':', typeFields.clientId, 'source.mqtt.clientId');
 				typeFields.keepalive = Hmi.Editors.numberInput(src.keepalive || 30);
-				Hmi.Editors.inlineField(r, mxResources.get('hmiKeepalive') + ':', typeFields.keepalive);
+				Hmi.Editors.inlineField(r, mxResources.get('hmiKeepalive') + ':', typeFields.keepalive, 'source.mqtt.keepalive');
 
-				var topicsRow = Hmi.Editors.row(typeBody, mxResources.get('hmiTopics') + ':');
+				var topicsRow = Hmi.Editors.row(typeBody, mxResources.get('hmiTopics') + ':', 'source.mqtt.topics');
 				typeFields.topics = Hmi.Editors.textInput((src.topics || []).map(function(t2)
 				{
 					return t2.filter;
@@ -187,13 +217,13 @@
 				topicsRow.appendChild(typeFields.topics);
 
 				var cleanRow = Hmi.Editors.checkbox(mxResources.get('hmiCleanSession'),
-					src.cleanSession !== false);
+					src.cleanSession !== false, 'source.mqtt.cleanSession');
 				typeBody.appendChild(cleanRow);
 				typeFields.cleanSession = cleanRow.input;
 			}
 			else if (t == 'ws')
 			{
-				var r3 = Hmi.Editors.row(typeBody, mxResources.get('hmiInitMessage') + ':');
+				var r3 = Hmi.Editors.row(typeBody, mxResources.get('hmiInitMessage') + ':', 'source.ws.initMessage');
 				typeFields.initMessage = Hmi.Editors.textInput(src.initMessage || '');
 				r3.appendChild(typeFields.initMessage);
 			}
@@ -201,11 +231,11 @@
 			{
 				var r4 = Hmi.Editors.inlineFields(typeBody);
 				typeFields.method = Hmi.Editors.select(['GET', 'POST', 'PUT'], src.method || 'GET');
-				Hmi.Editors.inlineField(r4, mxResources.get('hmiMethod') + ':', typeFields.method);
+				Hmi.Editors.inlineField(r4, mxResources.get('hmiMethod') + ':', typeFields.method, 'source.http.method');
 				typeFields.interval = Hmi.Editors.numberInput(src.interval || 1000);
-				Hmi.Editors.inlineField(r4, mxResources.get('hmiPollInterval') + ' (ms):', typeFields.interval);
+				Hmi.Editors.inlineField(r4, mxResources.get('hmiPollInterval') + ' (ms):', typeFields.interval, 'source.http.interval');
 
-				var r5 = Hmi.Editors.row(typeBody, mxResources.get('hmiBody') + ':');
+				var r5 = Hmi.Editors.row(typeBody, mxResources.get('hmiBody') + ':', 'source.http.body');
 				typeFields.body = document.createElement('textarea');
 				typeFields.body.setAttribute('rows', '2');
 				typeFields.body.value = src.body || '';
@@ -213,7 +243,7 @@
 			}
 			else if (t == 'sse')
 			{
-				var r6 = Hmi.Editors.row(typeBody, mxResources.get('hmiEvents') + ':');
+				var r6 = Hmi.Editors.row(typeBody, mxResources.get('hmiEvents') + ':', 'source.sse.events');
 				typeFields.events = Hmi.Editors.textInput((src.events || ['message']).join(','));
 				r6.appendChild(typeFields.events);
 			}
@@ -227,12 +257,12 @@
 		fmtSection.className = 'geDialogSection';
 		fmtSection.style.marginTop = '10px';
 		div.appendChild(fmtSection);
-		mxUtils.write(fmtSection, mxResources.get('hmiFormat') + ':');
+		Hmi.Editors.head(fmtSection, mxResources.get('hmiFormat') + ':', 'source.format');
 		var fmtRow = Hmi.Editors.row(fmtSection);
 		var fmtKind = Hmi.Editors.select(['auto', 'flat', 'array', 'topic', 'jsonpath',
 			'drawio-update-xml'], (src.format && src.format.kind) || 'auto');
 		fmtRow.appendChild(fmtKind);
-		var tmplRow = Hmi.Editors.row(fmtSection, mxResources.get('hmiTemplate') + ':');
+		var tmplRow = Hmi.Editors.row(fmtSection, mxResources.get('hmiTemplate') + ':', 'source.format.template');
 		var tmplInput = Hmi.Editors.textInput((src.format && src.format.template) || '',
 			'plant/{tag}');
 		tmplRow.appendChild(tmplInput);
@@ -245,13 +275,16 @@
 		var scriptsHint = document.createElement('div');
 		scriptsHint.className = 'geDialogHint';
 		mxUtils.write(scriptsHint, mxResources.get('hmiScriptPolicyHint'));
+		Hmi.Editors.help(scriptsHint, 'source.scripts');
 		scriptsSection.appendChild(scriptsHint);
-		var parserRow = Hmi.Editors.row(scriptsSection, mxResources.get('hmiParserScript') + ':');
+		var parserRow = Hmi.Editors.row(scriptsSection, mxResources.get('hmiParserScript') + ':', 'source.parser');
+		parserRow.firstChild.style.minWidth = '140px';
 		var parserArea = document.createElement('textarea');
 		parserArea.setAttribute('rows', '3');
 		parserArea.value = src.parser || '';
 		parserRow.appendChild(parserArea);
-		var preConnectRow = Hmi.Editors.row(scriptsSection, mxResources.get('hmiPreConnectScript') + ':');
+		var preConnectRow = Hmi.Editors.row(scriptsSection, mxResources.get('hmiPreConnectScript') + ':', 'source.preConnect');
+		preConnectRow.firstChild.style.minWidth = '140px';
 		var preConnectArea = document.createElement('textarea');
 		preConnectArea.setAttribute('rows', '3');
 		preConnectArea.value = src.preConnect || '';
@@ -262,7 +295,7 @@
 		credSection.className = 'geDialogSection';
 		credSection.style.marginTop = '10px';
 		div.appendChild(credSection);
-		var credRow = Hmi.Editors.row(credSection, mxResources.get('hmiCredentialsMode') + ':');
+		var credRow = Hmi.Editors.row(credSection, mxResources.get('hmiCredentialsMode') + ':', 'source.credentials');
 		var credMode = Hmi.Editors.select(['none', 'save', 'prompt', 'param'],
 			(src.credentials && src.credentials.mode) || 'none');
 		credRow.appendChild(credMode);
@@ -288,15 +321,16 @@
 				var r = Hmi.Editors.inlineFields(credFieldsDiv);
 				credFields.username = Hmi.Editors.textInput(
 					(src.credentials && src.credentials.username) || '');
-				Hmi.Editors.inlineField(r, mxResources.get('hmiUsername') + ':', credFields.username);
+				Hmi.Editors.inlineField(r, mxResources.get('hmiUsername') + ':', credFields.username, 'source.credentials.username');
 				credFields.password = document.createElement('input');
 				credFields.password.setAttribute('type', 'password');
 				credFields.password.value = (src.credentials && src.credentials.password) || '';
-				Hmi.Editors.inlineField(r, mxResources.get('hmiPassword') + ':', credFields.password);
+				credFields.password.style.cssText = 'flex:1;min-width:0;';
+				Hmi.Editors.inlineField(r, mxResources.get('hmiPassword') + ':', credFields.password, 'source.credentials.password');
 			}
 			else if (credMode.value == 'param')
 			{
-				var r2 = Hmi.Editors.row(credFieldsDiv, mxResources.get('hmiParamName') + ':');
+				var r2 = Hmi.Editors.row(credFieldsDiv, mxResources.get('hmiParamName') + ':', 'source.credentials.param');
 				credFields.param = Hmi.Editors.textInput(
 					(src.credentials && src.credentials.param) || '');
 				r2.appendChild(credFields.param);
@@ -313,12 +347,35 @@
 
 		function collect()
 		{
-			var result = {id: src.id, name: nameInput.value, type: typeSelect.value,
-				enabled: src.enabled !== false, scope: scopeSelect.value,
-				prefix: prefixInput.value, url: urlInput.value,
-				format: {kind: fmtKind.value, template: tmplInput.value},
-				parser: parserArea.value, preConnect: preConnectArea.value,
-				credentials: {mode: credMode.value}};
+			// Settings the dialog has no field for (headers, reconnect, protocol
+			// version, JSON paths, ...) stay as they are
+			var result = {};
+
+			for (var key in src)
+			{
+				if (MANAGED.indexOf(key) < 0)
+				{
+					result[key] = src[key];
+				}
+			}
+
+			result.id = src.id;
+			result.name = nameInput.value;
+			result.type = typeSelect.value;
+			result.enabled = src.enabled !== false;
+			result.scope = scopeSelect.value;
+			result.prefix = prefixInput.value;
+			result.url = urlInput.value;
+			result.format = {kind: fmtKind.value, template: tmplInput.value};
+
+			if (src.format != null && src.format.paths != null)
+			{
+				result.format.paths = src.format.paths;
+			}
+
+			result.parser = parserArea.value;
+			result.preConnect = preConnectArea.value;
+			result.credentials = {mode: credMode.value};
 
 			if (credMode.value == 'save')
 			{
@@ -339,7 +396,19 @@
 				result.cleanSession = typeFields.cleanSession.checked;
 				result.topics = typeFields.topics.value.split(',').map(function(s)
 				{
-					return {filter: s.replace(/^\s+|\s+$/g, '')};
+					var filter = s.replace(/^\s+|\s+$/g, '');
+					var topic = {filter: filter};
+
+					// Keeps the QoS of a topic that was already there
+					for (var q = 0; q < (src.topics || []).length; q++)
+					{
+						if (src.topics[q].filter == filter && src.topics[q].qos != null)
+						{
+							topic.qos = src.topics[q].qos;
+						}
+					}
+
+					return topic;
 				}).filter(function(t2)
 				{
 					return t2.filter.length > 0;
@@ -396,12 +465,16 @@
 		var div = document.createElement('div');
 		var hd = document.createElement('h3');
 		mxUtils.write(hd, mxResources.get('hmiTestConnection'));
+		Hmi.Editors.help(hd, 'source.test');
 		div.appendChild(hd);
 
-		var status = document.createElement('div');
-		status.className = 'geDialogHint';
+		var statusRow = document.createElement('div');
+		statusRow.className = 'geDialogHint';
+		var status = document.createElement('span');
 		mxUtils.write(status, mxResources.get('hmiConnecting'));
-		div.appendChild(status);
+		statusRow.appendChild(status);
+		Hmi.Editors.help(statusRow, 'source.test.status');
+		div.appendChild(statusRow);
 
 		var log = document.createElement('div');
 		log.style.cssText = 'font-family:monospace;font-size:11px;max-height:180px;' +
@@ -485,22 +558,23 @@
 		var div = document.createElement('div');
 		var hd = document.createElement('h3');
 		mxUtils.write(hd, mxResources.get('hmiCredentialsFor') + ' ' + (source.name || source.id));
+		Hmi.Editors.help(hd, 'credentials.dialog');
 		div.appendChild(hd);
 
 		var section = document.createElement('div');
 		section.className = 'geDialogSection';
 		div.appendChild(section);
 
-		var userRow = Hmi.Editors.row(section, mxResources.get('hmiUsername') + ':');
+		var userRow = Hmi.Editors.row(section, mxResources.get('hmiUsername') + ':', 'credentials.username');
 		var userInput = Hmi.Editors.textInput('');
 		userRow.appendChild(userInput);
 
-		var passRow = Hmi.Editors.row(section, mxResources.get('hmiPassword') + ':');
+		var passRow = Hmi.Editors.row(section, mxResources.get('hmiPassword') + ':', 'credentials.password');
 		var passInput = document.createElement('input');
 		passInput.setAttribute('type', 'password');
 		passRow.appendChild(passInput);
 
-		var tokenRow = Hmi.Editors.row(section, mxResources.get('hmiToken') + ':');
+		var tokenRow = Hmi.Editors.row(section, mxResources.get('hmiToken') + ':', 'credentials.token');
 		var tokenInput = document.createElement('input');
 		tokenInput.setAttribute('type', 'password');
 		tokenRow.appendChild(tokenInput);

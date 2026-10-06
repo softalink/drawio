@@ -12,6 +12,10 @@
 
 	var TagsDialog = {};
 
+	// The settings of a tag that the tag editor has fields for
+	var MANAGED = ['name', 'type', 'unit', 'description', 'access', 'local', 'min', 'max',
+		'decimals', 'format', 'initial', 'staleMs', 'expr', 'roles', 'sim', 'write', 'alarms'];
+
 	var CSV_COLUMNS = ['name', 'type', 'unit', 'min', 'max', 'decimals', 'access',
 		'initial', 'staleMs', 'simKind', 'simMin', 'simMax', 'simPeriod'];
 
@@ -201,6 +205,7 @@
 		var div = document.createElement('div');
 		var hd = document.createElement('h3');
 		mxUtils.write(hd, mxResources.get('hmiTags'));
+		Hmi.Editors.help(hd, 'tags.dialog');
 		div.appendChild(hd);
 
 		// Doc settings
@@ -210,30 +215,30 @@
 
 		var r1 = Hmi.Editors.inlineFields(settings);
 		var simSelect = Hmi.Editors.select(['off', 'on', 'only'], cfg.sim || 'off');
-		Hmi.Editors.inlineField(r1, mxResources.get('hmiSimMode') + ':', simSelect);
+		Hmi.Editors.inlineField(r1, mxResources.get('hmiSimMode') + ':', simSelect, 'tags.sim');
 		var scriptsSelect = Hmi.Editors.select(['inherit', 'off'], cfg.scripts || 'inherit');
-		Hmi.Editors.inlineField(r1, mxResources.get('hmiScripts') + ':', scriptsSelect);
+		Hmi.Editors.inlineField(r1, mxResources.get('hmiScripts') + ':', scriptsSelect, 'tags.scripts');
 
 		var r2 = Hmi.Editors.inlineFields(settings);
 		var fitSelect = Hmi.Editors.select(['none', 'page', 'width', 'stretch'],
 			cfg.runtime.fit || 'page');
-		Hmi.Editors.inlineField(r2, mxResources.get('hmiFit') + ':', fitSelect);
+		Hmi.Editors.inlineField(r2, mxResources.get('hmiFit') + ':', fitSelect, 'tags.fit');
 		var navSelect = Hmi.Editors.select(['tabs', 'none'], cfg.runtime.nav || 'tabs');
-		Hmi.Editors.inlineField(r2, mxResources.get('hmiNav') + ':', navSelect);
+		Hmi.Editors.inlineField(r2, mxResources.get('hmiNav') + ':', navSelect, 'tags.nav');
 
 		var r3 = Hmi.Editors.inlineFields(settings);
 		var maxRate = Hmi.Editors.numberInput(cfg.runtime.maxRate || 30);
-		Hmi.Editors.inlineField(r3, mxResources.get('hmiMaxRate') + ' (Hz):', maxRate);
+		Hmi.Editors.inlineField(r3, mxResources.get('hmiMaxRate') + ' (Hz):', maxRate, 'tags.maxRate');
 		var quality = Hmi.Editors.select(['outline', 'none'], cfg.runtime.quality || 'outline');
-		Hmi.Editors.inlineField(r3, mxResources.get('hmiQuality') + ':', quality);
+		Hmi.Editors.inlineField(r3, mxResources.get('hmiQuality') + ':', quality, 'tags.quality');
 
 		var r4 = Hmi.Editors.inlineFields(settings);
-		var panZoom = Hmi.Editors.checkbox(mxResources.get('hmiPanZoom'), cfg.runtime.panZoom !== false);
+		var panZoom = Hmi.Editors.checkbox(mxResources.get('hmiPanZoom'), cfg.runtime.panZoom !== false, 'tags.panZoom');
 		r4.appendChild(panZoom);
 		var w = Hmi.Editors.numberInput(cfg.runtime.width || '');
-		Hmi.Editors.inlineField(r4, mxResources.get('width') + ':', w);
+		Hmi.Editors.inlineField(r4, mxResources.get('width') + ':', w, 'tags.width');
 		var h = Hmi.Editors.numberInput(cfg.runtime.height || '');
-		Hmi.Editors.inlineField(r4, mxResources.get('height') + ':', h);
+		Hmi.Editors.inlineField(r4, mxResources.get('height') + ':', h, 'tags.height');
 
 		// Toolbar: add / import / export
 		var toolbar = document.createElement('div');
@@ -245,6 +250,7 @@
 			editTag(null);
 		});
 		toolbar.appendChild(addBtn);
+		Hmi.Editors.help(toolbar, 'tags.add');
 
 		var importCsvBtn = Hmi.Editors.button(mxResources.get('hmiImportCsv'), function()
 		{
@@ -296,8 +302,16 @@
 			download('tags.json', JSON.stringify(cfg.tags, null, 2), 'application/json');
 		});
 		toolbar.appendChild(exportJsonBtn);
+		Hmi.Editors.help(toolbar, 'tags.exchange');
 
 		// Table
+		var listHead = document.createElement('div');
+		listHead.className = 'geDialogHint';
+		var listCount = document.createElement('span');
+		listHead.appendChild(listCount);
+		Hmi.Editors.help(listHead, 'tags.list');
+		div.appendChild(listHead);
+
 		var tableWrap = document.createElement('div');
 		tableWrap.style.cssText = 'max-height:280px;overflow-y:auto;margin-top:4px;';
 		div.appendChild(tableWrap);
@@ -309,6 +323,7 @@
 		var render = function()
 		{
 			table.innerHTML = '';
+			listCount.textContent = mxResources.get('hmiTags') + ': ' + cfg.tags.length;
 			var head = document.createElement('tr');
 
 			['name', 'type', 'unit', 'access', ''].forEach(function(col)
@@ -318,6 +333,7 @@
 					'var(--border-color, #ccc);';
 				mxUtils.write(th, col == '' ? '' : mxResources.get(col == 'name' ? 'name' :
 					(col == 'type' ? 'hmiTagType' : (col == 'unit' ? 'hmiUnit' : 'hmiAccess'))));
+				Hmi.Editors.help(th, (col == '') ? null : 'tags.col.' + col);
 				head.appendChild(th);
 			});
 			table.appendChild(head);
@@ -423,101 +439,182 @@
 	TagsDialog.showTagEditor = function(ui, tag, onSave)
 	{
 		var t = Hmi.Schema.defaults('tag', JSON.parse(JSON.stringify(tag)));
+		var E = Hmi.Editors;
+		E.installStyle();
 
 		var div = document.createElement('div');
+		div.setAttribute('data-dialog', 'tag-editor');
 		var hd = document.createElement('h3');
 		mxUtils.write(hd, mxResources.get('hmiEditTag'));
+		E.help(hd, 'tag.dialog');
 		div.appendChild(hd);
 
 		var section = document.createElement('div');
 		section.className = 'geDialogSection';
 		div.appendChild(section);
 
-		var r1 = Hmi.Editors.inlineFields(section);
-		var nameInput = Hmi.Editors.textInput(t.name);
-		Hmi.Editors.inlineField(r1, mxResources.get('name') + ':', nameInput);
-		var typeSelect = Hmi.Editors.select(['number', 'integer', 'boolean', 'string', 'object'], t.type);
-		Hmi.Editors.inlineField(r1, mxResources.get('hmiTagType') + ':', typeSelect);
+		var r1 = E.inlineFields(section);
+		var nameInput = E.textInput(t.name);
+		E.inlineField(r1, mxResources.get('name') + ':', nameInput, 'tag.name');
+		var typeSelect = E.select(['number', 'integer', 'boolean', 'string', 'object'], t.type);
+		E.inlineField(r1, mxResources.get('hmiTagType') + ':', typeSelect, 'tag.type');
 
-		var r2 = Hmi.Editors.inlineFields(section);
-		var unitInput = Hmi.Editors.textInput(t.unit);
-		Hmi.Editors.inlineField(r2, mxResources.get('hmiUnit') + ':', unitInput);
-		var accessSelect = Hmi.Editors.select(['r', 'rw'], t.access);
-		Hmi.Editors.inlineField(r2, mxResources.get('hmiAccess') + ':', accessSelect);
+		var r2 = E.inlineFields(section);
+		var unitInput = E.textInput(t.unit);
+		E.inlineField(r2, mxResources.get('hmiUnit') + ':', unitInput, 'tag.unit');
+		var accessSelect = E.select(['r', 'rw'], t.access);
+		E.inlineField(r2, mxResources.get('hmiAccess') + ':', accessSelect, 'tag.access');
 
-		var r3 = Hmi.Editors.inlineFields(section);
-		var minInput = Hmi.Editors.numberInput(t.min);
-		Hmi.Editors.inlineField(r3, mxResources.get('hmiMin') + ':', minInput);
-		var maxInput = Hmi.Editors.numberInput(t.max);
-		Hmi.Editors.inlineField(r3, mxResources.get('hmiMax') + ':', maxInput);
-		var decimalsInput = Hmi.Editors.numberInput(t.decimals);
-		Hmi.Editors.inlineField(r3, mxResources.get('hmiDecimals') + ':', decimalsInput);
+		var descRow = E.row(section, mxResources.get('hmiDescription') + ':', 'tag.description');
+		var descInput = E.textInput(t.description);
+		descRow.appendChild(descInput);
 
-		var r4 = Hmi.Editors.inlineFields(section);
-		var initialInput = Hmi.Editors.textInput(t.initial);
-		Hmi.Editors.inlineField(r4, mxResources.get('hmiInitial') + ':', initialInput);
-		var staleInput = Hmi.Editors.numberInput(t.staleMs);
-		Hmi.Editors.inlineField(r4, mxResources.get('hmiStaleMs') + ':', staleInput);
-		var localCb = Hmi.Editors.checkbox(mxResources.get('hmiLocal'), !!t.local);
-		r4.appendChild(localCb);
+		var r3 = E.inlineFields(section);
+		var minInput = E.numberInput(t.min);
+		E.inlineField(r3, mxResources.get('hmiMin') + ':', minInput, 'tag.min');
+		var maxInput = E.numberInput(t.max);
+		E.inlineField(r3, mxResources.get('hmiMax') + ':', maxInput, 'tag.max');
 
-		var exprRow = Hmi.Editors.row(section, mxResources.get('hmiExpr') + ':');
-		var exprInput = Hmi.Editors.textInput(t.expr);
+		var r3b = E.inlineFields(section);
+		var decimalsInput = E.numberInput(t.decimals);
+		E.inlineField(r3b, mxResources.get('hmiDecimals') + ':', decimalsInput, 'tag.decimals');
+		var formatInput = E.textInput(t.format, '0.0');
+		E.inlineField(r3b, mxResources.get('hmiFormat') + ':', formatInput, 'tag.format');
+
+		var r4 = E.inlineFields(section);
+		var initialInput = E.textInput(t.initial);
+		E.inlineField(r4, mxResources.get('hmiInitial') + ':', initialInput, 'tag.initial');
+		var staleInput = E.numberInput(t.staleMs);
+		E.inlineField(r4, mxResources.get('hmiStaleMs') + ':', staleInput, 'tag.staleMs');
+		var localCb = E.checkbox(mxResources.get('hmiLocal'), !!t.local, 'tag.local');
+		section.appendChild(localCb);
+
+		var exprRow = E.row(section, mxResources.get('hmiExpr') + ':', 'tag.expr');
+		var exprInput = E.textInput(t.expr, '(T1 + T2) / 2');
 		exprRow.appendChild(exprInput);
 
-		// Simulation
+		var rolesRow = E.row(section, mxResources.get('hmiRoles') + ':', 'tag.roles');
+		var rolesInput = E.textInput((t.roles || []).join(','), 'op,eng');
+		rolesRow.appendChild(rolesInput);
+
+		// Simulation: the fields depend on the kind
 		var simSection = document.createElement('div');
 		simSection.className = 'geDialogSection';
 		simSection.style.marginTop = '10px';
 		div.appendChild(simSection);
-		mxUtils.write(simSection, mxResources.get('hmiSimulation') + ':');
-		var simRow = Hmi.Editors.inlineFields(simSection);
-		var simKind = Hmi.Editors.select(['', 'random', 'sine', 'ramp', 'list', 'toggle',
-			'constant', 'script'], (t.sim && t.sim.kind) || '');
-		Hmi.Editors.inlineField(simRow, mxResources.get('hmiSimKind') + ':', simKind);
-		var simMin = Hmi.Editors.numberInput(t.sim && t.sim.min);
-		Hmi.Editors.inlineField(simRow, mxResources.get('hmiMin') + ':', simMin);
-		var simMax = Hmi.Editors.numberInput(t.sim && t.sim.max);
-		Hmi.Editors.inlineField(simRow, mxResources.get('hmiMax') + ':', simMax);
-		var simRow2 = Hmi.Editors.inlineFields(simSection);
-		var simPeriod = Hmi.Editors.numberInput(t.sim && t.sim.period);
-		Hmi.Editors.inlineField(simRow2, mxResources.get('hmiSimPeriod') + ' (ms):', simPeriod);
-		var simValues = Hmi.Editors.textInput((t.sim && t.sim.values) ? t.sim.values.join(',') : '');
-		Hmi.Editors.inlineField(simRow2, mxResources.get('hmiSimValues') + ':', simValues);
+		E.head(simSection, mxResources.get('hmiSimulation') + ':', 'tag.sim');
+		var sim = t.sim || {};
+		var simRow = E.inlineFields(simSection);
+		var simKind = E.select(['', 'random', 'sine', 'ramp', 'list', 'toggle',
+			'constant', 'script'], sim.kind || '');
+		simKind.style.minWidth = '0';
+		E.inlineField(simRow, mxResources.get('hmiSimKind') + ':', simKind, 'tag.sim.kind');
+		var simMin = E.numberInput(sim.min);
+		var simMinField = E.inlineField(simRow, mxResources.get('hmiMin') + ':', simMin, 'tag.sim.min');
+		var simMax = E.numberInput(sim.max);
+		var simMaxField = E.inlineField(simRow, mxResources.get('hmiMax') + ':', simMax, 'tag.sim.max');
+		var simRow2 = E.inlineFields(simSection);
+		var simPeriod = E.numberInput(sim.period);
+		var simPeriodField = E.inlineField(simRow2, mxResources.get('hmiSimPeriod') + ' (ms):', simPeriod, 'tag.sim.period');
+		var simStep = E.numberInput(sim.step);
+		var simStepField = E.inlineField(simRow2, mxResources.get('hmiSimStep') + ':', simStep, 'tag.sim.step');
+		var simInterval = E.numberInput(sim.interval);
+		var simIntervalField = E.inlineField(simRow2, mxResources.get('hmiSimInterval') + ' (ms):', simInterval, 'tag.sim.interval');
+		var simRow3 = E.inlineFields(simSection);
+		var simValues = E.textInput((sim.values != null) ? sim.values.join(',') : '', '1,2,3');
+		var simValuesField = E.inlineField(simRow3, mxResources.get('hmiSimValues') + ':', simValues, 'tag.sim.values');
+		var simInteger = E.checkbox(mxResources.get('hmiSimInteger'), !!sim.integer, 'tag.sim.integer');
+		simRow3.appendChild(simInteger);
+		var simCodeRow = E.row(simSection, mxResources.get('hmiSimCode') + ':', 'tag.sim.code');
+		var simCode = document.createElement('textarea');
+		simCode.setAttribute('rows', '3');
+		simCode.value = sim.code || '';
+		simCodeRow.appendChild(simCode);
+
+		// Fields that apply to each kind
+		var SIM_FIELDS = {random: ['min', 'max', 'interval', 'integer'],
+			sine: ['min', 'max', 'period', 'interval'], ramp: ['min', 'max', 'step', 'interval'],
+			list: ['values', 'interval'], toggle: ['interval'], constant: ['values'],
+			script: ['code', 'interval']};
+
+		function syncSim()
+		{
+			var used = SIM_FIELDS[simKind.value] || [];
+
+			function show(el, name)
+			{
+				el.style.display = (used.indexOf(name) >= 0) ? '' : 'none';
+			};
+
+			show(simMinField, 'min');
+			show(simMaxField, 'max');
+			show(simPeriodField, 'period');
+			show(simStepField, 'step');
+			show(simIntervalField, 'interval');
+			show(simValuesField, 'values');
+			show(simInteger, 'integer');
+			show(simCodeRow, 'code');
+			simRow2.style.display = (used.indexOf('period') >= 0 || used.indexOf('step') >= 0 ||
+				used.indexOf('interval') >= 0) ? '' : 'none';
+			simRow3.style.display = (used.indexOf('values') >= 0 || used.indexOf('integer') >= 0) ? '' : 'none';
+			E.fitDialog(div);
+		};
+
+		mxEvent.addListener(simKind, 'change', syncSim);
 
 		// Write target
 		var writeSection = document.createElement('div');
 		writeSection.className = 'geDialogSection';
 		writeSection.style.marginTop = '10px';
 		div.appendChild(writeSection);
-		mxUtils.write(writeSection, mxResources.get('hmiWriteTarget') + ':');
-		var wRow1 = Hmi.Editors.inlineFields(writeSection);
-		var wSource = Hmi.Editors.textInput(t.write && t.write.source);
-		Hmi.Editors.inlineField(wRow1, mxResources.get('hmiSourceId') + ':', wSource);
-		var wTopic = Hmi.Editors.textInput(t.write && t.write.topic);
-		Hmi.Editors.inlineField(wRow1, mxResources.get('hmiTopic') + ':', wTopic);
-		var wRow2 = Hmi.Editors.inlineFields(writeSection);
-		var wPayload = Hmi.Editors.textInput((t.write && t.write.payload) || '{"value":${value}}');
-		Hmi.Editors.inlineField(wRow2, mxResources.get('hmiPayload') + ':', wPayload);
-		var wMode = Hmi.Editors.select(['confirmed', 'optimistic'], (t.write && t.write.mode) || 'confirmed');
-		Hmi.Editors.inlineField(wRow2, mxResources.get('hmiWriteMode') + ':', wMode);
+		E.head(writeSection, mxResources.get('hmiWriteTarget') + ':', 'tag.write');
+		var wRow1 = E.inlineFields(writeSection);
+		var wSource = E.textInput(t.write && t.write.source);
+		E.inlineField(wRow1, mxResources.get('hmiSourceId') + ':', wSource, 'tag.write.source');
+		var wTopic = E.textInput(t.write && t.write.topic);
+		E.inlineField(wRow1, mxResources.get('hmiTopic') + ':', wTopic, 'tag.write.topic');
+		var wRow2 = E.inlineFields(writeSection);
+		var wPayload = E.textInput((t.write && t.write.payload) || '{"value":${value}}');
+		E.inlineField(wRow2, mxResources.get('hmiPayload') + ':', wPayload, 'tag.write.payload');
+		var wMode = E.select(['confirmed', 'optimistic'], (t.write && t.write.mode) || 'confirmed');
+		E.inlineField(wRow2, mxResources.get('hmiWriteMode') + ':', wMode, 'tag.write.mode');
 
 		// Alarms
 		var alarmSection = document.createElement('div');
 		alarmSection.className = 'geDialogSection';
 		alarmSection.style.marginTop = '10px';
 		div.appendChild(alarmSection);
-		mxUtils.write(alarmSection, mxResources.get('hmiAlarms') + ':');
-		var aRow1 = Hmi.Editors.inlineFields(alarmSection);
-		var aHihi = Hmi.Editors.numberInput(t.alarms && t.alarms.hihi);
-		Hmi.Editors.inlineField(aRow1, 'HIHI:', aHihi);
-		var aHi = Hmi.Editors.numberInput(t.alarms && t.alarms.hi);
-		Hmi.Editors.inlineField(aRow1, 'HI:', aHi);
-		var aRow2 = Hmi.Editors.inlineFields(alarmSection);
-		var aLo = Hmi.Editors.numberInput(t.alarms && t.alarms.lo);
-		Hmi.Editors.inlineField(aRow2, 'LO:', aLo);
-		var aLolo = Hmi.Editors.numberInput(t.alarms && t.alarms.lolo);
-		Hmi.Editors.inlineField(aRow2, 'LOLO:', aLolo);
+		E.head(alarmSection, mxResources.get('hmiAlarms') + ':', 'tag.alarms');
+		var al = t.alarms || {};
+		var dev = (al.deviation != null && typeof al.deviation === 'object') ? al.deviation : al;
+		var aRow1 = E.inlineFields(alarmSection);
+		var aHihi = E.numberInput(al.hihi);
+		E.inlineField(aRow1, 'HIHI:', aHihi, 'tag.alarms.hihi');
+		var aHi = E.numberInput(al.hi);
+		E.inlineField(aRow1, 'HI:', aHi, 'tag.alarms.hi');
+		var aRow2 = E.inlineFields(alarmSection);
+		var aLo = E.numberInput(al.lo);
+		E.inlineField(aRow2, 'LO:', aLo, 'tag.alarms.lo');
+		var aLolo = E.numberInput(al.lolo);
+		E.inlineField(aRow2, 'LOLO:', aLolo, 'tag.alarms.lolo');
+		var aRow3 = E.inlineFields(alarmSection);
+		var aDeadband = E.numberInput(al.deadband || '');
+		E.inlineField(aRow3, mxResources.get('hmiAlarmDeadband') + ':', aDeadband, 'tag.alarms.deadband');
+		var aBool = E.select([{value: '', label: mxResources.get('none')},
+			{value: 'true', label: 'true'}, {value: 'false', label: 'false'}],
+			(typeof al.bool === 'boolean') ? String(al.bool) : '');
+		E.inlineField(aRow3, mxResources.get('hmiAlarmBool') + ':', aBool, 'tag.alarms.bool');
+		var aRow4 = E.inlineFields(alarmSection);
+		var aTarget = E.textInput((dev.target != null) ? dev.target : '', '50 / Setpoint');
+		E.inlineField(aRow4, mxResources.get('hmiAlarmTarget') + ':', aTarget, 'tag.alarms.target');
+		var aMinor = E.numberInput(dev.minorDev);
+		E.inlineField(aRow4, mxResources.get('hmiAlarmMinorDev') + ':', aMinor, 'tag.alarms.minorDev');
+		var aMajor = E.numberInput(dev.majorDev);
+		E.inlineField(aRow4, mxResources.get('hmiAlarmMajorDev') + ':', aMajor, 'tag.alarms.majorDev');
+		var aRow5 = E.inlineFields(alarmSection);
+		var rocLimit = (al.roc != null && typeof al.roc === 'object') ? al.roc.limit : al.roc;
+		var aRoc = E.numberInput(rocLimit);
+		E.inlineField(aRow5, mxResources.get('hmiAlarmRoc') + ':', aRoc, 'tag.alarms.roc');
 
 		var errorsDiv = document.createElement('div');
 		errorsDiv.className = 'geDialogHint';
@@ -526,55 +623,130 @@
 
 		function collect()
 		{
-			var result = {name: nameInput.value, type: typeSelect.value, unit: unitInput.value,
-				access: accessSelect.value, local: localCb.input.checked};
+			// Settings that have no field here (severity, messages, write
+			// headers, ...) stay as they are
+			var result = {};
 
+			for (var key in t)
+			{
+				if (MANAGED.indexOf(key) < 0)
+				{
+					result[key] = t[key];
+				}
+			}
+
+			result.name = nameInput.value;
+			result.type = typeSelect.value;
+			result.unit = unitInput.value;
+			result.access = accessSelect.value;
+			result.local = localCb.input.checked;
+
+			if (descInput.value !== '') result.description = descInput.value;
 			if (minInput.value !== '') result.min = parseFloat(minInput.value);
 			if (maxInput.value !== '') result.max = parseFloat(maxInput.value);
 			if (decimalsInput.value !== '') result.decimals = parseInt(decimalsInput.value, 10);
+			if (formatInput.value !== '') result.format = formatInput.value;
 			if (initialInput.value !== '') result.initial = initialInput.value;
 			if (staleInput.value !== '') result.staleMs = parseInt(staleInput.value, 10);
 			if (exprInput.value !== '') result.expr = exprInput.value;
 
+			result.roles = rolesInput.value.split(',').map(function(s)
+			{
+				return s.replace(/^\s+|\s+$/g, '');
+			}).filter(function(s)
+			{
+				return s.length > 0;
+			});
+
 			if (simKind.value !== '')
 			{
+				var used = SIM_FIELDS[simKind.value] || [];
 				result.sim = {kind: simKind.value};
 
-				if (simMin.value !== '') result.sim.min = parseFloat(simMin.value);
-				if (simMax.value !== '') result.sim.max = parseFloat(simMax.value);
-				if (simPeriod.value !== '') result.sim.period = parseFloat(simPeriod.value);
+				if (used.indexOf('min') >= 0 && simMin.value !== '') result.sim.min = parseFloat(simMin.value);
+				if (used.indexOf('max') >= 0 && simMax.value !== '') result.sim.max = parseFloat(simMax.value);
+				if (used.indexOf('period') >= 0 && simPeriod.value !== '') result.sim.period = parseFloat(simPeriod.value);
+				if (used.indexOf('step') >= 0 && simStep.value !== '') result.sim.step = parseFloat(simStep.value);
+				if (used.indexOf('interval') >= 0 && simInterval.value !== '') result.sim.interval = parseFloat(simInterval.value);
+				if (used.indexOf('integer') >= 0 && simInteger.input.checked) result.sim.integer = true;
+				if (used.indexOf('code') >= 0 && simCode.value !== '') result.sim.code = simCode.value;
 
-				if (simValues.value !== '')
+				if (used.indexOf('values') >= 0 && simValues.value !== '')
 				{
 					result.sim.values = simValues.value.split(',').map(function(s)
 					{
-						return s.replace(/^\s+|\s+$/g, '');
+						s = s.replace(/^\s+|\s+$/g, '');
+
+						// Numbers stay numbers, true and false stay booleans
+						return (s !== '' && !isNaN(Number(s))) ? Number(s) :
+							(s == 'true') ? true : (s == 'false') ? false : s;
 					});
 				}
 			}
 
 			if (wSource.value !== '' || wTopic.value !== '')
 			{
-				result.write = {source: wSource.value, topic: wTopic.value,
-					payload: wPayload.value, mode: wMode.value};
+				result.write = {};
+
+				for (var wk in (t.write || {}))
+				{
+					result.write[wk] = t.write[wk];
+				}
+
+				result.write.source = wSource.value;
+				result.write.topic = wTopic.value;
+				result.write.payload = wPayload.value;
+				result.write.mode = wMode.value;
 			}
 
 			var alarms = {};
 			var hasAlarm = false;
+			var limits = {hihi: aHihi, hi: aHi, lo: aLo, lolo: aLolo, roc: aRoc,
+				minorDev: aMinor, majorDev: aMajor};
 
-			['hihi', 'hi', 'lo', 'lolo'].forEach(function(k)
+			for (var lk in limits)
 			{
-				var input = {hihi: aHihi, hi: aHi, lo: aLo, lolo: aLolo}[k];
-
-				if (input.value !== '')
+				if (limits[lk].value !== '')
 				{
-					alarms[k] = parseFloat(input.value);
+					alarms[lk] = parseFloat(limits[lk].value);
 					hasAlarm = true;
 				}
-			});
+			}
+
+			if (aBool.value !== '')
+			{
+				alarms.bool = (aBool.value == 'true');
+				hasAlarm = true;
+			}
+
+			if (aTarget.value !== '' && (alarms.minorDev != null || alarms.majorDev != null))
+			{
+				alarms.target = (aTarget.value.replace(/\s+/g, '') !== '' && !isNaN(Number(aTarget.value))) ?
+					Number(aTarget.value) : aTarget.value;
+			}
+			else
+			{
+				delete alarms.minorDev;
+				delete alarms.majorDev;
+			}
 
 			if (hasAlarm)
 			{
+				if (aDeadband.value !== '')
+				{
+					alarms.deadband = parseFloat(aDeadband.value);
+				}
+
+				if (al.severity != null)
+				{
+					alarms.severity = al.severity;
+				}
+
+				if (al.messages != null)
+				{
+					alarms.messages = al.messages;
+				}
+
 				result.alarms = alarms;
 			}
 
@@ -596,7 +768,8 @@
 			ui.hideDialog();
 			onSave(result);
 		}, null, mxResources.get('ok'), null, null, null, null, true);
-		ui.showDialog(dlg.container, 460, null, true, true);
+		syncSim();
+		ui.showDialog(dlg.container, 520, null, true, true);
 	};
 
 	Hmi.TagsDialog = TagsDialog;

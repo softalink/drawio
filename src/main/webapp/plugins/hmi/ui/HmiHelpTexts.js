@@ -9,6 +9,11 @@
  * - field.<spec id>.<list key>.<column key>, falling back to field.<list key>.<column key>
  * - heading.<heading resource key>
  * - halo.<name> and halo.object.<name>
+ * - sources.*, source.<field>, credentials.* (Data Sources)
+ * - tags.*, tag.<field>, tag.sim.*, tag.write.*, tag.alarms.* (Tags)
+ * - tagBrowser.*, substitute.*, define.*, validator.*, diag.*, alarmList.*
+ * - hmiTab.* (HMI tab), quick.*, binding.*, transform.*, event.*, trigger.*,
+ *   condition.*, action.*, target.*, animation.*, item.json
  *
  * Only the editor needs these texts, they are not part of the viewer bundle.
  */
@@ -674,6 +679,642 @@
 		'Overrides the outline shape for the selected objects: Rectangle or Follow the shape. "Page default" uses the page setting.');
 	H('halo.object.color', 'Halo color of the objects',
 		'Overrides the halo colour (#RRGGBB) for the selected objects. Empty uses the colour of the page.');
+
+	// ---------------------------------------------------------------
+	// Data Sources dialog and source editor
+	// ---------------------------------------------------------------
+
+	H('sources.dialog', 'Data Sources',
+		'Data sources are the connections that deliver tag values (MQTT, WebSocket, HTTP polling, Server-Sent Events) or receive them from the host page.',
+		'- Connections open only in a running screen or in Live Preview, never while you edit.',
+		'- Click a source to edit it, tick or clear the box to enable or disable it.',
+		'- OK saves the list with the document.');
+	H('sources.list', 'Source list',
+		'One row per source: the enabled box, the name, the type and the URL.',
+		'- Click the name to edit the source.',
+		'- Test Connection opens a temporary connection for 5 seconds and shows the state and the messages. It does not touch the real tag values.',
+		'- Delete removes the source from the list. It takes effect when you click OK.',
+		'A disabled source is kept in the file but never connects.');
+	H('sources.add', 'Add Source',
+		'Adds a new MQTT source with a generated id. Choose the type in the editor that opens.');
+
+	H('source.dialog', 'Edit source',
+		'The settings of one data source. The fields below the URL depend on the type.',
+		'- The tag values are mapped from the payload as set under Format.',
+		'- A lost connection is retried automatically, first after 1 s, then with growing delays up to 30 s.',
+		'- Settings that this dialog has no field for (headers, protocol version, reconnect limit, MQTT QoS, JSON paths) are kept as they are.');
+	H('source.name', 'Name',
+		'The display name of the source in the lists, in Diagnostics and in the status bar of a running screen. Not used in tag names.');
+	H('source.type', 'Type',
+		'How the source gets its data:',
+		'- `mqtt`: a broker, over WebSocket (`ws://` or `wss://`), subscribed to topic filters.',
+		'- `ws`: a WebSocket that sends messages.',
+		'- `http`: polls a URL at a fixed interval.',
+		'- `sse`: Server-Sent Events from a URL.',
+		'- `host`: no connection. The page that embeds draw.io pushes the values in with `hmiSetValues`.');
+	H('source.scope', 'Scope',
+		'- `file`: connects once and stays connected on every page of the file.',
+		'- `page`: connects when the page that holds the source opens and disconnects when the page closes.');
+	H('source.prefix', 'Tag prefix',
+		'Text put in front of every tag name from this source, so that equal names from two sources do not clash.',
+		'Example: prefix `plant1/` turns the payload key `Tank1/Level` into the tag `plant1/Tank1/Level`. Empty means no prefix.');
+	H('source.url', 'URL',
+		'The address of the source. A running screen may connect only to hosts that the server allows (CSP `connect-src` and `allowedEndpoints`).');
+	H('source.url.mqtt', 'Broker URL',
+		'The WebSocket address of the MQTT broker, `ws://` or `wss://`. Plain `mqtt://` and TCP ports do not work in a browser.',
+		'Example: `wss://broker.example.com:8884/mqtt`');
+	H('source.url.ws', 'WebSocket URL',
+		'The address of the WebSocket, `ws://` or `wss://`. Every message received is read with the payload format below.',
+		'Example: `wss://gateway.example.com/hmi`');
+	H('source.url.http', 'HTTP URL',
+		'The address that is requested every poll interval. The response is read with the payload format below. `https://` is needed when the page itself uses https.',
+		'Example: `https://gateway.example.com/api/tags`');
+	H('source.url.sse', 'SSE URL',
+		'The address of the event stream. Every event of the listed event names is read with the payload format below.',
+		'Example: `https://gateway.example.com/events`');
+	H('source.mqtt.clientId', 'Client ID',
+		'The MQTT client id. Empty creates a random id for every connection.',
+		'Two clients with the same id push each other off the broker, so leave it empty for screens that run on several computers.');
+	H('source.mqtt.keepalive', 'Keep-alive',
+		'Seconds between the pings that keep the MQTT connection open. Default 30.');
+	H('source.mqtt.topics', 'Topic filters',
+		'The topics to subscribe to, separated by commas. Wildcards:',
+		'- `+` matches one level: `plant/+/temp`',
+		'- `#` matches all levels below, at the end only: `plant/#`',
+		'Example: `plant/+/temp,plant/alarms/#`');
+	H('source.mqtt.cleanSession', 'Clean session',
+		'On (default): the broker forgets the subscriptions and the queued messages when the connection closes.',
+		'Off: the broker keeps them for the client id, so the messages sent while the screen was closed arrive later. This needs a fixed client id.');
+	H('source.ws.initMessage', 'Initial message',
+		'Text that is sent right after the connection opens, for example a subscription request.',
+		'Example: `{"subscribe": ["Tank1/Level"]}`. Empty sends nothing.');
+	H('source.http.method', 'Method',
+		'The HTTP method of every poll: `GET` (default), `POST` or `PUT`. `POST` and `PUT` send the request body.');
+	H('source.http.interval', 'Poll interval',
+		'Milliseconds between two requests. Default 1000, the lowest value used is 250.',
+		'A new request is not started while the previous one is still running.');
+	H('source.http.body', 'Request body',
+		'The text sent with every `POST` or `PUT` request, for example `{"tags": ["Tank1/Level"]}`. Empty sends no body.');
+	H('source.sse.events', 'Event names',
+		'The names of the server events to listen to, separated by commas. Default `message`.',
+		'Example: `message,alarm`');
+	H('source.format', 'Payload format',
+		'How a received message is turned into tag values:',
+		'- `auto`: detects the format from the message (default).',
+		'- `flat`: a JSON object with a tag per key, `{"Tank1/Level": 42.1}`.',
+		'- `array`: a list of `{tag, value, ts, quality}` objects.',
+		'- `topic`: the tag name comes from the MQTT topic, the payload is the value.',
+		'- `jsonpath`: a list of tag and path pairs, read from the payload.',
+		'- `drawio-update-xml`: the update format of the older draw.io `update.js` plugin.');
+	H('source.format.template', 'Topic template',
+		'For the `topic` format: the pattern of the topic. `{tag}` marks the part that is the tag name.',
+		'Example: with `plant/{tag}` the topic `plant/Tank1/Level` sets the tag `Tank1/Level`. Without a template the whole topic is the tag name.');
+	H('source.scripts', 'Scripts',
+		'Parser and pre-connect scripts run only if the script policy allows scripts. The document setting Scripts (in Tags) can switch them off, and the server policy can too.');
+	H('source.parser', 'Parser script',
+		'Code that turns a received message into tag values, instead of the payload format.',
+		'- It gets `message` and `context`.',
+		'- It returns the updates (for example `[{tag: "T1", value: 5}]`), or `false` to drop the message.');
+	H('source.preConnect', 'Pre-connect script',
+		'Code that runs before every connection attempt and may change the connection. It gets `source` and may return an object with `url`, `headers`, `username`, `password` or `token`.',
+		'Use it to add a session token to the URL.');
+	H('source.credentials', 'Credentials',
+		'How the user name and password reach the source:',
+		'- `none`: no credentials.',
+		'- `save`: stored in the diagram file. Anyone who can open the file can read them.',
+		'- `prompt`: the operator is asked once per session. Nothing is stored.',
+		'- `param`: read at run time from a screen variable, a URL parameter or the deployment config.');
+	H('source.credentials.username', 'User name',
+		'The user name that is sent to the source. It is saved in the file, as the mode is Save.');
+	H('source.credentials.password', 'Password',
+		'The password that is sent to the source. It is saved in the file in clear text, as the mode is Save. Use Prompt instead if the file is shared.');
+	H('source.credentials.param', 'Parameter name',
+		'The name of the parameter that holds the credentials. It is looked up as `${name}` in the screen variables, the URL parameters, `localStorage` and `DRAWIO_CONFIG.hmi.params`.');
+	H('source.test', 'Test Connection',
+		'Connects the source for 5 seconds with a temporary tag store and shows what happens. The real tags of the screen are not touched.',
+		'Close ends the test.');
+	H('source.test.status', 'Connection status',
+		'The state (`disconnected`, `connecting`, `connected`, `error`) with the number of messages received and of errors. The lines below are the log of the connection.');
+	H('credentials.dialog', 'Credentials',
+		'The data source asks for credentials. They are used for this session only and are not saved in the file.');
+	H('credentials.username', 'User name', 'The user name for the data source.');
+	H('credentials.password', 'Password', 'The password for the data source. It is sent only to this source.');
+	H('credentials.token', 'Token', 'An access token (for example a bearer token) for sources that do not use a user name and password. Leave it empty if not needed.');
+
+	// ---------------------------------------------------------------
+	// Tags dialog and tag editor
+	// ---------------------------------------------------------------
+
+	H('tags.dialog', 'Tags',
+		'The tag catalogue of the page and the settings of the running screen.',
+		'- A tag is a named value. Tags that are used but not declared still work, with the type taken from the values.',
+		'- Declare a tag to add a unit, limits, alarms, a simulation or a write target.',
+		'- OK saves the settings and the list with the document.');
+	H('tags.sim', 'Simulation mode',
+		'Whether tags with a Simulation run in the screen:',
+		'- `off`: never (default).',
+		'- `on`: simulated tags run next to the real sources.',
+		'- `only`: no real connection is opened, only simulated and screen variables run.',
+		'A URL parameter `hmi-sim` overrides this in a running screen.');
+	H('tags.scripts', 'Scripts',
+		'- `inherit`: the script policy of the server applies (default).',
+		'- `off`: no scripts run in this document (transforms, parsers, simulations, actions).',
+		'A document can only restrict the server policy, not relax it.');
+	H('tags.fit', 'Fit',
+		'How the running screen is scaled to the window, again when the window changes size:',
+		'- `page`: the whole page is visible, in its proportions (default).',
+		'- `width`: fits the width, the height may need scrolling.',
+		'- `none`: no automatic zoom.',
+		'- `stretch`: behaves like `page` in this version.',
+		'A URL parameter `hmi-fit` overrides this.');
+	H('tags.nav', 'Navigation',
+		'- `tabs`: the navigation bar with the pages of the file is shown in the running screen (default).',
+		'- `none`: the bar is hidden. Pages change only with navigate actions.');
+	H('tags.maxRate', 'Maximum update rate',
+		'The most screen updates per second, in Hz. Default 30. A lower value saves CPU on large screens. The runtime lowers the rate by itself when frames run late.');
+	H('tags.quality', 'Quality display',
+		'How a value with bad or stale quality is shown:',
+		'- `outline`: a dashed grey border and a small badge (default).',
+		'- `none`: no mark.');
+	H('tags.panZoom', 'Pan and zoom',
+		'Lets the operator move and zoom the running screen with the mouse wheel and by dragging. On by default.');
+	H('tags.width', 'Design width',
+		'The width of the design area in pixels. It is used only if the height is set too: the screen is then fitted to this area instead of to the objects on the page. Empty uses the objects.');
+	H('tags.height', 'Design height',
+		'The height of the design area in pixels. It is used only if the width is set too. Empty uses the objects.');
+	H('tags.add', 'Add Tag',
+		'Opens the tag editor for a new tag.');
+	H('tags.exchange', 'Import and export',
+		'Move the tag list in and out of the document:',
+		'- CSV: one tag per line. Columns `name,type,unit,min,max,decimals,access,initial,staleMs,simKind,simMin,simMax,simPeriod`.',
+		'- JSON: the complete tag list with every setting, including alarms and write targets.',
+		'Imported tags are added to the list.');
+	H('tags.list', 'Tag list',
+		'The declared tags of this page. Click a row to edit the tag. Delete removes it from the list (it is gone when you click OK).');
+	H('tags.col.name', 'Name', 'The name of the tag, as used in bindings, links and expressions.');
+	H('tags.col.type', 'Type', 'The data type: number, integer, boolean, string or object.');
+	H('tags.col.unit', 'Unit', 'The engineering unit, for example `%` or `bar`.');
+	H('tags.col.access', 'Access', '`r` is read-only, `rw` can also be written by the operator.');
+
+	H('tag.dialog', 'Edit tag',
+		'The definition of one tag. Only the name is needed, the other fields are optional.',
+		'The settings that this dialog has no field for (alarm messages and severities, write headers) are kept as they are.');
+	H('tag.name', 'Name',
+		'The name of the tag. Bindings, links, conditions and expressions refer to it, so it has to be unique.',
+		'Examples: `Tank1.Level`, `Plant/Tank1/Level`. Avoid spaces, quotes, braces and parentheses.');
+	H('tag.type', 'Type',
+		'- `number`: any number (default).',
+		'- `integer`: a whole number.',
+		'- `boolean`: true or false.',
+		'- `string`: text.',
+		'- `object`: a JSON value, for tables and charts.',
+		'A value that does not fit the type is not taken over. The tag gets bad quality and keeps its last good value.');
+	H('tag.unit', 'Unit',
+		'The engineering unit, for example `%`, `bar` or `°C`. It is shown by Show unit in a binding and in the Tag Browser.');
+	H('tag.access', 'Access',
+		'- `r`: read-only. Writes are refused.',
+		'- `rw`: can be written by the operator, through the write target.',
+		'A screen variable can always be written.');
+	H('tag.description', 'Description',
+		'A note for the screen designer. It is shown in the details view of the Tag Browser.');
+	H('tag.min', 'Minimum',
+		'The lowest value of the engineering range. Written values below it are refused.');
+	H('tag.max', 'Maximum',
+		'The highest value of the range. Written values above it are refused.');
+	H('tag.decimals', 'Decimals',
+		'The number of decimal places when the value is shown, for example `1` shows `42.1`. Empty shows the value as it is.');
+	H('tag.format', 'Format pattern',
+		'Alternative to Decimals: a pattern whose digits after the point give the decimal places.',
+		'Examples: `0.0` (one decimal), `0.00` (two), `#,##0` (thousands separator, none after the point). Decimals wins if both are set.');
+	H('tag.initial', 'Initial value',
+		'The value that the tag has before the first update arrives. Empty means no value, shown as `--`.');
+	H('tag.staleMs', 'Stale after',
+		'Milliseconds. If no update arrives for this long, the quality of the tag becomes `stale` and bound objects show the quality mark. Empty never goes stale.');
+	H('tag.local', 'Screen variable',
+		'The tag has no data source. Writes only change its value in the screen. Use it for local state such as a selected view or a switch, or for values that you wire to a source later.');
+	H('tag.expr', 'Derived expression',
+		'Makes this a derived tag: its value is calculated from other tags and recalculated when one of them changes. It has no source of its own.',
+		'Example: `(T1 + T2) / 2`. A tag name with special characters is written `tag("Plant/T1")`.');
+	H('tag.roles', 'Write roles',
+		'Roles that are needed to write this tag, separated by commas. The operator needs all of them. Empty means no restriction.',
+		'Example: `eng` or `op,eng`. Roles of the user come from the URL parameter `hmi-role`, the config or the host page.');
+
+	H('tag.sim', 'Simulation',
+		'Generates values for the tag without a data source, to design and test a screen. It runs when the Simulation mode of the page is `on` or `only`.',
+		'Choose a kind. The fields below change with it. No kind means no simulation.');
+	H('tag.sim.kind', 'Simulation kind',
+		'- `random`: a random value between Min and Max.',
+		'- `sine`: a sine wave between Min and Max.',
+		'- `ramp`: steps up by Step and starts again at Min after Max.',
+		'- `list`: cycles through the Values.',
+		'- `toggle`: switches between true and false.',
+		'- `constant`: a fixed value, the first of Values.',
+		'- `script`: a value from your own code.');
+	H('tag.sim.min', 'Simulation minimum', 'The lowest value. Default 0.');
+	H('tag.sim.max', 'Simulation maximum', 'The highest value. Default 100.');
+	H('tag.sim.period', 'Sine period',
+		'The time of one full wave in milliseconds. Default 60000 (one minute).',
+		'Example: Min 10, Max 90 and Period 20000 fill and empty a tank every 20 seconds.');
+	H('tag.sim.step', 'Ramp step',
+		'How much the value rises at every update. Default 1. A negative step counts down and starts again at Max.');
+	H('tag.sim.interval', 'Update interval',
+		'Milliseconds between two simulated values. Default 1000.');
+	H('tag.sim.values', 'Simulation values',
+		'Values separated by commas. Numbers stay numbers, `true` and `false` become booleans.',
+		'- `list`: the values are used one after the other, then it starts again.',
+		'- `constant`: the first value is used.',
+		'Example: `0,25,50,75,100`');
+	H('tag.sim.integer', 'Integers only', 'Rounds the random values to whole numbers.');
+	H('tag.sim.code', 'Simulation script',
+		'Code that returns the next value, called at every interval with the tag name in `tag`. It runs only if scripts are allowed.');
+
+	H('tag.write', 'Write target',
+		'Where a value goes when the operator or an action writes this tag to a data source. The tag also needs Access `rw`. Empty keeps the write in the screen only.',
+		'Simulated tags and screen variables take the value at once, without a target.');
+	H('tag.write.source', 'Target source',
+		'The id of the data source that receives the write, as shown in the list of sources. Ids are in the form `src1a2b3c`.');
+	H('tag.write.topic', 'Target topic',
+		'For an MQTT source: the topic to publish to. `${tag}` is replaced by the name of the tag.',
+		'Example: `plant/cmd/${tag}`');
+	H('tag.write.payload', 'Write payload',
+		'The message that is sent. Placeholders: `${value}`, `${tag}` and `${ts}` (milliseconds).',
+		'Default `{"value":${value}}`. A text value is put in quotes, unless the placeholder already sits inside quotes.');
+	H('tag.write.mode', 'Write mode',
+		'- `confirmed`: the screen waits until the source reports the new value (up to 5 seconds), then marks the write as confirmed or unconfirmed.',
+		'- `optimistic`: the new value shows at once and goes back to the old one if the source does not confirm it in time.');
+
+	H('tag.alarms', 'Alarms',
+		'Alarm limits of the tag. Active alarms show in the alarm list of the running screen, where the operator acknowledges them.',
+		'- Limits: HIHI, HI, LO, LOLO.',
+		'- For on/off tags: Alarm when.',
+		'- Deviation from a target, and rate of change.',
+		'Several alarm kinds can be set. The most severe one is reported. Empty fields are not checked.');
+	H('tag.alarms.hihi', 'HIHI limit',
+		'The alarm is active when the value is at or above this limit. Critical by default (severity 1).');
+	H('tag.alarms.hi', 'HI limit',
+		'The alarm is active when the value is at or above this limit. High by default (severity 2).');
+	H('tag.alarms.lo', 'LO limit',
+		'The alarm is active when the value is at or below this limit. High by default (severity 2).');
+	H('tag.alarms.lolo', 'LOLO limit',
+		'The alarm is active when the value is at or below this limit. Critical by default (severity 1).');
+	H('tag.alarms.deadband', 'Deadband',
+		'How far the value has to move back before an alarm of the limits ends, in the unit of the tag. It stops an alarm from switching on and off at the limit.',
+		'Example: HI 85 with deadband 2 ends at 83. Default 0.');
+	H('tag.alarms.bool', 'Alarm when',
+		'For boolean tags: the value that raises the alarm, `true` or `false`. `none` switches this check off. Critical by default.');
+	H('tag.alarms.target', 'Deviation target',
+		'The value that the tag should have: a number, or the name of another tag, so that the target can change while running.',
+		'Needed for the minor and major deviation. Example: `50` or `Tank1.Setpoint`.');
+	H('tag.alarms.minorDev', 'Minor deviation',
+		'A minor alarm is active when the value differs from the target by this amount or more, in either direction.');
+	H('tag.alarms.majorDev', 'Major deviation',
+		'A major alarm is active when the value differs from the target by this amount or more, in either direction. It goes before a minor alarm.');
+	H('tag.alarms.roc', 'Rate of change',
+		'A rate alarm is active while the value changes faster than this limit, in units per second, up or down. It is checked between two updates.');
+
+	// ---------------------------------------------------------------
+	// Tag Browser
+	// ---------------------------------------------------------------
+
+	H('tagBrowser.window', 'Tag Browser',
+		'A list of all declared tags and all tags seen at run time. While Live Preview or a run is going it shows the live value and quality, refreshed four times a second.',
+		'- Drag a row onto an object to bind it. The target depends on the object: an edge gets `style:flowAnimation`, an HMI widget `prop:value`, a tank or cylinder `style:hmiLevel`, any other `label`.',
+		'- The pencil writes a value into the running tag, to test triggers and alarms.');
+	H('tagBrowser.filter', 'Filter',
+		'Shows only the tags that match.',
+		'- Plain text: tags that contain it, ignoring case. `tank` finds `Tank1.Level`.',
+		'- With wildcards the whole name has to match: `*` stands for any text, `?` for one character. `Tank*` finds names that begin with Tank, `Pump?` finds `Pump1` but not `Pump10`.');
+	H('tagBrowser.view', 'View',
+		'- Details: a table with the name, the value, the quality and the override button.',
+		'- List: only the names, in columns. You can still drag them.');
+	H('tagBrowser.col.name', 'Name', 'The name of the tag. Drag the row onto an object to bind the tag to it.');
+	H('tagBrowser.col.value', 'Value',
+		'The current value, `--` if there is none. It is live only while a screen runs.');
+	H('tagBrowser.col.quality', 'Quality',
+		'`good`, `bad` (the last value failed the type check), `uncertain` or `stale` (no update within the stale time). Empty while no screen runs.');
+	H('tagBrowser.col.override', 'Manual override',
+		'The pencil asks for a new value and writes it straight into the running tag, and into the simulator if the tag is simulated. It is for testing only and is not sent to a data source. Available while a screen runs.');
+	H('tagBrowser.select', 'Select tag',
+		'Choose a tag by name. Double-click a row, or select it and click OK.',
+		'Tags that are used but not declared are listed too.');
+	H('tagBrowser.select.filter', 'Filter',
+		'Narrows the list while you type.',
+		'- Plain text: names that contain it.',
+		'- `*` (any text) and `?` (one character) match the whole name: `Tank*`, `Pump?`.');
+	H('tagBrowser.select.view', 'View',
+		'Details shows the type, unit and description of each tag. List shows only the names, in columns.');
+	H('tagBrowser.pick.name', 'Name', 'The name of the tag.');
+	H('tagBrowser.pick.type', 'Type', 'The data type from the tag definition. Empty for tags that are not declared.');
+	H('tagBrowser.pick.unit', 'Unit', 'The engineering unit from the tag definition.');
+	H('tagBrowser.pick.description', 'Description', 'The description from the tag definition.');
+
+	// ---------------------------------------------------------------
+	// Substitute Tags and Define Missing Tags
+	// ---------------------------------------------------------------
+
+	H('substitute.dialog', 'Substitute Tags',
+		'Renames the tags used by the selected objects (or by the whole page when nothing is selected) in one undoable step. It changes links, bindings, events, triggers and animations.',
+		'Use it to reuse a graphic for another unit: copy it, then replace `Pump1.*` by `Pump2.*`.',
+		'A name may not contain spaces, quotes, braces or parentheses.');
+	H('substitute.old', 'Current tag',
+		'Every tag that the objects use, with the number of places where it is used (×3). A tag with a dot field such as `Tank.MaxEU` counts as `Tank`.');
+	H('substitute.new', 'New tag',
+		'The name that replaces the current one. Empty keeps the tag. Double-click the field or use the button to choose from the Tag Browser.');
+	H('define.dialog', 'Define Missing Tags',
+		'Adds the tags that the page uses but the catalogue does not have. Tags whose name starts with `$` are system tags and are left out.',
+		'Tags that are written are made writable (access `rw`). You can edit them later in Tags.');
+	H('define.col.use', 'Define', 'Tick the tags that should be added to the catalogue.');
+	H('define.col.name', 'Name', 'The name of the tag as used on the page.');
+	H('define.col.type', 'Type',
+		'The type of the new tag, taken from the way the page uses it (a flag is a boolean, a text a string). Change it if it is wrong.');
+
+	// ---------------------------------------------------------------
+	// Validator and Diagnostics
+	// ---------------------------------------------------------------
+
+	H('validator.window', 'Validate',
+		'A static check of the HMI settings of the current page. It does not need a running screen.');
+	H('validator.summary', 'Result',
+		'The number of errors and warnings found.',
+		'- Errors: settings that cannot work, such as an invalid expression, a write to a read-only tag, a missing page or a schema violation.',
+		'- Warnings: probably unintended, such as a tag that is not declared, a script while scripts are off, or a source without topics or URL.');
+	H('validator.list', 'Findings',
+		'One line per finding, with the kind (ERROR or WARNING) and a message.',
+		'Click a line to select the object and scroll to it. A line without an object, such as one from a page trigger, cannot be selected.');
+	H('diag.window', 'Diagnostics',
+		'The state of the running screen: sources, update rate, log and writes. It needs a running screen (Live Preview or a run). Ctrl+Shift+D opens it in a running screen.');
+	H('diag.tab.sources', 'Sources',
+		'One row per data source with its connection state and counters.',
+		'Click a row to see the last messages of the source below (up to 100, secrets removed).');
+	H('diag.tab.rate', 'Rate', 'Counters of the screen engine since it started.');
+	H('diag.tab.log', 'Log',
+		'The diagnostics log: warnings and errors of sources, bindings, scripts and writes. Filter by level and category.');
+	H('diag.tab.writes', 'Writes', 'The log of every write to a tag, newest at the bottom.');
+	H('diag.sources.name', 'Name', 'The name of the source.');
+	H('diag.sources.type', 'Type', 'The protocol: mqtt, ws, http, sse or host.');
+	H('diag.sources.state', 'State',
+		'- `disconnected`: not connected (or stopped).',
+		'- `connecting`: connecting or reconnecting.',
+		'- `connected`: connected.',
+		'- `error`: the last attempt failed.');
+	H('diag.sources.received', 'Received', 'The number of messages received since the source connected.');
+	H('diag.sources.errors', 'Errors', 'The number of errors, such as failed connections and messages that could not be read.');
+	H('diag.sources.lastMessage', 'Last message', 'The time of the last message received.');
+	H('diag.sources.lastError', 'Last error', 'The text of the last error. Empty if there was none.');
+	H('diag.rate.frames', 'Frames', 'The number of render frames since the screen started. Its growth per second is the update rate.');
+	H('diag.rate.updates', 'Updates', 'The number of tag updates that were processed.');
+	H('diag.rate.flushed', 'Cells flushed', 'The number of times an object was redrawn because of a new value.');
+	H('diag.log.level', 'Level',
+		'Shows only entries of this level: `debug`, `info`, `warn` or `error`. `all` shows everything.');
+	H('diag.log.category', 'Category',
+		'Shows only entries whose category contains this text, for example `hmi-src` for the sources.');
+	H('diag.writes.list', 'Write log',
+		'Each line: the time, the tag, the value and the result of the write, such as `confirmed`, `unconfirmed` or an error.');
+	H('alarmList.window', 'Alarm list',
+		'The active alarms of the running screen. The state is `active-unack` (active, not acknowledged), `active-ack` (active, acknowledged) or `cleared-unack` (ended, not acknowledged).');
+	H('alarmList.ackAll', 'Acknowledge all',
+		'Acknowledges every alarm in the list. Use Acknowledge on a line for one alarm.');
+
+	// ---------------------------------------------------------------
+	// HMI tab of the Format panel
+	// ---------------------------------------------------------------
+
+	H('hmiTab.document', 'HMI settings of the page',
+		'Shown when nothing is selected. It holds the settings of the whole page: data sources, tags, the Tag Browser, Hover Halo, page triggers and Live Preview.',
+		'Select an object to see its own links, bindings, events, triggers and animations.');
+	H('hmiTab.summary', 'Summary', 'The number of data sources and declared tags of the page.');
+	H('hmiTab.sources', 'Data Sources',
+		'Opens the list of data sources (MQTT, WebSocket, HTTP, SSE, host).');
+	H('hmiTab.tags', 'Tags',
+		'Opens the tag catalogue with the run settings of the page: simulation mode, scripts, fit, navigation, update rate and quality display.');
+	H('hmiTab.tagBrowser', 'Tag Browser',
+		'Opens the floating Tag Browser with live values. Drag a tag onto an object to bind it.');
+	H('hmiTab.substitute', 'Substitute Tags',
+		'Renames tags in the objects that are selected, or on the whole page when nothing is selected. One undoable step.');
+	H('hmiTab.defineMissing', 'Define Missing Tags',
+		'Adds the tags that the page uses but did not declare to the catalogue.');
+	H('hmiTab.haloPage', 'Hover Halo',
+		'Opens the page settings of the highlight of interactive objects (style, colour, size, pressed look).');
+	H('hmiTab.livePreview', 'Live Preview',
+		'Runs the screen in the editor: sources connect and values flow. Press it again to stop. Interactive Preview in the HMI menu also lets clicks run events.');
+	H('hmiTab.docTriggers', 'Page Triggers',
+		'Triggers that belong to the page, not to an object. They run page-wide logic, such as opening a window on an alarm.',
+		'A trigger runs its actions when its conditions become true and its else actions when they become false.');
+
+	H('hmiTab.object', 'HMI settings of the object',
+		'The links, bindings, events, triggers, animations and roles of the selected objects. With several objects selected, a change is applied to all of them, and the first one is shown.');
+	H('hmiTab.links', 'Animation Links',
+		'The animation links of the object: how its look and behaviour follow tags (colours, size, blinking, input, buttons, scripts).',
+		'The lines show what is set on the first selected object.');
+	H('hmiTab.linksButton', 'Animation Links',
+		'Opens the Animation Links dialog for the selected objects. Alt+double-click on an object does the same.');
+	H('hmiTab.quickAdd', 'Quick Add',
+		'One click adds a ready binding or animation to every selected object. `Tag{id}` becomes `Tag` plus the id of each object, so each object gets its own tag name. Rename them with Substitute Tags or in the binding.');
+	H('quick.level', 'Level',
+		'Adds a binding of a tag to `style:hmiLevel`: the fill level of the object, 0 to 100 by default. It suits tanks and cylinders.');
+	H('quick.value', 'Value',
+		'Adds a binding of a tag to `prop:value`: the value of an HMI widget such as a gauge, a display or a lamp.');
+	H('quick.label', 'Label', 'Adds a binding of a tag to `label`: the text of the object shows the value.');
+	H('quick.color', 'Color',
+		'Adds a binding of a tag to `style:fillColor` with a map: value 1 gives green (`#4CAF50`), anything else grey (`#B0BEC5`). Edit the colours in the binding.');
+	H('quick.visible', 'Visible', 'Adds a binding of a tag to `visible`: the object is shown while the tag is true and hidden while it is false.');
+	H('quick.preset', 'Animation preset',
+		'The animation that Add Animation adds: blink, spin, pulse, shake, fade in/out or colour cycle.');
+	H('quick.animation', 'Add Animation',
+		'Adds the chosen preset as a named animation that starts when the page opens. A spin animation turns at 10 RPM. Change the settings in the animation.');
+	H('hmiTab.bindings', 'Bindings',
+		'A binding sets one property of the object from a tag or an expression: its text, a style such as the fill colour, its size or position, or its visibility.',
+		'Click a binding to edit it. The arrows change the order, the cross deletes it.');
+	H('hmiTab.events', 'Events',
+		'An event handler runs actions when something happens to the object: a click, hover, a value change, a page opening or a message.',
+		'Events run in a running screen, or in the editor when Live Preview and Interactive are both on.');
+	H('hmiTab.triggers', 'Triggers',
+		'A trigger watches conditions on tags and runs actions when they turn true, and else actions when they turn false. It does this on the change, not on every update.');
+	H('hmiTab.animations', 'Animations',
+		'Named animations of the object: a preset such as blink, spin or pulse. Start and stop them from triggers and events, or let them play automatically.');
+	H('hmiTab.roles', 'Roles',
+		'Roles that the user needs to see this object, separated by commas. The user needs all of them. An object without roles is always visible.',
+		'Example: `eng` or `op,eng`. In a running screen an object that the user may not see is hidden (or dimmed and disabled, if the server is set to disable). The change applies when you leave the field.');
+	H('hmiTab.halo', 'Hover Halo',
+		'The highlight of this object when the mouse is over it in a running screen. Page default follows the page settings.');
+	H('halo.pageButton', 'Page Hover Halo Settings',
+		'Opens the page settings of the hover halo, which all objects follow unless they set their own.');
+	H('hmiTab.flow', 'Flow',
+		'Settings of the flow animation along an edge, such as a pipe.');
+	H('hmiTab.flowQuick', 'Flow from a tag',
+		'Adds a binding of a tag to `style:flowAnimation` and turns the flow animation on. The flow runs while the tag is true.');
+	H('flow.type', 'Flow type',
+		'How the flow is drawn: `dash` (the draw.io flow), `dots`, `beads`, `arrows` or `liquid`. It is set as the style `flowAnimationType` of the edge.');
+
+	H('item.json', 'JSON',
+		'Shows the settings as JSON for details that the form has no field for. It is checked against the schema when you click OK. While it is open, it replaces the form.');
+
+	// ---------------------------------------------------------------
+	// Item editors of the HMI tab: binding, event, trigger, animation
+	// ---------------------------------------------------------------
+
+	H('binding.dialog', 'Binding',
+		'A binding sets one property of the object from a tag or an expression, with an optional transform and number format.',
+		'Example: tag `Tank1.Level` to target `style:hmiLevel` fills the tank to the level.');
+	H('binding.tag', 'Tag',
+		'The tag that supplies the value. Use either a tag or an expression. If both are filled in, the expression is used.');
+	H('binding.expr', 'Expression',
+		'A calculation instead of a single tag. It can use several tags, written `tag("Name")`, and the functions `min`, `max`, `abs`, `round`, `clamp`, `if(c,a,b)` and others.',
+		'Example: `tag("T1")+tag("T2")`');
+	H('binding.target', 'Target',
+		'The property that is set:',
+		'- `label`, `tooltip`: the text of the object, the tooltip.',
+		'- `visible`: shows or hides the object.',
+		'- `attr:` name: an attribute of the object, for `%name%` in its text.',
+		'- `style:` key: any style key, for example `style:fillColor`, `style:strokeColor`, `style:opacity`, `style:rotation`, `style:hmiLevel`, `style:flowAnimation`.',
+		'- `geo:x`, `geo:y`, `geo:width`, `geo:height`: moves or resizes the object, relative to its design value.',
+		'- `prop:` name: a property of an HMI widget. `prop:value` is the value of a gauge or display.',
+		'Choose a prefix to enter the key in the field next to it.');
+	H('binding.decimals', 'Decimals',
+		'The number of decimal places when the value is shown in a `label`, `tooltip` or `attr:` target. Empty uses the decimals of the tag.');
+	H('binding.unit', 'Show unit',
+		'Adds the unit of the tag (from the catalogue) after the value in a `label`, `tooltip` or `attr:` target.');
+
+	H('transform.kind', 'Transform',
+		'Changes the value before it is applied:',
+		'- `scale`: maps one range linearly to another.',
+		'- `map`: replaces values by other values, for example 1 by a colour.',
+		'- `invert`: flips a boolean.',
+		'- `expr`: a calculation with `value`.',
+		'- `script`: your own code, if scripts are allowed.',
+		'None applies the value as it is.');
+	H('transform.in', 'Input range',
+		'The lowest and the highest input value. The first field is the lowest, the second the highest. Default 0 and 100.');
+	H('transform.out', 'Output range',
+		'The values that the lowest and the highest input value are mapped to. The first field is for the lowest input, the second for the highest. Values outside the input range are clamped. Default 0 and 100.',
+		'Example: input 0 to 100 to output 0 to 1 gives a fraction.');
+	H('transform.entries', 'Map entries',
+		'Rules separated by semicolons, in the form `operator:value=output`. The first rule that matches wins.',
+		'Example: `==:1=Running;==:0=Stopped`',
+		'Operators are the same as for conditions: `==`, `!=`, `>`, `<`, `>=`, `<=`, `range`, `in`.');
+	H('transform.default', 'Default output', 'The output when no rule matches.');
+	H('transform.expr', 'Transform expression',
+		'A calculation in which `value` is the input.',
+		'Example: `value*1.8+32` converts degrees Celsius to Fahrenheit.');
+	H('transform.script', 'Transform script',
+		'Code that returns the transformed value. `value` is the input. It runs only if scripts are allowed.');
+
+	H('event.dialog', 'Event',
+		'An event handler: it waits for an event on the object, checks the conditions and then runs its actions one after the other.');
+	H('event.on', 'Event',
+		'What triggers the handler:',
+		'- `click`, `dblclick`, `mousedown`, `mouseup`, `contextmenu` (right click), `longpress` (touch).',
+		'- `enter`, `leave`: the mouse moves onto or off the object.',
+		'- `valueChange`: a tag bound to the object changed.',
+		'- `pageOpen`, `pageClose`: the page opens or closes.',
+		'- `message`: a named message sent by an Emit action.',
+		'- `change`: a control widget committed a value.',
+		'Hidden and disabled objects ignore events. An event that the object does not handle goes to its parent group.');
+	H('event.message', 'Message name',
+		'For the `message` event: the name of the message to react to, as given in the Emit action. Empty reacts to every message.');
+	H('event.confirm', 'Confirm',
+		'Asks the operator to confirm before the actions run. Use it for actions that write to a process.');
+	H('event.actions', 'Actions',
+		'The actions that run, in order. A failing action is logged and the rest still run. Each action may have a delay.');
+
+	H('trigger.dialog', 'Trigger',
+		'A trigger checks conditions on tags and runs actions when the result changes: Actions when it turns true, Else actions when it turns false. It does not run on every update.');
+	H('trigger.name', 'Name', 'The name of the trigger, shown in the list. It is also used in diagnostics.');
+	H('trigger.conditionType', 'Combine conditions',
+		'- `and`: all conditions have to be true.',
+		'- `or`: one true condition is enough.',
+		'A trigger without conditions is always true.');
+	H('trigger.conditions', 'Conditions',
+		'The tests on tags, such as `Tank1.Level > 90`. They are checked whenever one of their tags changes.');
+	H('trigger.actions', 'Actions', 'The actions that run when the conditions change from false to true.');
+	H('trigger.elseActions', 'Else actions', 'The actions that run when the conditions change from true to false.');
+
+	H('condition.dialog', 'Condition',
+		'A test on a tag or an expression: operator and value.');
+	H('condition.tag', 'Tag', 'The tag to test. Use either a tag or an expression. If both are filled in, the expression is used.');
+	H('condition.expr', 'Expression',
+		'A calculation to test instead of one tag, for example `tag("a")>0`.');
+	H('condition.operator', 'Operator',
+		'- `==`, `!=`, `>`, `<`, `>=`, `<=`: compare with the value.',
+		'- `range`, `!range`: inside or outside the range from `a` up to, but not including, `b`. Value `0,10`.',
+		'- `in`, `!in`: one of a list. Value `1,3,5..8`.',
+		'- `changed`: the tag has a new value.',
+		'- `isBad`: the quality of the tag is not good.',
+		'- `true`: always true, for a final "else" state.');
+	H('condition.value', 'Value',
+		'The value to compare with. A number, `true`/`false` or text. For `range` and `in`: a list separated by commas. Not used by `changed`, `isBad` and `true`.');
+
+	H('action.dialog', 'Action',
+		'One step of an event or a trigger. The fields depend on the type.');
+	H('action.type', 'Action type',
+		'- Write Tag, Toggle Tag, Pulse Tag: change a tag.',
+		'- Set Properties: change the look of objects (transient, not saved in the file).',
+		'- Navigate, Open URL, Dialog: go to a page, open a link, or show a page or URL in a window.',
+		'- Start / Pause / Stop Animation, Play Media: control animations and video or audio.',
+		'- Emit, Send, Post Message: send a message to events, to a data source or to the host page.',
+		'- Notify: show a message to the operator.',
+		'- Script, draw.io Action: run code or a draw.io link action.',
+		'- Acknowledge Alarms: acknowledge one or all alarms.');
+	H('action.delay', 'Delay',
+		'Milliseconds to wait before this action runs. Default 0.');
+	H('action.tag', 'Tag',
+		'The tag that the action works on. For Acknowledge Alarms: the tag whose alarm is acknowledged, empty acknowledges all.');
+	H('action.value', 'Value',
+		'The value to write. `true` and `false` are booleans, numbers are numbers, anything else is text. `${name}` is replaced by a screen variable. Pulse Tag writes it first, then the reset value.'
+		);
+	H('action.expr', 'Expression',
+		'A calculation whose result is written instead of the Value. If it is filled in, the Value is not used.',
+		'Example: `tag("Setpoint")+1`');
+	H('action.reset', 'Reset value', 'The value that is written after the duration. Default 0.');
+	H('action.duration', 'Duration', 'Milliseconds between writing the value and writing the reset value. Default 500.');
+	H('action.page', 'Page',
+		'The page to go to or to show: its name or id. Navigate switches the page, Dialog shows it read-only in a floating window with the live tags. If a page is set, the URL is not used.');
+	H('action.url', 'URL',
+		'An address. Navigate opens it in the same window, Open URL in a new tab, Dialog shows it in a window. Only links that draw.io allows are opened.');
+	H('action.dialogTitle', 'Dialog title', 'The title of the window.');
+	H('action.width', 'Width', 'The width of the window in pixels. Preset to 480.');
+	H('action.height', 'Height', 'The height of the window in pixels. Preset to 360.');
+	H('action.animationName', 'Animation name',
+		'The name of the animation to start, pause or stop, as given in the Animations of the target objects.');
+	H('action.label', 'Label', 'A new text for the target objects. Empty leaves the text as it is.');
+	H('action.styleJson', 'Style (JSON)',
+		'Style keys to change, as a JSON object, for example `{"fillColor":"#FF0000","opacity":50}`. Not saved in the file.');
+	H('action.command', 'Command', 'What the media widget does: `play`, `pause` or `stop`.');
+	H('action.eventName', 'Event name',
+		'The name of the message. Events of type `message` with this name run.');
+	H('action.payload', 'Payload',
+		'The data of the message. For Send: the text that is published or sent to the data source. `${name}` is replaced by a screen variable.');
+	H('action.sourceId', 'Source id', 'The id of the data source that receives the message, as shown in the list of sources.');
+	H('action.topic', 'Topic', 'The MQTT topic to publish to.');
+	H('action.text', 'Text', 'The message that is shown to the operator.');
+	H('action.level', 'Level', 'How the message looks: `info`, `warn` or `error`.');
+	H('action.postTo', 'Post to',
+		'Where the message goes: `parent` (the page that embeds draw.io) or the id of an object that holds an iframe.');
+	H('action.data', 'Data', 'The data that is posted.');
+	H('action.script', 'Script', 'Code that runs, in the script sandbox. It runs only if scripts are allowed.');
+	H('action.drawioAction', 'draw.io action (JSON)',
+		'An action of the draw.io custom links as JSON, for example `{"toggle": {"cells": ["id1"]}}`. The change is transient.');
+	H('target.kind', 'Target',
+		'The objects that the action works on:',
+		'- `self`: the object that has the event or trigger.',
+		'- `cells`: objects with the given ids.',
+		'- `tags`: objects that carry one of the given draw.io tags.',
+		'- `layers`: objects on the given layers.');
+	H('target.value', 'Target value',
+		'The ids, tags or layers, separated by commas. Example for cells: `cell-id-1, cell-id-2`.');
+
+	H('animation.dialog', 'Animation',
+		'A named animation of the object. Start, pause and stop it with actions, or let it play when the page opens.');
+	H('animation.name', 'Name',
+		'The name that actions use to refer to this animation. Default: the name of the preset.');
+	H('animation.preset', 'Preset',
+		'The effect: `blink`, `pulse`, `spin`, `shake`, `colorCycle` (changes the colour) or `fadeInOut`.');
+	H('animation.duration', 'Duration', 'The length of one cycle in milliseconds. Default 1000.');
+	H('animation.autoPlay', 'Autoplay', 'Starts the animation when the page opens. Otherwise an action has to start it.');
+	H('animation.rpm', 'RPM',
+		'For `spin`: revolutions per minute. Example: 30 turns half a turn per second.');
+	H('animation.rpmTag', 'RPM tag',
+		'For `spin`: a tag that supplies the speed in RPM, so that the speed follows the value live. It wins over the fixed RPM.');
 
 	Hmi.HelpTexts = T;
 })();

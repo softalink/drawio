@@ -98,6 +98,9 @@
 				'border-radius:50%;border:1px solid ' + muted + ';background:transparent;' +
 				'color:' + muted + ';font-size:11px;font-weight:700;font-style:normal;' +
 				'line-height:1;opacity:0.85;}' +
+			// Wins over the generic button rules of the Format panel (height 24px)
+			'.geHmiHelp.geHmiHelp{box-sizing:border-box;width:16px;height:16px;min-width:16px;' +
+				'padding:0;border-radius:50%;}' +
 			'.geHmiHelp::before{content:"i";}' +
 			'.geHmiHelp.geHmiHelp:hover,.geHmiHelp.geHmiHelp:focus-visible,' +
 				'.geHmiHelp.geHmiHelp[aria-expanded="true"]{opacity:1;color:' + accent + ';' +

@@ -14,7 +14,13 @@
 	var SEVERITY_COLORS = {1: '#C62828', 2: '#EF6C00', 3: '#F9A825', 4: '#1565C0'};
 	var SEVERITY_TEXT = {1: 'CRIT', 2: 'HIGH', 3: 'WARN', 4: 'INFO'};
 
-	function tabbed(names)
+	// Help icon (the editor loads ui/HmiHelp.js, the runtime page does not)
+	function help(parent, key)
+	{
+		return (Hmi.Help != null && parent != null) ? Hmi.Help.attach(parent, key) : null;
+	};
+
+	function tabbed(names, helpKeys)
 	{
 		var wrap = document.createElement('div');
 		var tabBar = document.createElement('div');
@@ -41,11 +47,12 @@
 
 		for (var i = 0; i < names.length; i++)
 		{
-			(function(name)
+			(function(name, i)
 			{
 				var btn = document.createElement('a');
 				btn.style.cssText = 'cursor:pointer;padding:4px 8px;font-size:12px;';
 				mxUtils.write(btn, name);
+				help(btn, helpKeys != null ? helpKeys[i] : null);
 				mxEvent.addListener(btn, 'click', function()
 				{
 					activate(name);
@@ -57,7 +64,7 @@
 				panel.style.display = 'none';
 				body.appendChild(panel);
 				panels[name] = panel;
-			})(names[i]);
+			})(names[i], i);
 		}
 
 		activate(names[0]);
@@ -87,14 +94,15 @@
 			table.innerHTML = '';
 			var head = document.createElement('tr');
 
-			[mxResources.get('name'), mxResources.get('hmiSourceType'), mxResources.get('hmiState'),
-				mxResources.get('hmiReceived'), mxResources.get('hmiErrors'),
-				mxResources.get('hmiLastMessage'), mxResources.get('hmiLastError')].forEach(function(t)
+			[['name', 'name'], ['hmiSourceType', 'type'], ['hmiState', 'state'],
+				['hmiReceived', 'received'], ['hmiErrors', 'errors'],
+				['hmiLastMessage', 'lastMessage'], ['hmiLastError', 'lastError']].forEach(function(t)
 			{
 				var th = document.createElement('th');
 				th.style.cssText = 'text-align:left;padding:2px 6px;border-bottom:1px solid ' +
-					'var(--border-color, #ccc);';
-				mxUtils.write(th, t);
+					'var(--border-color, #ccc);white-space:nowrap;';
+				mxUtils.write(th, mxResources.get(t[0]));
+				help(th, 'diag.sources.' + t[1]);
 				head.appendChild(th);
 			});
 			table.appendChild(head);
@@ -163,11 +171,13 @@
 		{
 			var c = rt.diag.counters;
 			div.innerHTML = '';
-			[['hmiFrames', c.frames], ['hmiUpdates', c.updates], ['hmiFlushed', c.flushed]]
+			[['hmiFrames', c.frames, 'frames'], ['hmiUpdates', c.updates, 'updates'],
+				['hmiFlushed', c.flushed, 'flushed']]
 				.forEach(function(pair)
 				{
 					var line = document.createElement('div');
 					mxUtils.write(line, mxResources.get(pair[0]) + ': ' + pair[1]);
+					help(line, 'diag.rate.' + pair[2]);
 					div.appendChild(line);
 				});
 		};
@@ -192,11 +202,13 @@
 
 		var levelSelect = Hmi.Editors.select(['all', 'debug', 'info', 'warn', 'error'], 'all');
 		controls.appendChild(levelSelect);
+		help(controls, 'diag.log.level');
 
 		var catInput = Hmi.Editors.textInput('');
 		catInput.setAttribute('placeholder', mxResources.get('hmiCategory'));
 		catInput.style.marginLeft = '6px';
 		controls.appendChild(catInput);
+		help(controls, 'diag.log.category');
 
 		var list = document.createElement('div');
 		list.style.cssText = 'font-family:monospace;font-size:11px;height:220px;' +
@@ -247,6 +259,13 @@
 
 	function buildWritesTab(ui, rt, panel)
 	{
+		var writesHead = document.createElement('div');
+		writesHead.className = 'geDialogHint';
+		writesHead.style.marginBottom = '4px';
+		mxUtils.write(writesHead, mxResources.get('hmiWritesTab') + ':');
+		help(writesHead, 'diag.writes.list');
+		panel.appendChild(writesHead);
+
 		var list = document.createElement('div');
 		list.style.cssText = 'font-family:monospace;font-size:11px;height:220px;' +
 			'overflow-y:auto;white-space:pre-wrap;';
@@ -296,7 +315,8 @@
 		}
 
 		var content = tabbed([mxResources.get('hmiSourcesTab'), mxResources.get('hmiRateTab'),
-			mxResources.get('hmiLogTab'), mxResources.get('hmiWritesTab')]);
+			mxResources.get('hmiLogTab'), mxResources.get('hmiWritesTab')],
+			['diag.tab.sources', 'diag.tab.rate', 'diag.tab.log', 'diag.tab.writes']);
 		content.style.cssText = 'padding:8px;box-sizing:border-box;overflow:hidden;';
 
 		buildSourcesTab(ui, rt, content.panels[mxResources.get('hmiSourcesTab')]);
@@ -304,12 +324,17 @@
 		buildLogTab(ui, rt, content.panels[mxResources.get('hmiLogTab')]);
 		buildWritesTab(ui, rt, content.panels[mxResources.get('hmiWritesTab')]);
 
-		var x = Math.max(0, (document.body.offsetWidth - 480) / 2);
-		var wnd = new mxWindow(mxResources.get('hmiDiagnostics'), content, x, 80, 480, 380, true, true);
+		var x = Math.max(0, (document.body.offsetWidth - 600) / 2);
+		var wnd = new mxWindow(mxResources.get('hmiDiagnostics'), content, x, 80, 600, 380, true, true);
 		wnd.setMaximizable(true);
 		wnd.setResizable(true);
 		wnd.setClosable(true);
 		wnd.setVisible(true);
+
+		if (Hmi.Editors != null && Hmi.Editors.windowHelp != null)
+		{
+			Hmi.Editors.windowHelp(wnd, 'diag.window');
+		}
 
 		wnd.addListener('close', function()
 		{
@@ -350,7 +375,10 @@
 			rt.alarms.ack();
 			render();
 		});
-		div.appendChild(ackAllBtn);
+		var ackRow = document.createElement('div');
+		ackRow.appendChild(ackAllBtn);
+		help(ackRow, 'alarmList.ackAll');
+		div.appendChild(ackRow);
 
 		var list = document.createElement('div');
 		list.style.marginTop = '6px';
@@ -417,6 +445,11 @@
 		wnd.setClosable(true);
 		wnd.setVisible(true);
 		wnd.hmiRefresh = render;
+
+		if (Hmi.Editors != null && Hmi.Editors.windowHelp != null)
+		{
+			Hmi.Editors.windowHelp(wnd, 'alarmList.window');
+		}
 
 		wnd.addListener('close', function()
 		{

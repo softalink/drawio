@@ -474,6 +474,7 @@
 		div.setAttribute('data-dialog', 'substitute-tags');
 		var hd = document.createElement('h3');
 		mxUtils.write(hd, T('hmiSubstituteTags'));
+		Hmi.Editors.help(hd, 'substitute.dialog');
 		div.appendChild(hd);
 
 		var hint = document.createElement('div');
@@ -507,6 +508,7 @@
 				var th = document.createElement('th');
 				th.style.width = '45%';
 				mxUtils.write(th, t);
+				Hmi.Editors.help(th, (i == 0) ? 'substitute.old' : 'substitute.new');
 				head.appendChild(th);
 			});
 
@@ -651,6 +653,7 @@
 		div.setAttribute('data-dialog', 'define-missing-tags');
 		var hd = document.createElement('h3');
 		mxUtils.write(hd, T('hmiDefineMissingTags'));
+		Hmi.Editors.help(hd, 'define.dialog');
 		div.appendChild(hd);
 
 		var hint = document.createElement('div');
@@ -668,14 +671,16 @@
 		table.className = 'geHmiTable';
 		var head = document.createElement('tr');
 
-		['', T('name'), T('hmiType')].forEach(function(t)
+		[['', 'define.col.use'], [T('name'), 'define.col.name'],
+			[T('hmiType'), 'define.col.type']].forEach(function(t)
 		{
 			var th = document.createElement('th');
-			mxUtils.write(th, t);
+			mxUtils.write(th, t[0]);
+			Hmi.Editors.help(th, t[1]);
 			head.appendChild(th);
 		});
 
-		head.firstChild.style.width = '28px';
+		head.firstChild.style.width = '40px';
 		table.appendChild(head);
 		var rows = [];
 

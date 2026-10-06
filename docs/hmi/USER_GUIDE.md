@@ -646,6 +646,7 @@ The template **InTouch Animation Links** (*File → New → Hmi*) shows each lin
    - Alt+double-click an object.
 2. The dialog has four tabs: **Display**, **Animation**, **Touch** and **Scripts**. Each tab shows how many links are enabled in it, for example **Touch (3)**. The dialog opens on the tab of the first enabled link and remembers the tab you used last. Arrow keys move between the tabs. Tick a link to enable it, then click its **…** button to open its settings. The settings use the field names of the InTouch dialogs.
    - Click the small **i** icon next to a tab, a group, a link or a field to see what it does, with valid values and examples. Press Esc or click elsewhere to close the help.
+   - The other HMI dialogs and forms have the same **i** icons: Data Sources, Tags (with the tag editor, simulation and alarms), Tag Browser, Substitute Tags, Define Missing Tags, Validate, Diagnostics, Hover Halo, and the HMI tab of the format panel with its binding, event, trigger and animation editors.
 3. Enter expressions in InTouch syntax:
    - Bare tag names: `TankLevel > 75`.
    - Operators: `AND`, `OR`, `NOT`, `MOD`, `<>`.

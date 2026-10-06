@@ -3055,35 +3055,12 @@
 
 		var links = clone(Hmi.Model.getCellConfig(cells[0]).links) || {};
 		var pendingWindows = [];
-		var same = true;
-
-		for (var c = 1; c < cells.length; c++)
-		{
-			if (JSON.stringify(Hmi.Model.getCellConfig(cells[c]).links) != JSON.stringify(links))
-			{
-				same = false;
-			}
-		}
 
 		var div = document.createElement('div');
 		div.setAttribute('data-dialog', 'animation-links');
 		var hd = document.createElement('h3');
 		mxUtils.write(hd, T('hmiAnimationLinks'));
 		div.appendChild(hd);
-
-		var info = document.createElement('div');
-		info.className = 'geDialogHint';
-		info.style.cssText = 'margin:-8px 0 10px 0;text-align:center;line-height:normal;';
-		var name = graph.convertValueToString(cells[0]);
-		name = (name != null && name !== '') ? String(name).replace(/<[^>]*>/g, '').substring(0, 40) : cells[0].id;
-		info.textContent = (cells.length == 1) ? T('hmiLnkObject').replace('{1}', name) :
-			T('hmiLnkAppliesTo').replace('{1}', cells.length) + (same ? '' : ' — ' + T('hmiLnkDiffer'));
-		info.setAttribute('title', (cells.length == 1) ? 'ID: ' + cells[0].id :
-			cells.map(function(c)
-			{
-				return c.id;
-			}).join(', '));
-		div.appendChild(info);
 
 		var rows = {};
 		var tabs = [];

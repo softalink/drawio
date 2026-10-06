@@ -17,7 +17,93 @@
 	// Generic row / field helpers
 	// ---------------------------------------------------------------
 
-	Editors.row = function(parent, labelText)
+	/**
+	 * Appends the quick-help icon of the key (a key or an array of keys, the
+	 * first one with a text wins) to the parent (ui/HmiHelp.js). Nothing is
+	 * added when no key is given, when the help is not loaded (viewer) or
+	 * when the key has no text. Returns the icon or null.
+	 */
+	Editors.help = function(parent, keys, title)
+	{
+		return (keys != null && parent != null && Hmi.Help != null) ?
+			Hmi.Help.attach(parent, keys, title) : null;
+	};
+
+	/**
+	 * Section heading (plain text line with an optional help icon) for the
+	 * cards of a dialog.
+	 */
+	Editors.head = function(parent, text, helpKey)
+	{
+		Editors.installStyle();
+		var head = document.createElement('div');
+		head.className = 'geHmiSectionHead';
+		mxUtils.write(head, text);
+		Editors.help(head, helpKey);
+
+		if (parent != null)
+		{
+			parent.appendChild(head);
+		}
+
+		return head;
+	};
+
+	/**
+	 * Adds the help icon to the title (h3) of a dialog or the title of a
+	 * collapsible section of the Format panel ({wrapper, contentDiv}).
+	 */
+	Editors.titleHelp = function(title, keys)
+	{
+		if (title != null && title.wrapper != null)
+		{
+			title = title.wrapper.firstChild;
+		}
+
+		return Editors.help(title, keys);
+	};
+
+	/**
+	 * Wraps a button into a block with the help icon at its right end
+	 * (inside the button, so that the button keeps its size). The margins of
+	 * the button move to the wrapper. Returns the wrapper.
+	 */
+	Editors.helpButton = function(btn, helpKey)
+	{
+		Editors.installStyle();
+		var wrap = document.createElement('div');
+		wrap.className = 'geHmiBtnWrap';
+		wrap.style.marginTop = btn.style.marginTop;
+		wrap.style.marginBottom = btn.style.marginBottom;
+		btn.style.marginTop = '';
+		btn.style.marginBottom = '';
+		wrap.appendChild(btn);
+		Editors.help(wrap, helpKey);
+
+		return wrap;
+	};
+
+	/**
+	 * Adds the help icon to the title bar of an mxWindow.
+	 */
+	Editors.windowHelp = function(wnd, keys)
+	{
+		var icon = (wnd != null && wnd.title != null) ? Editors.help(wnd.title, keys) : null;
+
+		if (icon != null)
+		{
+			// The title bar moves the window: the icon only opens the help
+			mxEvent.addListener(icon, 'mousedown', function(evt)
+			{
+				mxEvent.consume(evt);
+			});
+			icon.style.verticalAlign = 'middle';
+		}
+
+		return icon;
+	};
+
+	Editors.row = function(parent, labelText, helpKey)
 	{
 		var row = document.createElement('div');
 		row.className = 'geDialogFormRow';
@@ -27,6 +113,13 @@
 			var lbl = document.createElement('span');
 			lbl.className = 'geDialogFormLabel';
 			mxUtils.write(lbl, labelText);
+
+			if (Editors.help(lbl, helpKey) != null)
+			{
+				// Keeps the fields of the rows aligned: the label and the icon
+				lbl.className += ' geHmiHelpLabel';
+			}
+
 			row.appendChild(lbl);
 		}
 
@@ -51,7 +144,7 @@
 		return row;
 	};
 
-	Editors.inlineField = function(parent, labelText, input)
+	Editors.inlineField = function(parent, labelText, input, helpKey)
 	{
 		var field = document.createElement('div');
 		field.className = 'geDialogInlineField';
@@ -65,6 +158,7 @@
 			lbl.style.minWidth = '0';
 			lbl.style.marginRight = '6px';
 			mxUtils.write(lbl, labelText);
+			Editors.help(lbl, helpKey);
 			field.appendChild(lbl);
 		}
 
@@ -132,7 +226,7 @@
 		return sel;
 	};
 
-	Editors.checkbox = function(labelText, checked)
+	Editors.checkbox = function(labelText, checked, helpKey)
 	{
 		var row = document.createElement('div');
 		row.className = 'geDialogCheckRow';
@@ -150,6 +244,7 @@
 		var lbl = document.createElement('label');
 		mxUtils.write(lbl, labelText);
 		row.appendChild(lbl);
+		Editors.help(row, helpKey);
 		row.input = cb;
 
 		return row;
@@ -256,7 +351,7 @@
 		var kind = (value == null || value == 'self') ? 'self' :
 			(typeof value === 'string') ? 'cells' : 'spec';
 
-		var modeRow = Editors.row(container, mxResources.get('hmiTarget') + ':');
+		var modeRow = Editors.row(container, mxResources.get('hmiTarget') + ':', 'target.kind');
 		var mode = Editors.select([
 			{value: 'self', label: mxResources.get('hmiTargetSelf')},
 			{value: 'cells', label: mxResources.get('hmiTargetCells')},
@@ -291,7 +386,7 @@
 			}
 		}
 
-		var detail = Editors.row(container, mxResources.get('hmiTargetValue') + ':');
+		var detail = Editors.row(container, mxResources.get('hmiTargetValue') + ':', 'target.value');
 		var detailInput = Editors.textInput(cellsVal, mxResources.get('hmiTargetCellsHint'));
 		detail.appendChild(detailInput);
 
@@ -373,18 +468,18 @@
 		var srcRow = Editors.inlineFields(container);
 		var useExpr = value.expr != null && value.expr !== '';
 		var tagField = Editors.tagInput(ui, useExpr ? '' : (value.tag || ''));
-		Editors.inlineField(srcRow, mxResources.get('hmiTag') + ':', tagField);
+		Editors.inlineField(srcRow, mxResources.get('hmiTag') + ':', tagField, 'condition.tag');
 
 		var exprInput = Editors.textInput(value.expr || '', 'tag("a")>0');
-		Editors.inlineField(srcRow, mxResources.get('hmiExpr') + ':', exprInput);
+		Editors.inlineField(srcRow, mxResources.get('hmiExpr') + ':', exprInput, 'condition.expr');
 
 		var opRow = Editors.inlineFields(container);
 		var opSelect = Editors.select(OPERATORS, value.operator || '==');
-		Editors.inlineField(opRow, mxResources.get('hmiOperator') + ':', opSelect);
+		Editors.inlineField(opRow, mxResources.get('hmiOperator') + ':', opSelect, 'condition.operator');
 
 		var valInput = Editors.textInput((value.value != null) ?
 			(Array.isArray(value.value) ? value.value.join(',') : value.value) : '');
-		Editors.inlineField(opRow, mxResources.get('hmiValue') + ':', valInput);
+		Editors.inlineField(opRow, mxResources.get('hmiValue') + ':', valInput, 'condition.value');
 
 		var syncOpVisibility = function()
 		{
@@ -425,7 +520,7 @@
 	Editors.transformEditor = function(ui, value)
 	{
 		var container = document.createElement('div');
-		var kindRow = Editors.row(container, mxResources.get('hmiTransform') + ':');
+		var kindRow = Editors.row(container, mxResources.get('hmiTransform') + ':', 'transform.kind');
 		var kind = Editors.select([
 			{value: '', label: mxResources.get('none')},
 			{value: 'scale', label: mxResources.get('hmiScale')},
@@ -451,12 +546,12 @@
 				var r1 = Editors.inlineFields(body);
 				scaleIn = [Editors.numberInput((value && value.inMin) || 0),
 					Editors.numberInput((value && value.inMax) || 100)];
-				Editors.inlineField(r1, mxResources.get('hmiInRange') + ':', scaleIn[0]);
+				Editors.inlineField(r1, mxResources.get('hmiInRange') + ':', scaleIn[0], 'transform.in');
 				body.appendChild(scaleIn[1]);
 				var r2 = Editors.inlineFields(body);
 				scaleOut = [Editors.numberInput((value && value.outMin) || 0),
 					Editors.numberInput((value && value.outMax) || 100)];
-				Editors.inlineField(r2, mxResources.get('hmiOutRange') + ':', scaleOut[0]);
+				Editors.inlineField(r2, mxResources.get('hmiOutRange') + ':', scaleOut[0], 'transform.out');
 				body.appendChild(scaleOut[1]);
 			}
 			else if (kind.value == 'map')
@@ -465,16 +560,16 @@
 				{
 					return e.operator + ':' + e.value + '=' + e.output;
 				}).join(';'), '==:1=Running;==:0=Stopped');
-				var r = Editors.row(body, mxResources.get('hmiMapEntries') + ':');
+				var r = Editors.row(body, mxResources.get('hmiMapEntries') + ':', 'transform.entries');
 				r.appendChild(mapEntries);
 				mapDefault = Editors.textInput((value && value.default) || '');
-				var r2 = Editors.row(body, mxResources.get('hmiDefault') + ':');
+				var r2 = Editors.row(body, mxResources.get('hmiDefault') + ':', 'transform.default');
 				r2.appendChild(mapDefault);
 			}
 			else if (kind.value == 'expr')
 			{
 				exprInput = Editors.textInput((value && value.expr) || '', 'value*1.8+32');
-				var r = Editors.row(body, mxResources.get('hmiExpr') + ':');
+				var r = Editors.row(body, mxResources.get('hmiExpr') + ':', 'transform.expr');
 				r.appendChild(exprInput);
 			}
 			else if (kind.value == 'script')
@@ -482,7 +577,7 @@
 				scriptArea = document.createElement('textarea');
 				scriptArea.setAttribute('rows', '4');
 				scriptArea.value = (value && value.code) || '';
-				var r = Editors.row(body, mxResources.get('hmiScript') + ':');
+				var r = Editors.row(body, mxResources.get('hmiScript') + ':', 'transform.script');
 				r.appendChild(scriptArea);
 			}
 		};
@@ -555,7 +650,7 @@
 		value = value || {type: 'writeTag'};
 		var container = document.createElement('div');
 
-		var typeRow = Editors.row(container, mxResources.get('hmiActionType') + ':');
+		var typeRow = Editors.row(container, mxResources.get('hmiActionType') + ':', 'action.type');
 		var type = Editors.select(ACTION_TYPES.map(function(t)
 		{
 			return {value: t, label: mxResources.get('hmiAction_' + t) || t};
@@ -563,15 +658,18 @@
 		typeRow.appendChild(type);
 
 		var delayInput = Editors.numberInput(value.delay || 0);
-		Editors.inlineField(typeRow, mxResources.get('hmiDelay') + ' (ms):', delayInput);
+		Editors.inlineField(typeRow, mxResources.get('hmiDelay') + ' (ms):', delayInput, 'action.delay');
 
 		var body = document.createElement('div');
 		container.appendChild(body);
 		var fields = {};
 
-		function field(labelKey, input)
+		function field(labelKey, input, helpKey)
 		{
-			var r = Editors.row(body, mxResources.get(labelKey) + ':');
+			var r = Editors.row(body, mxResources.get(labelKey) + ':', helpKey || ('action.' + labelKey.replace(/^hmi(.)/, function(m, c)
+			{
+				return c.toLowerCase();
+			})));
 			r.appendChild(input);
 
 			return input;
@@ -614,8 +712,8 @@
 				var wh = Editors.inlineFields(body);
 				fields.width = Editors.numberInput(value.width || 480);
 				fields.height = Editors.numberInput(value.height || 360);
-				Editors.inlineField(wh, mxResources.get('width') + ':', fields.width);
-				Editors.inlineField(wh, mxResources.get('height') + ':', fields.height);
+				Editors.inlineField(wh, mxResources.get('width') + ':', fields.width, 'action.width');
+				Editors.inlineField(wh, mxResources.get('height') + ':', fields.height, 'action.height');
 			}
 
 			if (t == 'startAnimation' || t == 'pauseAnimation' || t == 'stopAnimation')
@@ -668,7 +766,7 @@
 			if (t == 'postMessage')
 			{
 				fields.to = field('hmiPostTo', Editors.textInput(value.to || 'parent'));
-				fields.data = field('hmiPayload', Editors.textInput(value.data));
+				fields.data = field('hmiPayload', Editors.textInput(value.data), 'action.data');
 			}
 
 			if (t == 'script')
@@ -676,7 +774,7 @@
 				var area = document.createElement('textarea');
 				area.setAttribute('rows', '4');
 				area.value = value.code || '';
-				var r = Editors.row(body, mxResources.get('hmiScript') + ':');
+				var r = Editors.row(body, mxResources.get('hmiScript') + ':', 'action.script');
 				r.appendChild(area);
 				fields.code = area;
 			}
@@ -686,7 +784,7 @@
 				var area2 = document.createElement('textarea');
 				area2.setAttribute('rows', '3');
 				area2.value = value.action ? JSON.stringify(value.action) : '';
-				var r2 = Editors.row(body, mxResources.get('hmiDrawioAction') + ':');
+				var r2 = Editors.row(body, mxResources.get('hmiDrawioAction') + ':', 'action.drawioAction');
 				r2.appendChild(area2);
 				fields.action = area2;
 			}
@@ -935,6 +1033,7 @@
 
 		var hd = document.createElement('h3');
 		mxUtils.write(hd, opts.title);
+		Editors.help(hd, opts.helpKey);
 		div.appendChild(hd);
 
 		var section = document.createElement('div');
@@ -951,6 +1050,7 @@
 		advToggle.style.marginTop = '10px';
 		mxUtils.write(advToggle, mxResources.get('hmiShowJson'));
 		div.appendChild(advToggle);
+		Editors.help(div, 'item.json');
 
 		var jsonWrap = document.createElement('div');
 		jsonWrap.style.display = 'none';
@@ -1097,6 +1197,7 @@
 					Editors.showItemDialog({
 						ui: opts.ui,
 						title: opts.editTitle || mxResources.get('edit'),
+						helpKey: opts.helpKey,
 						kind: opts.kind,
 						value: items[idx],
 						buildEditor: opts.buildEditor,
@@ -1115,6 +1216,7 @@
 			Editors.showItemDialog({
 				ui: opts.ui,
 				title: opts.addTitle || mxResources.get('hmiAddItem'),
+				helpKey: opts.helpKey,
 				kind: opts.kind,
 				value: opts.newItem ? opts.newItem() : {},
 				buildEditor: opts.buildEditor,
@@ -1166,6 +1268,10 @@
 			'.geHmiMasonry>.geDialogSection{display:block;box-sizing:border-box;width:100%;' +
 				'break-inside:avoid;margin:0 0 10px 0;}' +
 			'.geHmiLegend{margin-left:12px;}' +
+			'.geHmiSectionHead{line-height:normal;}' +
+			'.geDialogFormLabel.geHmiHelpLabel{min-width:121px;}' +
+			'.geHmiBtnWrap{position:relative;width:fit-content;max-width:100%;}' +
+			'.geHmiBtnWrap>.geHmiHelp{position:absolute;right:8px;top:50%;margin:-8px 0 0 0;}' +
 			'.geHmiGroupTitle{font-size:13px;font-weight:600;margin-bottom:4px;' +
 				'color:light-dark(var(--strong-text-color),var(--dark-strong-text-color));}' +
 			'.geHmiSubHead{margin:10px 0 4px 0;line-height:normal;}' +

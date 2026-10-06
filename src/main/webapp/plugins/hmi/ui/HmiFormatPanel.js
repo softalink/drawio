@@ -15,6 +15,10 @@
 
 	var FormatPanel = {};
 
+	// Help keys of the title of the item dialogs of the list sections
+	var HELP_DIALOGS = {bindings: 'binding.dialog', events: 'event.dialog',
+		triggers: 'trigger.dialog', animations: 'animation.dialog'};
+
 	// ---------------------------------------------------------------
 	// {name} template substitution for multi-cell quick-add (HMI-BND-9)
 	// ---------------------------------------------------------------
@@ -137,7 +141,9 @@
 	{
 		var ui = this.editorUi;
 		var div = this.createPanel();
-		div.appendChild(this.createTitle(mxResources.get('hmi')));
+		var docTitle = this.createTitle(mxResources.get('hmi'));
+		Hmi.Editors.help(docTitle, 'hmiTab.document');
+		div.appendChild(docTitle);
 
 		var cfg = null;
 
@@ -155,6 +161,7 @@
 		summary.style.padding = '0 0 8px 0';
 		mxUtils.write(summary, mxResources.get('hmiSources') + ': ' + cfg.sources.length +
 			'  ·  ' + mxResources.get('hmiTags') + ': ' + cfg.tags.length);
+		Hmi.Editors.help(summary, 'hmiTab.summary');
 		div.appendChild(summary);
 
 		var btn1 = mxUtils.button(mxResources.get('hmiSources') + '...', function()
@@ -166,7 +173,7 @@
 		});
 		btn1.className = 'geFullWidthElement';
 		btn1.style.display = 'block';
-		div.appendChild(btn1);
+		div.appendChild(Hmi.Editors.helpButton(btn1, 'hmiTab.sources'));
 
 		var btn2 = mxUtils.button(mxResources.get('hmiTags') + '...', function()
 		{
@@ -178,7 +185,7 @@
 		btn2.className = 'geFullWidthElement';
 		btn2.style.display = 'block';
 		btn2.style.marginTop = '4px';
-		div.appendChild(btn2);
+		div.appendChild(Hmi.Editors.helpButton(btn2, 'hmiTab.tags'));
 
 		var btn3 = mxUtils.button(mxResources.get('hmiTagBrowser') + '...', function()
 		{
@@ -190,7 +197,7 @@
 		btn3.className = 'geFullWidthElement';
 		btn3.style.display = 'block';
 		btn3.style.marginTop = '4px';
-		div.appendChild(btn3);
+		div.appendChild(Hmi.Editors.helpButton(btn3, 'hmiTab.tagBrowser'));
 
 		var btnSub = mxUtils.button(mxResources.get('hmiSubstituteTags') + '...', function()
 		{
@@ -203,7 +210,7 @@
 		btnSub.style.display = 'block';
 		btnSub.style.marginTop = '4px';
 		btnSub.setAttribute('title', mxResources.get('hmiSubstituteHintPage').replace('{1}', ''));
-		div.appendChild(btnSub);
+		div.appendChild(Hmi.Editors.helpButton(btnSub, 'hmiTab.substitute'));
 
 		var btnDef = mxUtils.button(mxResources.get('hmiDefineMissingTags') + '...', function()
 		{
@@ -215,7 +222,7 @@
 		btnDef.className = 'geFullWidthElement';
 		btnDef.style.display = 'block';
 		btnDef.style.marginTop = '4px';
-		div.appendChild(btnDef);
+		div.appendChild(Hmi.Editors.helpButton(btnDef, 'hmiTab.defineMissing'));
 
 		var btnHalo = mxUtils.button(mxResources.get('hmiHoverHalo') + '...', function()
 		{
@@ -227,7 +234,7 @@
 		btnHalo.className = 'geFullWidthElement';
 		btnHalo.style.display = 'block';
 		btnHalo.style.marginTop = '4px';
-		div.appendChild(btnHalo);
+		div.appendChild(Hmi.Editors.helpButton(btnHalo, 'hmiTab.haloPage'));
 
 		this.addDocTriggersSection(div);
 
@@ -242,7 +249,7 @@
 			btn4.className = 'geFullWidthElement';
 			btn4.style.display = 'block';
 			btn4.style.marginTop = '10px';
-			div.appendChild(btn4);
+			div.appendChild(Hmi.Editors.helpButton(btn4, 'hmiTab.livePreview'));
 		}
 
 		this.container.appendChild(div);
@@ -256,6 +263,7 @@
 		var ui = this.editorUi;
 		var graph = ui.editor.graph;
 		var section = this.createCollapsibleSection(mxResources.get('hmiDocTriggers'), true);
+		Hmi.Editors.titleHelp(section, 'hmiTab.docTriggers');
 		section.wrapper.style.marginTop = '8px';
 		div.appendChild(section.wrapper);
 		var listDiv = document.createElement('div');
@@ -266,6 +274,7 @@
 		{
 			Hmi.Editors.renderItemList({
 				ui: ui, container: listDiv, items: items, kind: 'triggers',
+				helpKey: 'trigger.dialog',
 				itemLabel: function(t)
 				{
 					return t.name || mxResources.get('hmiTriggers');
@@ -300,8 +309,10 @@
 		var graph = ui.editor.graph;
 		var cell = cells[0];
 		var div = this.createPanel();
-		div.appendChild(this.createTitle(mxResources.get('hmi') +
-			(cells.length > 1 ? ' (' + cells.length + ')' : '')));
+		var cellTitle = this.createTitle(mxResources.get('hmi') +
+			(cells.length > 1 ? ' (' + cells.length + ')' : ''));
+		Hmi.Editors.help(cellTitle, 'hmiTab.object');
+		div.appendChild(cellTitle);
 
 		this.container.appendChild(div);
 
@@ -385,6 +396,7 @@
 
 		Hmi.Editors.installStyle();
 		var section = this.createCollapsibleSection(mxResources.get('hmiAnimationLinks'), false);
+		Hmi.Editors.titleHelp(section, 'hmiTab.links');
 		div.appendChild(section.wrapper);
 		var content = section.contentDiv;
 		content.style.padding = '6px 0';
@@ -418,7 +430,7 @@
 		btn.className = 'geFullWidthElement';
 		btn.style.display = 'block';
 		btn.setAttribute('data-role', 'links-button');
-		content.appendChild(btn);
+		content.appendChild(Hmi.Editors.helpButton(btn, 'hmiTab.linksButton'));
 
 		if (Hmi.SubstituteTags != null)
 		{
@@ -429,7 +441,7 @@
 			btn2.className = 'geFullWidthElement';
 			btn2.style.display = 'block';
 			btn2.style.marginTop = '4px';
-			content.appendChild(btn2);
+			content.appendChild(Hmi.Editors.helpButton(btn2, 'hmiTab.substitute'));
 		}
 	};
 
@@ -441,6 +453,7 @@
 		var ui = this.editorUi;
 		var graph = ui.editor.graph;
 		var section = this.createCollapsibleSection(mxResources.get('hmiQuickAdd'), false);
+		Hmi.Editors.titleHelp(section, 'hmiTab.quickAdd');
 		div.appendChild(section.wrapper);
 		var content = section.contentDiv;
 		content.style.padding = '6px 0';
@@ -455,41 +468,41 @@
 			}
 		};
 
-		function quickBtn(label, fn)
+		function quickBtn(label, fn, helpKey)
 		{
 			var btn = mxUtils.button(label, fn);
 			btn.className = 'geFullWidthElement';
 			btn.style.display = 'block';
 			btn.style.marginBottom = '2px';
-			content.appendChild(btn);
+			content.appendChild(Hmi.Editors.helpButton(btn, helpKey));
 		};
 
 		quickBtn(mxResources.get('hmiQuickLevel'), function()
 		{
 			addBinding({tag: 'Tag{id}', target: 'style:hmiLevel'});
-		});
+		}, 'quick.level');
 
 		quickBtn(mxResources.get('hmiQuickValue'), function()
 		{
 			addBinding({tag: 'Tag{id}', target: 'prop:value'});
-		});
+		}, 'quick.value');
 
 		quickBtn(mxResources.get('hmiQuickLabel'), function()
 		{
 			addBinding({tag: 'Tag{id}', target: 'label'});
-		});
+		}, 'quick.label');
 
 		quickBtn(mxResources.get('hmiQuickColor'), function()
 		{
 			addBinding({tag: 'Tag{id}', target: 'style:fillColor', transform:
 				{kind: 'map', entries: [{operator: '==', value: 1, output: '#4CAF50'}],
 				'default': '#B0BEC5'}});
-		});
+		}, 'quick.color');
 
 		quickBtn(mxResources.get('hmiQuickVisible'), function()
 		{
 			addBinding({tag: 'Tag{id}', target: 'visible'});
-		});
+		}, 'quick.visible');
 
 		var presetSelect = Hmi.Editors.select([
 			{value: 'blink', label: 'Blink'},
@@ -503,7 +516,16 @@
 		presetSelect.style.position = 'static';
 		presetSelect.style.width = '212px';
 		presetSelect.style.marginTop = '4px';
-		content.appendChild(presetSelect);
+		var presetWrap = Hmi.Editors.helpButton(presetSelect, 'quick.preset');
+		var presetIcon = presetWrap.querySelector('.geHmiHelp');
+
+		if (presetIcon != null)
+		{
+			// Left of the arrow of the select
+			presetIcon.style.right = '30px';
+		}
+
+		content.appendChild(presetWrap);
 
 		quickBtn(mxResources.get('hmiQuickAnimation'), function()
 		{
@@ -522,7 +544,7 @@
 					autoPlay: true, duration: 1000});
 				FormatPanel.applyToCells(graph, [cells[i]], 'animations', cfg.animations);
 			}
-		});
+		}, 'quick.animation');
 	};
 
 	/**
@@ -534,6 +556,7 @@
 		var ui = this.editorUi;
 		var graph = ui.editor.graph;
 		var section = this.createCollapsibleSection(mxResources.get('hmiFlow'), true);
+		Hmi.Editors.titleHelp(section, 'hmiTab.flow');
 		div.appendChild(section.wrapper);
 		var content = section.contentDiv;
 		content.style.padding = '6px 0';
@@ -550,9 +573,9 @@
 			graph.setCellStyles('flowAnimation', '1', cells);
 		});
 		btn.className = 'geFullWidthElement';
-		content.appendChild(btn);
+		content.appendChild(Hmi.Editors.helpButton(btn, 'hmiTab.flowQuick'));
 
-		var typeRow = Hmi.Editors.row(content, mxResources.get('hmiFlowType') + ':');
+		var typeRow = Hmi.Editors.row(content, mxResources.get('hmiFlowType') + ':', 'flow.type');
 		var style = graph.getCurrentCellStyle(cells[0]) || {};
 		var typeSelect = Hmi.Editors.select(['dash', 'dots', 'beads', 'arrows', 'liquid'],
 			style.flowAnimationType || 'dash');
@@ -575,6 +598,7 @@
 		var ui = this.editorUi;
 		var graph = ui.editor.graph;
 		var section = this.createCollapsibleSection(title, key != 'bindings');
+		Hmi.Editors.titleHelp(section, 'hmiTab.' + key);
 		div.appendChild(section.wrapper);
 		var listDiv = document.createElement('div');
 		section.contentDiv.appendChild(listDiv);
@@ -586,7 +610,7 @@
 		{
 			Hmi.Editors.renderItemList({
 				ui: ui, container: listDiv, items: items, kind: key,
-				itemLabel: itemLabel, buildEditor: buildEditor, newItem: newItem,
+				helpKey: HELP_DIALOGS[key], itemLabel: itemLabel, buildEditor: buildEditor, newItem: newItem,
 				emptyText: mxResources.get('hmiNoItems'),
 				addTitle: mxResources.get('hmiAddItem'), editTitle: mxResources.get('edit'),
 				onChange: function(newItems)
@@ -606,6 +630,7 @@
 		var ui = this.editorUi;
 		var graph = ui.editor.graph;
 		var section = this.createCollapsibleSection(mxResources.get('hmiRoles'), true);
+		Hmi.Editors.titleHelp(section, 'hmiTab.roles');
 		div.appendChild(section.wrapper);
 		var cfg = Hmi.Model.getCellConfig(cells[0]);
 		var input = Hmi.Editors.textInput((cfg.roles || []).join(','), 'op,eng');
@@ -637,6 +662,7 @@
 		var ui = this.editorUi;
 		var graph = ui.editor.graph;
 		var section = this.createCollapsibleSection(mxResources.get('hmiHoverHalo'), true);
+		Hmi.Editors.titleHelp(section, 'hmiTab.halo');
 		div.appendChild(section.wrapper);
 		var content = section.contentDiv;
 		content.style.padding = '6px 0';
@@ -756,7 +782,7 @@
 		btn.className = 'geFullWidthElement';
 		btn.style.display = 'block';
 		btn.style.marginTop = '6px';
-		content.appendChild(btn);
+		content.appendChild(Hmi.Editors.helpButton(btn, 'halo.pageButton'));
 	};
 
 	// ---------------------------------------------------------------
@@ -770,11 +796,11 @@
 
 		var src = Hmi.Editors.inlineFields(container);
 		var tagField = Hmi.Editors.tagInput(ui, value.tag);
-		Hmi.Editors.inlineField(src, mxResources.get('hmiTag') + ':', tagField);
+		Hmi.Editors.inlineField(src, mxResources.get('hmiTag') + ':', tagField, 'binding.tag');
 		var exprInput = Hmi.Editors.textInput(value.expr);
-		Hmi.Editors.inlineField(src, mxResources.get('hmiExpr') + ':', exprInput);
+		Hmi.Editors.inlineField(src, mxResources.get('hmiExpr') + ':', exprInput, 'binding.expr');
 
-		var targetRow = Hmi.Editors.row(container, mxResources.get('hmiTarget') + ':');
+		var targetRow = Hmi.Editors.row(container, mxResources.get('hmiTarget') + ':', 'binding.target');
 		var targetSelect = Hmi.Editors.select(['label', 'tooltip', 'visible', 'attr:', 'style:',
 			'geo:x', 'geo:y', 'geo:width', 'geo:height', 'prop:'],
 			/^(label|tooltip|visible|geo:x|geo:y|geo:width|geo:height)$/.test(value.target) ?
@@ -798,9 +824,9 @@
 		var fmtRow = Hmi.Editors.inlineFields(container);
 		var decimals = Hmi.Editors.numberInput((value.format && value.format.decimals != null) ?
 			value.format.decimals : '');
-		Hmi.Editors.inlineField(fmtRow, mxResources.get('hmiDecimals') + ':', decimals);
+		Hmi.Editors.inlineField(fmtRow, mxResources.get('hmiDecimals') + ':', decimals, 'binding.decimals');
 		var unit = Hmi.Editors.checkbox(mxResources.get('hmiShowUnit'),
-			value.format && value.format.unit);
+			value.format && value.format.unit, 'binding.unit');
 		fmtRow.appendChild(unit);
 
 		container.getValue = function()
@@ -857,6 +883,7 @@
 		{
 			Hmi.Editors.renderItemList({
 				ui: ui, container: listDiv, items: current, kind: 'events',
+				helpKey: 'action.dialog',
 				itemLabel: function(a)
 				{
 					return a.type;
@@ -894,13 +921,13 @@
 		value = value || {};
 		var container = document.createElement('div');
 
-		var onRow = Hmi.Editors.row(container, mxResources.get('hmiOn') + ':');
+		var onRow = Hmi.Editors.row(container, mxResources.get('hmiOn') + ':', 'event.on');
 		var onSelect = Hmi.Editors.select(['click', 'dblclick', 'mousedown', 'mouseup',
 			'enter', 'leave', 'valueChange', 'pageOpen', 'pageClose', 'message', 'change',
 			'contextmenu', 'longpress'], value.on || 'click');
 		onRow.appendChild(onSelect);
 
-		var msgRow = Hmi.Editors.row(container, mxResources.get('hmiMessageName') + ':');
+		var msgRow = Hmi.Editors.row(container, mxResources.get('hmiMessageName') + ':', 'event.message');
 		var msgInput = Hmi.Editors.textInput(value.message);
 		msgRow.appendChild(msgInput);
 
@@ -911,13 +938,14 @@
 		mxEvent.addListener(onSelect, 'change', syncMsg);
 		syncMsg();
 
-		var confirmRow = Hmi.Editors.checkbox(mxResources.get('hmiConfirm'), !!value.confirm);
+		var confirmRow = Hmi.Editors.checkbox(mxResources.get('hmiConfirm'), !!value.confirm, 'event.confirm');
 		container.appendChild(confirmRow);
 
 		var lbl = document.createElement('div');
 		lbl.className = 'geDialogHint';
 		lbl.style.marginTop = '6px';
 		mxUtils.write(lbl, mxResources.get('hmiActions') + ':');
+		Hmi.Editors.help(lbl, 'event.actions');
 		container.appendChild(lbl);
 
 		var actionsEditor = FormatPanel.buildActionsListEditor(ui, value.actions);
@@ -948,17 +976,18 @@
 		value = value || {};
 		var container = document.createElement('div');
 
-		var nameRow = Hmi.Editors.row(container, mxResources.get('hmiName') + ':');
+		var nameRow = Hmi.Editors.row(container, mxResources.get('hmiName') + ':', 'trigger.name');
 		var nameInput = Hmi.Editors.textInput(value.name);
 		nameRow.appendChild(nameInput);
 
-		var condTypeRow = Hmi.Editors.row(container, mxResources.get('hmiConditionType') + ':');
+		var condTypeRow = Hmi.Editors.row(container, mxResources.get('hmiConditionType') + ':', 'trigger.conditionType');
 		var condType = Hmi.Editors.select(['and', 'or'], value.conditionType || 'and');
 		condTypeRow.appendChild(condType);
 
 		var condLbl = document.createElement('div');
 		condLbl.className = 'geDialogHint';
 		mxUtils.write(condLbl, mxResources.get('hmiConditions') + ':');
+		Hmi.Editors.help(condLbl, 'trigger.conditions');
 		container.appendChild(condLbl);
 
 		var condListDiv = document.createElement('div');
@@ -969,6 +998,7 @@
 		{
 			Hmi.Editors.renderItemList({
 				ui: ui, container: condListDiv, items: conditions, kind: 'triggers',
+				helpKey: 'condition.dialog',
 				itemLabel: function(c)
 				{
 					return (c.tag || c.expr || '?') + ' ' + (c.operator || '==') +
@@ -998,6 +1028,7 @@
 		actLbl.className = 'geDialogHint';
 		actLbl.style.marginTop = '6px';
 		mxUtils.write(actLbl, mxResources.get('hmiActions') + ':');
+		Hmi.Editors.help(actLbl, 'trigger.actions');
 		container.appendChild(actLbl);
 		var actionsEditor = FormatPanel.buildActionsListEditor(ui, value.actions);
 		container.appendChild(actionsEditor);
@@ -1006,6 +1037,7 @@
 		elseLbl.className = 'geDialogHint';
 		elseLbl.style.marginTop = '6px';
 		mxUtils.write(elseLbl, mxResources.get('hmiElseActions') + ':');
+		Hmi.Editors.help(elseLbl, 'trigger.elseActions');
 		container.appendChild(elseLbl);
 		var elseEditor = FormatPanel.buildActionsListEditor(ui, value.elseActions);
 		container.appendChild(elseEditor);
@@ -1027,22 +1059,22 @@
 
 		var row1 = Hmi.Editors.inlineFields(container);
 		var nameInput = Hmi.Editors.textInput(value.name);
-		Hmi.Editors.inlineField(row1, mxResources.get('hmiName') + ':', nameInput);
+		Hmi.Editors.inlineField(row1, mxResources.get('hmiName') + ':', nameInput, 'animation.name');
 		var preset = Hmi.Editors.select(['blink', 'pulse', 'spin', 'shake', 'colorCycle',
 			'fadeInOut'], value.preset || 'blink');
-		Hmi.Editors.inlineField(row1, mxResources.get('hmiPreset') + ':', preset);
+		Hmi.Editors.inlineField(row1, mxResources.get('hmiPreset') + ':', preset, 'animation.preset');
 
 		var row2 = Hmi.Editors.inlineFields(container);
 		var duration = Hmi.Editors.numberInput(value.duration || 1000);
-		Hmi.Editors.inlineField(row2, mxResources.get('hmiDuration') + ':', duration);
-		var autoPlay = Hmi.Editors.checkbox(mxResources.get('hmiAutoPlay'), !!value.autoPlay);
+		Hmi.Editors.inlineField(row2, mxResources.get('hmiDuration') + ':', duration, 'animation.duration');
+		var autoPlay = Hmi.Editors.checkbox(mxResources.get('hmiAutoPlay'), !!value.autoPlay, 'animation.autoPlay');
 		row2.appendChild(autoPlay);
 
-		var paramsRow = Hmi.Editors.row(container, mxResources.get('hmiRpm') + ':');
+		var paramsRow = Hmi.Editors.row(container, mxResources.get('hmiRpm') + ':', 'animation.rpm');
 		var rpm = Hmi.Editors.numberInput((value.params && value.params.rpm) || '');
 		paramsRow.appendChild(rpm);
 
-		var rpmTagRow = Hmi.Editors.row(container, mxResources.get('hmiRpmTag') + ':');
+		var rpmTagRow = Hmi.Editors.row(container, mxResources.get('hmiRpmTag') + ':', 'animation.rpmTag');
 		var rpmTag = Hmi.Editors.tagInput(ui, value.params && value.params.rpmTag);
 		rpmTagRow.appendChild(rpmTag);
 

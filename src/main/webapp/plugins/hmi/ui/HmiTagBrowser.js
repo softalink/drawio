@@ -86,11 +86,12 @@
 			table.className = 'geHmiPickTable';
 			var head = document.createElement('tr');
 
-			[mxResources.get('name'), mxResources.get('hmiType'), mxResources.get('hmiUnit'),
-				mxResources.get('hmiDescription')].forEach(function(t)
+			[[mxResources.get('name'), 'name'], [mxResources.get('hmiType'), 'type'],
+				[mxResources.get('hmiUnit'), 'unit'], [mxResources.get('hmiDescription'), 'description']].forEach(function(t)
 			{
 				var th = document.createElement('th');
-				mxUtils.write(th, t);
+				mxUtils.write(th, t[0]);
+				Hmi.Editors.help(th, 'tagBrowser.pick.' + t[1]);
 				head.appendChild(th);
 			});
 
@@ -193,17 +194,18 @@
 		var div = document.createElement('div');
 		var hd = document.createElement('h3');
 		mxUtils.write(hd, opts.title || mxResources.get('hmiSelectTag'));
+		Hmi.Editors.help(hd, 'tagBrowser.select');
 		div.appendChild(hd);
 
 		var section = document.createElement('div');
 		section.className = 'geDialogSection';
 		div.appendChild(section);
 
-		var filterRow = Hmi.Editors.row(section, mxResources.get('hmiFilter') + ':');
+		var filterRow = Hmi.Editors.row(section, mxResources.get('hmiFilter') + ':', 'tagBrowser.select.filter');
 		var filter = Hmi.Editors.textInput(opts.filter || '', mxResources.get('hmiFilterHint'));
 		filterRow.appendChild(filter);
 
-		var viewRow = Hmi.Editors.row(section, mxResources.get('hmiView') + ':');
+		var viewRow = Hmi.Editors.row(section, mxResources.get('hmiView') + ':', 'tagBrowser.select.view');
 		var view = Hmi.Editors.select([{value: 'list', label: mxResources.get('hmiViewList')},
 			{value: 'details', label: mxResources.get('hmiViewDetails')}], 'details');
 		viewRow.appendChild(view);
@@ -259,7 +261,7 @@
 		div.style.cssText = 'overflow:hidden;padding:6px;box-sizing:border-box;';
 
 		var searchRow = document.createElement('div');
-		searchRow.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;';
+		searchRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;';
 		div.appendChild(searchRow);
 
 		var search = document.createElement('input');
@@ -267,12 +269,14 @@
 		search.setAttribute('placeholder', mxResources.get('hmiFilterHint'));
 		search.style.cssText = 'flex:1;min-width:0;box-sizing:border-box;';
 		searchRow.appendChild(search);
+		Hmi.Editors.help(searchRow, 'tagBrowser.filter');
 
 		var viewSelect = Hmi.Editors.select([
 			{value: 'details', label: mxResources.get('hmiViewDetails')},
 			{value: 'list', label: mxResources.get('hmiViewList')}], 'details');
 		viewSelect.style.cssText = 'flex:0 0 auto;';
 		searchRow.appendChild(viewSelect);
+		Hmi.Editors.help(searchRow, 'tagBrowser.view');
 
 		var tableWrap = document.createElement('div');
 		tableWrap.style.cssText = 'overflow-y:auto;height:280px;';
@@ -341,13 +345,14 @@
 
 			var head = document.createElement('tr');
 
-			[mxResources.get('name'), mxResources.get('hmiValue'), mxResources.get('hmiValueQuality'),
-				''].forEach(function(t)
+			[[mxResources.get('name'), 'name'], [mxResources.get('hmiValue'), 'value'],
+				[mxResources.get('hmiValueQuality'), 'quality'], ['', 'override']].forEach(function(t)
 			{
 				var th = document.createElement('th');
 				th.style.cssText = 'text-align:left;padding:2px 6px;border-bottom:1px solid ' +
 					'var(--border-color, #ccc);';
-				mxUtils.write(th, t);
+				mxUtils.write(th, t[0]);
+				Hmi.Editors.help(th, 'tagBrowser.col.' + t[1]);
 				head.appendChild(th);
 			});
 
@@ -493,6 +498,7 @@
 		wnd.setResizable(true);
 		wnd.setClosable(true);
 		wnd.setVisible(true);
+		Hmi.Editors.windowHelp(wnd, 'tagBrowser.window');
 
 		wnd.addListener('resize', function()
 		{
