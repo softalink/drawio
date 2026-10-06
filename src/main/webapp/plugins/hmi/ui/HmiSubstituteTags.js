@@ -25,6 +25,9 @@
 
 	var ATTRS = ['hmiLinks', 'hmiBindings', 'hmiEvents', 'hmiTriggers', 'hmiAnimations'];
 	var EXACT_KEYS = {tag: true, valueTag: true, rpmTag: true};
+	// Expression and QuickScript fields of the extension links (INTOUCH_LINKS.md §11.1)
+	var EXPR_KEYS = {rateExpr: true, reverseExpr: true, speedExpr: true, payloadExpr: true};
+	var SCRIPT_KEYS = {script: true, onTrue: true, onFalse: true, whileTrue: true, whileFalse: true};
 	var TYPE_RANK = {any: 0, boolean: 1, number: 2, string: 3};
 	var DOTFIELDS = 'Value|Name|Quality|MinEU|MaxEU|MinRaw|MaxRaw|Alarm|Ack|TimeLastModified';
 	var ID_CHARS = 'A-Za-z0-9_!@#$%&\\\\/';
@@ -124,11 +127,11 @@
 						nv = map[v];
 					}
 				}
-				else if (key == 'expr')
+				else if (key == 'expr' || (inLinks && EXPR_KEYS[key]))
 				{
 					nv = SubstituteTags.rewriteExpr(v, map, false);
 				}
-				else if (inLinks && key == 'script')
+				else if (inLinks && SCRIPT_KEYS[key])
 				{
 					nv = SubstituteTags.rewriteExpr(v, map, true);
 				}

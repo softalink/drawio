@@ -287,6 +287,8 @@
 		'fillVertical', 'fillHorizontal', 'blink', 'visibility', 'disable', 'tooltip'];
 	var LINK_TOUCH = ['inputDiscrete', 'inputAnalog', 'inputString', 'sliderH', 'sliderV',
 		'pushDiscrete', 'pushAction', 'showWindow', 'hideWindow'];
+	var LINK_EXT = ['opacity', 'states', 'properties', 'widgetData', 'animation', 'flow', 'media',
+		'inputChoice', 'pushValue', 'openUrl', 'sendMessage', 'control', 'touchOptions', 'dataChange', 'condition'];
 	var COLOR_LINKS = { lineColor: true, fillColor: true, textColor: true };
 	var LINK_CONDITIONS = ['onLeftDown', 'whileLeftDown', 'onLeftUp', 'onLeftDouble', 'onRightDown',
 		'whileRightDown', 'onRightUp', 'onRightDouble', 'onMouseOver', 'whileMouseOver', 'onMouseLeave'];
@@ -304,7 +306,12 @@
 		fillVertical: { valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100 },
 		fillHorizontal: { valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100 },
 		sliderH: { atLeft: 0, atRight: 100, toLeft: 0, toRight: 100 },
-		sliderV: { atTop: 100, atBottom: 0, up: 100, down: 0 }
+		sliderV: { atTop: 100, atBottom: 0, up: 100, down: 0 },
+		opacity: { valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100 },
+		openUrl: { width: 640, height: 480 },
+		touchOptions: { delay: 0 },
+		dataChange: { deadband: 0 },
+		condition: { period: 1000 }
 	};
 
 	/**
@@ -322,8 +329,15 @@
 		inputString: { echo: ['yes', 'no', 'password'] },
 		sliderH: { reference: ['left', 'center', 'right'] },
 		sliderV: { reference: ['top', 'middle', 'bottom'] },
-		pushDiscrete: { action: ['direct', 'reverse', 'toggle', 'reset', 'set'] }
+		pushDiscrete: { action: ['direct', 'reverse', 'toggle', 'reset', 'set'] },
+		animation: { preset: ['spin', 'pulse', 'shake', 'fadeInOut', 'blink', 'colorCycle', 'bounce', 'sway', 'glow', 'custom'] },
+		flow: { type: ['dash', 'dots', 'beads', 'arrows', 'liquid'] },
+		media: { mode: ['play', 'pause'] },
+		pushValue: { action: ['set', 'add', 'subtract', 'expression'] },
+		openUrl: { target: ['blank', 'self', 'dialog'] },
+		sendMessage: { to: ['page', 'host', 'both'] }
 	};
+	var CONTROL_COMMANDS = ['startAnimation', 'pauseAnimation', 'stopAnimation', 'playMedia', 'pauseMedia', 'stopMedia'];
 
 	function defaultsLinkFormat(f)
 	{
@@ -440,6 +454,47 @@
 			case 'hideWindow':
 				if (link.key === undefined) link.key = null;
 				if (!isArray(link.windows)) link.windows = [];
+				break;
+
+			case 'states':
+				if (!isArray(link.states)) link.states = [];
+				break;
+
+			case 'properties':
+				if (!isArray(link.items)) link.items = [];
+				break;
+
+			case 'widgetData':
+				if (!isArray(link.series)) link.series = [];
+
+				for (var wi = 0; wi < link.series.length; wi++)
+				{
+					if (isPlainObject(link.series[wi]) && link.series[wi].maxPoints == null)
+					{
+						link.series[wi].maxPoints = 600;
+					}
+				}
+
+				break;
+
+			case 'inputChoice':
+				if (link.key === undefined) link.key = null;
+				if (!isArray(link.options)) link.options = [];
+				break;
+
+			case 'pushValue':
+			case 'openUrl':
+			case 'sendMessage':
+				if (link.key === undefined) link.key = null;
+				break;
+
+			case 'control':
+				if (link.key === undefined) link.key = null;
+				if (!isArray(link.commands)) link.commands = [];
+				break;
+
+			case 'touchOptions':
+				if (!isArray(link.roles)) link.roles = [];
 				break;
 		}
 
@@ -1156,6 +1211,13 @@
 			return;
 		}
 
+		if (LINK_EXT.indexOf(type) >= 0)
+		{
+			validateLinkExt(type, link, path, errors);
+
+			return;
+		}
+
 		switch (type)
 		{
 			case 'valueDiscrete':
@@ -1318,6 +1380,308 @@
 		}
 	};
 
+	function validateLinkExt(type, link, path, errors)
+	{
+		var i;
+
+		switch (type)
+		{
+			case 'opacity':
+				checkRequiredString(link, 'expr', path, errors);
+				break;
+
+			case 'states':
+				checkRequiredString(link, 'expr', path, errors);
+
+				if (link.states != null && !isArray(link.states))
+				{
+					errors.push(path + '.states: must be an array');
+				}
+				else if (isArray(link.states))
+				{
+					for (i = 0; i < link.states.length; i++)
+					{
+						var st = link.states[i];
+						var sp = path + '.states[' + i + ']';
+
+						if (!isPlainObject(st))
+						{
+							errors.push(sp + ': must be an object');
+							continue;
+						}
+
+						if (!isString(st.match))
+						{
+							errors.push(sp + '.match: required');
+						}
+
+						checkStrings(st, ['fillColor', 'lineColor', 'textColor', 'label', 'image'], sp, errors);
+						checkBooleans(st, ['visible', 'blink'], sp, errors);
+
+						if (st.opacity != null && !(isFiniteNumber(st.opacity) && st.opacity >= 0 && st.opacity <= 100))
+						{
+							errors.push(sp + '.opacity: must be a number 0..100');
+						}
+					}
+				}
+
+				break;
+
+			case 'properties':
+				if (link.items != null && !isArray(link.items))
+				{
+					errors.push(path + '.items: must be an array');
+				}
+				else if (isArray(link.items))
+				{
+					for (i = 0; i < link.items.length; i++)
+					{
+						var it = link.items[i];
+						var ip = path + '.items[' + i + ']';
+
+						if (!isPlainObject(it))
+						{
+							errors.push(ip + ': must be an object');
+							continue;
+						}
+
+						checkRequiredString(it, 'target', ip, errors);
+						checkRequiredString(it, 'expr', ip, errors);
+					}
+				}
+
+				break;
+
+			case 'widgetData':
+				checkStrings(link, ['expr'], path, errors);
+
+				if (link.series != null && !isArray(link.series))
+				{
+					errors.push(path + '.series: must be an array');
+				}
+				else if (isArray(link.series))
+				{
+					for (i = 0; i < link.series.length; i++)
+					{
+						var se = link.series[i];
+						var qp = path + '.series[' + i + ']';
+
+						if (!isPlainObject(se))
+						{
+							errors.push(qp + ': must be an object');
+							continue;
+						}
+
+						checkRequiredString(se, 'tag', qp, errors);
+						checkStrings(se, ['name'], qp, errors);
+
+						if (se.maxPoints != null && !(isFiniteNumber(se.maxPoints) && se.maxPoints > 0))
+						{
+							errors.push(qp + '.maxPoints: must be a positive number');
+						}
+					}
+				}
+
+				break;
+
+			case 'animation':
+				checkStrings(link, ['expr', 'name', 'rateExpr', 'reverseExpr', 'color'], path, errors);
+
+				if (link.preset === 'custom')
+				{
+					checkRequiredString(link, 'name', path, errors);
+				}
+
+				break;
+
+			case 'flow':
+				checkStrings(link, ['expr', 'speedExpr', 'reverseExpr', 'color'], path, errors);
+
+				if (link.width != null && !(isFiniteNumber(link.width) && link.width > 0))
+				{
+					errors.push(path + '.width: must be a positive number');
+				}
+
+				break;
+
+			case 'media':
+				checkRequiredString(link, 'expr', path, errors);
+				break;
+
+			case 'inputChoice':
+				checkRequiredString(link, 'tag', path, errors);
+				validateLinkKey(link.key, path + '.key', errors);
+				checkStrings(link, ['message'], path, errors);
+
+				if (link.options != null && !isArray(link.options))
+				{
+					errors.push(path + '.options: must be an array');
+				}
+				else if (!isArray(link.options) || link.options.length === 0)
+				{
+					errors.push(path + '.options: at least one option required');
+				}
+				else
+				{
+					for (i = 0; i < link.options.length; i++)
+					{
+						var op = link.options[i];
+						var opPath = path + '.options[' + i + ']';
+
+						if (!isPlainObject(op))
+						{
+							errors.push(opPath + ': must be an object');
+							continue;
+						}
+
+						if (!isString(op.label))
+						{
+							errors.push(opPath + '.label: must be a string');
+						}
+
+						if (op.value === undefined)
+						{
+							errors.push(opPath + '.value: required');
+						}
+					}
+				}
+
+				break;
+
+			case 'pushValue':
+				checkRequiredString(link, 'tag', path, errors);
+				validateLinkKey(link.key, path + '.key', errors);
+				checkStrings(link, ['expr'], path, errors);
+
+				if (link.action === 'expression')
+				{
+					checkRequiredString(link, 'expr', path, errors);
+				}
+				else if (link.action === 'add' || link.action === 'subtract')
+				{
+					var pv = link.value;
+
+					if (!isFiniteNumber(pv) && !(isString(pv) && pv.replace(/\s+/g, '') !== '' && isFinite(Number(pv))))
+					{
+						errors.push(path + '.value: must be a number');
+					}
+				}
+
+				var lim = ['min', 'max'];
+
+				for (i = 0; i < lim.length; i++)
+				{
+					if (link[lim[i]] != null && !isFiniteNumber(link[lim[i]]))
+					{
+						errors.push(path + '.' + lim[i] + ': must be a number');
+					}
+				}
+
+				break;
+
+			case 'openUrl':
+				validateLinkKey(link.key, path + '.key', errors);
+				checkRequiredString(link, 'url', path, errors);
+				checkStrings(link, ['title'], path, errors);
+
+				if (link.width != null && !(isFiniteNumber(link.width) && link.width > 0))
+				{
+					errors.push(path + '.width: must be a positive number');
+				}
+
+				if (link.height != null && !(isFiniteNumber(link.height) && link.height > 0))
+				{
+					errors.push(path + '.height: must be a positive number');
+				}
+
+				break;
+
+			case 'sendMessage':
+				validateLinkKey(link.key, path + '.key', errors);
+				checkRequiredString(link, 'name', path, errors);
+				checkStrings(link, ['payloadExpr'], path, errors);
+				break;
+
+			case 'control':
+				validateLinkKey(link.key, path + '.key', errors);
+
+				if (link.commands != null && !isArray(link.commands))
+				{
+					errors.push(path + '.commands: must be an array');
+				}
+				else if (isArray(link.commands))
+				{
+					for (i = 0; i < link.commands.length; i++)
+					{
+						var cm = link.commands[i];
+						var cp = path + '.commands[' + i + ']';
+
+						if (!isPlainObject(cm))
+						{
+							errors.push(cp + ': must be an object');
+							continue;
+						}
+
+						if (CONTROL_COMMANDS.indexOf(cm.command) < 0)
+						{
+							errors.push(cp + '.command: must be one of ' + CONTROL_COMMANDS.join('|'));
+						}
+
+						checkStrings(cm, ['object', 'animation'], cp, errors);
+					}
+				}
+
+				break;
+
+			case 'touchOptions':
+				checkStrings(link, ['confirm', 'confirmTitle'], path, errors);
+
+				if (link.roles != null && !isArray(link.roles))
+				{
+					errors.push(path + '.roles: must be an array');
+				}
+				else if (isArray(link.roles))
+				{
+					for (i = 0; i < link.roles.length; i++)
+					{
+						if (!isString(link.roles[i]) || link.roles[i] === '')
+						{
+							errors.push(path + '.roles[' + i + ']: must be a non-empty string');
+						}
+					}
+				}
+
+				if (link.delay != null && isFiniteNumber(link.delay) && link.delay < 0)
+				{
+					errors.push(path + '.delay: must not be negative');
+				}
+
+				break;
+
+			case 'dataChange':
+				checkRequiredString(link, 'expr', path, errors);
+				checkStrings(link, ['script'], path, errors);
+
+				if (link.deadband != null && isFiniteNumber(link.deadband) && link.deadband < 0)
+				{
+					errors.push(path + '.deadband: must not be negative');
+				}
+
+				break;
+
+			case 'condition':
+				checkRequiredString(link, 'expr', path, errors);
+				checkStrings(link, ['onTrue', 'onFalse', 'whileTrue', 'whileFalse'], path, errors);
+
+				if (link.period != null && isFiniteNumber(link.period) && link.period < 100)
+				{
+					errors.push(path + '.period: must be at least 100');
+				}
+
+				break;
+		}
+	};
+
 	function validateLinks(obj, errors)
 	{
 		if (!isPlainObject(obj))
@@ -1330,7 +1694,7 @@
 		for (var type in obj)
 		{
 			if (Object.prototype.hasOwnProperty.call(obj, type) &&
-				(LINK_DISPLAY_EXPR.indexOf(type) >= 0 || LINK_TOUCH.indexOf(type) >= 0))
+				(LINK_DISPLAY_EXPR.indexOf(type) >= 0 || LINK_TOUCH.indexOf(type) >= 0 || LINK_EXT.indexOf(type) >= 0))
 			{
 				validateLink(type, obj[type], type, errors);
 			}

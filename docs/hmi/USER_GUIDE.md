@@ -676,6 +676,24 @@ Touch links work with the mouse, touch and keyboard:
 - **Key equivalents** (for example Ctrl+D or F2) activate a link from the keyboard. Tab moves between touch objects and Enter activates the focused one.
 - **Disabled and invisible objects** ignore all input.
 
+### Extension links from meta2d
+
+The dialog also has the HMI functions of meta2d that InTouch lacks, in the same layout. `docs/hmi/META2D_INTOUCH_COMPARISON.md` compares the two products.
+
+| Band | Group | Links |
+|---|---|---|
+| Display | Miscellaneous | **Opacity**: transparency from a value |
+| Display | States and Properties | **Multi-State**: an ordered list of states, matched by value (`1`), range (`10..20`), list (`1,3,5..8`) or `*`; each sets colours, label (with `#` masks), image, opacity, visibility or blinking. **Properties**: any style key, `prop:`, attribute, label, tooltip or visibility from an expression, such as `style:flipH`. **Widget Data**: the value of a gauge, tank or table widget, and tag series for trend charts |
+| Animation | Animation | **Animation**: spin (rate in RPM), pulse, shake, fade, blink, colour cycle, bounce, sway, glow, or a named keyframe animation, while a condition holds, with rate and reverse expressions. **Flow**: pipe/edge flow while a condition holds, with type, speed, direction, colour and width. **Media**: play or pause a video/audio widget by a condition |
+| Touch | User Inputs | **Choice**: pick one option from a list |
+| Touch | Touch Pushbuttons | **Analog/String Value**: set a value, add, subtract (clamped) or write an expression |
+| Touch | Actions | **Open URL** (new tab, same window or dialog), **Send Message** (page `message` events and/or the embedding page), **Animation/Media Control** (start, pause, stop on objects), **Touch Options** (confirmation, roles, delay for all touch links of the object) |
+| Scripts | Object Scripts | **Data Change**: a QuickScript run when a value changes (with deadband). **Condition**: QuickScripts run on true, on false, while true and while false |
+
+QuickScript also gains `OpenURL`, `ShowMessage`, `SendMessage`, `PostToHost`, `StartAnimation`, `PauseAnimation`, `StopAnimation`, `PlayMedia`, `PauseMedia`, `StopMedia`, `SetProperty` and `Navigate`. In these, `"Me"` refers to the object running the script.
+
+The template's **meta2d Extensions** page shows every extension link.
+
 ### Windows
 
 InTouch windows are **pages**. To make a page an overlay or popup window, give its document config a `window` entry:

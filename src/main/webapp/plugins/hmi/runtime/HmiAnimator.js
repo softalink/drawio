@@ -41,7 +41,10 @@
 		spin: {css: 'hmi-spin', duration: 2000, timing: 'linear', origin: true},
 		shake: {css: 'hmi-shake', duration: 400, timing: 'linear'},
 		fadeInOut: {css: 'hmi-fade', duration: 2000, timing: 'ease-in-out'},
-		colorCycle: {js: true, duration: 3000}
+		colorCycle: {js: true, duration: 3000},
+		bounce: {css: 'hmi-bounce', duration: 1000, timing: 'ease-in-out'},
+		sway: {css: 'hmi-sway', duration: 1500, timing: 'ease-in-out'},
+		glow: {css: 'hmi-glow', duration: 1500, timing: 'ease-in-out'}
 	};
 
 	function installCss()
@@ -57,6 +60,11 @@
 				'@keyframes hmi-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-3px); } ' +
 				'75% { transform: translateX(3px); } }\n' +
 				'@keyframes hmi-fade { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }\n' +
+				'@keyframes hmi-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }\n' +
+				'@keyframes hmi-sway { 0%, 100% { transform: translateX(-6px); } 50% { transform: translateX(6px); } }\n' +
+				'@keyframes hmi-glow { 0%, 100% { filter: drop-shadow(0 0 1px var(--hmi-glow, #E53935)); } ' +
+				'50% { filter: drop-shadow(0 0 6px var(--hmi-glow, #E53935)) ' +
+				'drop-shadow(0 0 12px var(--hmi-glow, #E53935)); } }\n' +
 				'.geHmiReducedMotion { outline: 3px solid #FF6F00; }';
 			document.getElementsByTagName('head')[0].appendChild(style);
 		}
@@ -66,6 +74,7 @@
 	{
 		this.rt = rt;
 		this.instances = {};
+		this.linkDefs = {};
 		this.paused = false;
 		this.reducedMotion = false;
 
@@ -100,6 +109,14 @@
 	 */
 	Animator.prototype.getDefinition = function(cellId, name)
 	{
+		// Animations defined by animation links (HmiLinkEngine)
+		var link = this.linkDefs[cellId];
+
+		if (link != null && (name == null || name == link.name))
+		{
+			return link;
+		}
+
 		var cfg = (this.rt.index != null) ? this.rt.index.cells[cellId] : null;
 
 		if (cfg != null)
@@ -193,6 +210,57 @@
 		this.rt.requestFlush();
 	};
 
+	/**
+	 * Runs, pauses or stops the animation of an animation link
+	 * (INTOUCH_LINKS.md §11). def is {name, preset, duration, params} or null
+	 * to remove it. running false stops it; paused true pauses it.
+	 */
+	Animator.prototype.setLinkAnimation = function(cellId, def, running, paused)
+	{
+		var current = this.linkDefs[cellId];
+
+		if (def == null || !running)
+		{
+			if (current != null)
+			{
+				this.stop(cellId, current.name);
+				delete this.linkDefs[cellId];
+			}
+
+			return;
+		}
+
+		var changed = current == null || current.preset != def.preset ||
+			current.duration != def.duration || JSON.stringify(current.params) !=
+			JSON.stringify(def.params);
+
+		if (current != null && changed)
+		{
+			this.stop(cellId, current.name);
+		}
+
+		this.linkDefs[cellId] = def;
+		var inst = this.instances[key(cellId, def.name)];
+
+		if (inst == null)
+		{
+			this.start(cellId, def.name);
+			inst = this.instances[key(cellId, def.name)];
+		}
+
+		if (inst != null)
+		{
+			if (paused && inst.pausedAt == null)
+			{
+				this.pause(cellId, def.name);
+			}
+			else if (!paused && inst.pausedAt != null)
+			{
+				this.start(cellId, def.name);
+			}
+		}
+	};
+
 	Animator.prototype.pause = function(cellId, name)
 	{
 		var def = this.getDefinition(cellId, name);
@@ -224,6 +292,7 @@
 		}
 
 		this.instances = {};
+		this.linkDefs = {};
 	};
 
 	/**
@@ -415,6 +484,11 @@
 				continue;
 			}
 
+			if (params.color != null)
+			{
+				node.style.setProperty('--hmi-glow', params.color);
+			}
+
 			node.style.animation = inst.preset.css + ' ' + Math.max(1, duration) + 'ms ' +
 				inst.preset.timing + ' ' + cycles + (reverse ? ' reverse' : '');
 			node.style.animationPlayState = paused ? 'paused' : 'running';
@@ -461,6 +535,7 @@
 			{
 				info.nodes[i].style.animation = '';
 				info.nodes[i].style.transformOrigin = '';
+				info.nodes[i].style.removeProperty('--hmi-glow');
 				info.nodes[i].classList.remove('geHmiReducedMotion');
 			}
 		}

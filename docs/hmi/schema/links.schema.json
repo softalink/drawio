@@ -836,6 +836,628 @@
         }
       },
       "additionalProperties": true
+    },
+    "opacity": {
+      "type": "object",
+      "properties": {
+        "expr": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Hmi.Expr expression in InTouch mode"
+        },
+        "valueAtMin": {
+          "type": "number",
+          "default": 0
+        },
+        "valueAtMax": {
+          "type": "number",
+          "default": 100
+        },
+        "minPercent": {
+          "type": "number",
+          "default": 0
+        },
+        "maxPercent": {
+          "type": "number",
+          "default": 100
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "expr"
+      ]
+    },
+    "states": {
+      "type": "object",
+      "properties": {
+        "expr": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Hmi.Expr expression in InTouch mode"
+        },
+        "states": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "object",
+            "properties": {
+              "match": {
+                "type": "string",
+                "description": "value, range a..b (a <= v < b), comma list or * (default)"
+              },
+              "fillColor": {
+                "type": "string"
+              },
+              "lineColor": {
+                "type": "string"
+              },
+              "textColor": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "image": {
+                "type": "string"
+              },
+              "opacity": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "visible": {
+                "type": "boolean"
+              },
+              "blink": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "match"
+            ]
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "expr"
+      ]
+    },
+    "properties": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "object",
+            "properties": {
+              "target": {
+                "type": "string",
+                "minLength": 1
+              },
+              "expr": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Hmi.Expr expression in InTouch mode"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "target",
+              "expr"
+            ]
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "widgetData": {
+      "type": "object",
+      "properties": {
+        "expr": {
+          "type": "string",
+          "description": "Hmi.Expr expression in InTouch mode"
+        },
+        "series": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "object",
+            "properties": {
+              "tag": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string"
+              },
+              "maxPoints": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "default": 600
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "tag"
+            ]
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "animation": {
+      "type": "object",
+      "properties": {
+        "expr": {
+          "type": "string",
+          "description": "Hmi.Expr expression in InTouch mode"
+        },
+        "preset": {
+          "enum": [
+            "spin",
+            "pulse",
+            "shake",
+            "fadeInOut",
+            "blink",
+            "colorCycle",
+            "bounce",
+            "sway",
+            "glow",
+            "custom"
+          ],
+          "default": "spin"
+        },
+        "name": {
+          "type": "string"
+        },
+        "rateExpr": {
+          "type": "string",
+          "description": "Hmi.Expr expression in InTouch mode"
+        },
+        "reverseExpr": {
+          "type": "string",
+          "description": "Hmi.Expr expression in InTouch mode"
+        },
+        "color": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "flow": {
+      "type": "object",
+      "properties": {
+        "expr": {
+          "type": "string",
+          "description": "Hmi.Expr expression in InTouch mode"
+        },
+        "type": {
+          "enum": [
+            "dash",
+            "dots",
+            "beads",
+            "arrows",
+            "liquid"
+          ],
+          "default": "dash"
+        },
+        "reverseExpr": {
+          "type": "string",
+          "description": "Hmi.Expr expression in InTouch mode"
+        },
+        "speedExpr": {
+          "type": "string",
+          "description": "Hmi.Expr expression in InTouch mode"
+        },
+        "color": {
+          "type": "string"
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "media": {
+      "type": "object",
+      "properties": {
+        "expr": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Hmi.Expr expression in InTouch mode"
+        },
+        "mode": {
+          "enum": [
+            "play",
+            "pause"
+          ],
+          "default": "play"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "expr"
+      ]
+    },
+    "inputChoice": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "key": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "key"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "ctrl": {
+                  "type": "boolean"
+                },
+                "shift": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": true
+            }
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "options": {
+          "type": "array",
+          "default": [],
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "value": {}
+            },
+            "additionalProperties": true,
+            "required": [
+              "label",
+              "value"
+            ]
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "tag"
+      ]
+    },
+    "pushValue": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "key": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "key"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "ctrl": {
+                  "type": "boolean"
+                },
+                "shift": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": true
+            }
+          ]
+        },
+        "action": {
+          "enum": [
+            "set",
+            "add",
+            "subtract",
+            "expression"
+          ],
+          "default": "set"
+        },
+        "value": {
+          "type": [
+            "number",
+            "string"
+          ]
+        },
+        "expr": {
+          "type": "string",
+          "description": "Hmi.Expr expression in InTouch mode"
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "tag"
+      ]
+    },
+    "openUrl": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "key"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "ctrl": {
+                  "type": "boolean"
+                },
+                "shift": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": true
+            }
+          ]
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "may contain ${var} placeholders"
+        },
+        "target": {
+          "enum": [
+            "blank",
+            "self",
+            "dialog"
+          ],
+          "default": "blank"
+        },
+        "title": {
+          "type": "string"
+        },
+        "width": {
+          "type": "number",
+          "default": 640,
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "default": 480,
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "url"
+      ]
+    },
+    "sendMessage": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "key"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "ctrl": {
+                  "type": "boolean"
+                },
+                "shift": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": true
+            }
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payloadExpr": {
+          "type": "string",
+          "description": "Hmi.Expr expression in InTouch mode"
+        },
+        "to": {
+          "enum": [
+            "page",
+            "host",
+            "both"
+          ],
+          "default": "page"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name"
+      ]
+    },
+    "control": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "key"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "ctrl": {
+                  "type": "boolean"
+                },
+                "shift": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": true
+            }
+          ]
+        },
+        "commands": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "object",
+            "properties": {
+              "object": {
+                "type": "string"
+              },
+              "command": {
+                "enum": [
+                  "startAnimation",
+                  "pauseAnimation",
+                  "stopAnimation",
+                  "playMedia",
+                  "pauseMedia",
+                  "stopMedia"
+                ]
+              },
+              "animation": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "command"
+            ]
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "touchOptions": {
+      "type": "object",
+      "properties": {
+        "confirm": {
+          "type": "string"
+        },
+        "confirmTitle": {
+          "type": "string"
+        },
+        "roles": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "delay": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "dataChange": {
+      "type": "object",
+      "properties": {
+        "expr": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Hmi.Expr expression in InTouch mode"
+        },
+        "deadband": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0
+        },
+        "script": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "expr"
+      ]
+    },
+    "condition": {
+      "type": "object",
+      "properties": {
+        "expr": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Hmi.Expr expression in InTouch mode"
+        },
+        "onTrue": {
+          "type": "string"
+        },
+        "onFalse": {
+          "type": "string"
+        },
+        "whileTrue": {
+          "type": "string"
+        },
+        "whileFalse": {
+          "type": "string"
+        },
+        "period": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 100
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "expr"
+      ]
     }
   },
   "additionalProperties": true,

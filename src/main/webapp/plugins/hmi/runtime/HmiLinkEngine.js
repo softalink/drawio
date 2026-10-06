@@ -19,14 +19,20 @@
 	/**
 	 * Link types that react to clicks, presses or keys.
 	 */
-	var TOUCH = ['inputDiscrete', 'inputAnalog', 'inputString', 'sliderH', 'sliderV',
-		'pushDiscrete', 'pushAction', 'showWindow', 'hideWindow'];
+	var TOUCH = ['inputDiscrete', 'inputAnalog', 'inputString', 'inputChoice', 'sliderH',
+		'sliderV', 'pushDiscrete', 'pushValue', 'pushAction', 'showWindow', 'hideWindow',
+		'openUrl', 'sendMessage', 'control'];
 
 	/**
 	 * Link types that can have a key equivalent.
 	 */
-	var KEYED = ['inputDiscrete', 'inputAnalog', 'inputString', 'pushDiscrete',
-		'pushAction', 'showWindow', 'hideWindow'];
+	var KEYED = ['inputDiscrete', 'inputAnalog', 'inputString', 'inputChoice', 'pushDiscrete',
+		'pushValue', 'pushAction', 'showWindow', 'hideWindow', 'openUrl', 'sendMessage', 'control'];
+
+	/**
+	 * Default blink of a multi-state entry with blink set.
+	 */
+	var STATE_BLINK = {mode: 'invisible', speed: 'medium'};
 
 	/**
 	 * Colour links and the style keys they set.
@@ -55,6 +61,36 @@
 	LinkEngine.engines = [];
 
 	LinkEngine.TOUCH = TOUCH;
+
+	/**
+	 * Returns true if no roles are required or the user has any of them.
+	 */
+	LinkEngine.hasAnyRole = function(userRoles, required)
+	{
+		if (required == null || required.length == 0)
+		{
+			return true;
+		}
+
+		for (var i = 0; i < required.length; i++)
+		{
+			if (userRoles != null && mxUtils.indexOf(userRoles, required[i]) >= 0)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	/**
+	 * Returns true if the touch options of the links ask for a confirmation.
+	 */
+	LinkEngine.needsConfirm = function(links)
+	{
+		return links != null && links.touchOptions != null && links.touchOptions.confirm != null &&
+			String(links.touchOptions.confirm).trim() !== '';
+	};
 
 	/**
 	 * Returns true if the links object has at least one link.
@@ -278,8 +314,11 @@
 					style: this.getDesignStyle(cell),
 					width: (geo != null) ? geo.width : 0,
 					height: (geo != null) ? geo.height : 0,
-					prevStyles: {}
+					prevStyles: {},
+					prevAttrs: {}
 				};
+				var roles = (cfg.links.touchOptions != null) ? cfg.links.touchOptions.roles : null;
+				this.cells[id].roleBlocked = !LinkEngine.hasAnyRole(this.rt.roles, roles);
 				this.count++;
 			}
 		}
@@ -314,6 +353,12 @@
 		}
 
 		var done = {};
+		var changed = {};
+
+		for (var i = 0; i < names.length; i++)
+		{
+			changed[names[i]] = true;
+		}
 
 		for (var i = 0; i < names.length; i++)
 		{
@@ -326,7 +371,7 @@
 				if (rec != null && !done[rec.id])
 				{
 					done[rec.id] = true;
-					this.updateCell(rec);
+					this.updateCell(rec, changed);
 				}
 			}
 		}
@@ -367,7 +412,7 @@
 	/**
 	 * Applies all display links of a cell to the overlay.
 	 */
-	LinkEngine.prototype.updateCell = function(rec)
+	LinkEngine.prototype.updateCell = function(rec, changed)
 	{
 		var rt = this.rt;
 		var overlay = rt.overlay;
@@ -566,10 +611,207 @@
 				String(tip).substring(0, (links.tooltip.mode == 'expression') ? 1024 : 131) : null, LAYER);
 		}
 
-		// Blink condition
-		if (links.blink != null)
+		// Opacity (meta2d globalAlpha)
+		if (links.opacity != null && L.opacity != null)
 		{
-			var on = L.isTrue(value(links.blink));
+			var op = L.opacity(links.opacity, value(links.opacity));
+
+			if (op != null)
+			{
+				styles[mxConstants.STYLE_OPACITY] = Math.round(op);
+			}
+		}
+
+		// Multi-state appearance (meta2d trigger states)
+		var stateBlink = false;
+
+		if (links.states != null && L.state != null)
+		{
+			var sv = value(links.states);
+			var st = L.state(links.states, sv);
+
+			if (st != null)
+			{
+				for (var type in COLORS)
+				{
+					if (st[type] != null && st[type] !== '')
+					{
+						this.setColor(rec, styles, COLORS[type], st[type]);
+					}
+				}
+
+				if (st.label != null && st.label !== '')
+				{
+					label = (String(st.label).indexOf('#') >= 0 && Hmi.Format.applyMask != null) ?
+						Hmi.Format.applyMask(String(st.label), sv) : String(st.label);
+				}
+
+				if (st.image != null && st.image !== '')
+				{
+					styles[(rec.style.shape == 'image' || rec.style.image != null) ?
+						'image' : 'hmiImage'] = st.image;
+				}
+
+				if (st.opacity != null && st.opacity !== '' && !isNaN(parseFloat(st.opacity)))
+				{
+					styles[mxConstants.STYLE_OPACITY] = Math.max(0, Math.min(100, parseFloat(st.opacity)));
+				}
+
+				if (st.visible === false)
+				{
+					visible = false;
+					overlay.setVisible(rec.id, false, LAYER);
+					rec.hidden = true;
+				}
+
+				stateBlink = st.blink === true;
+			}
+		}
+
+		// Properties (meta2d realTimes on any property)
+		if (links.properties != null && links.properties.items != null)
+		{
+			var attrs = {};
+
+			for (var i = 0; i < links.properties.items.length; i++)
+			{
+				var item = links.properties.items[i];
+
+				if (item != null && item.target)
+				{
+					var pv = this.evaluate(rec, item.expr, env);
+
+					if (pv !== undefined)
+					{
+						var r = this.applyProperty(rec, item.target, pv, styles, attrs);
+
+						if (r != null && r.label !== undefined)
+						{
+							label = r.label;
+						}
+					}
+				}
+			}
+
+			for (var name in rec.prevAttrs)
+			{
+				if (attrs[name] === undefined)
+				{
+					overlay.setAttribute(rec.id, name, null, LAYER);
+				}
+			}
+
+			rec.prevAttrs = attrs;
+		}
+
+		// Widget data (mxgraph.hmi widgets and charts)
+		if (links.widgetData != null)
+		{
+			var wd = links.widgetData;
+
+			if (wd.expr != null && String(wd.expr).trim() !== '')
+			{
+				var wv = this.evaluate(rec, wd.expr, env);
+
+				if (wv !== undefined)
+				{
+					styles.hmiValue = (wv != null && typeof wv === 'object') ? JSON.stringify(wv) :
+						Hmi.BindingEngine.styleValue(wv);
+				}
+			}
+
+			for (var i = 0; wd.series != null && i < wd.series.length; i++)
+			{
+				var se = wd.series[i];
+				var entry = (se != null && se.tag) ? rt.tags.get(se.tag) : null;
+
+				if (entry != null && (changed == null || changed[se.tag]) && entry.value != null &&
+					!isNaN(parseFloat(entry.value)))
+				{
+					overlay.pushSeries(rec.id, entry.ts || Date.now(), parseFloat(entry.value),
+						se.maxPoints || 600, se.name || se.tag);
+				}
+			}
+		}
+
+		// Animation (meta2d animations and presets)
+		if (links.animation != null && rt.animator != null && rt.animator.setLinkAnimation != null)
+		{
+			this.updateAnimation(rec, env);
+		}
+
+		// Flow (meta2d line animation)
+		if (links.flow != null)
+		{
+			var fl = links.flow;
+			var run = (fl.expr == null || String(fl.expr).trim() === '') ? true :
+				L.isTrue(this.evaluate(rec, fl.expr, env));
+			var speed = (fl.speedExpr != null && String(fl.speedExpr).trim() !== '') ?
+				parseFloat(this.evaluate(rec, fl.speedExpr, env)) : 1;
+
+			if (isNaN(speed))
+			{
+				speed = 1;
+			}
+
+			styles.flowAnimation = (run && speed > 0) ? '1' : '0';
+
+			if (run && speed > 0)
+			{
+				var base = parseFloat(rec.style.flowAnimationDuration) || 500;
+				styles.flowAnimationDuration = Math.max(20, Math.round(base / speed));
+				styles.flowAnimationType = fl.type || 'dash';
+				styles.flowAnimationReverse = (fl.reverseExpr != null &&
+					String(fl.reverseExpr).trim() !== '' &&
+					L.isTrue(this.evaluate(rec, fl.reverseExpr, env))) ? '1' : '0';
+
+				if (fl.color)
+				{
+					styles.flowAnimationColor = fl.color;
+				}
+
+				if (fl.width != null && fl.width !== '')
+				{
+					styles.flowAnimationWidth = fl.width;
+				}
+			}
+		}
+
+		// Media (meta2d video/audio control)
+		if (links.media != null)
+		{
+			var on = (links.media.expr == null || String(links.media.expr).trim() === '') ? true :
+				L.isTrue(this.evaluate(rec, links.media.expr, env));
+			var play = (links.media.mode == 'pause') ? !on : on;
+
+			if (play !== rec.mediaPlaying)
+			{
+				rec.mediaPlaying = play;
+				this.mediaCommand([rec.cell], play ? 'play' : 'pause');
+			}
+		}
+
+		// Object scripts (run mode only)
+		if (rt.interactive && rt.running)
+		{
+			this.updateScripts(rec, env);
+		}
+
+		// Blink condition (blink link or a blinking multi-state entry)
+		var blinkLink = links.blink || (stateBlink ? STATE_BLINK : null);
+
+		if (blinkLink != rec.blinkLink && rec.blinkLink != null)
+		{
+			// The blink definition changed: resets the blink layer
+			rec.blinking = false;
+			this.applyBlink(rec);
+		}
+
+		rec.blinkLink = blinkLink;
+
+		if (blinkLink != null)
+		{
+			var on = (links.blink != null && L.isTrue(value(links.blink))) || stateBlink;
 
 			if (on != !!rec.blinking)
 			{
@@ -577,7 +819,7 @@
 
 				if (on)
 				{
-					this.startBlink(links.blink.speed || 'medium');
+					this.startBlink(blinkLink.speed || 'medium');
 				}
 			}
 
@@ -603,6 +845,320 @@
 		}
 
 		rec.prevStyles = styles;
+	};
+
+	/**
+	 * Applies a properties-link (or SetProperty) target. Style and prop
+	 * targets go into styles, attributes into attrs (both may be null to
+	 * write directly to the overlay layer). Returns {label} for label
+	 * targets.
+	 */
+	LinkEngine.prototype.applyProperty = function(rec, target, value, styles, attrs, layer)
+	{
+		var overlay = this.rt.overlay;
+		var id = rec.id;
+		layer = layer || LAYER;
+		target = String(target);
+		var str = (value != null && typeof value === 'object') ? JSON.stringify(value) :
+			Hmi.BindingEngine.styleValue(value);
+
+		if (target == 'label')
+		{
+			if (styles == null)
+			{
+				overlay.setLabel(id, (value == null) ? '' : String(value), layer);
+
+				return null;
+			}
+
+			return {label: (value == null) ? '' : String(value)};
+		}
+		else if (target == 'tooltip')
+		{
+			overlay.setTooltip(id, (value == null || value === '') ? null : String(value), layer);
+		}
+		else if (target == 'visible')
+		{
+			overlay.setVisible(id, Hmi.Links.isTrue(value) ? null : false, layer);
+		}
+		else if (target.substring(0, 6) == 'style:' || target.substring(0, 5) == 'prop:')
+		{
+			var key = (target.charAt(0) == 's') ? target.substring(6) :
+				'hmi' + target.charAt(5).toUpperCase() + target.substring(6);
+
+			if (styles != null)
+			{
+				styles[key] = str;
+			}
+			else
+			{
+				overlay.setStyle(id, key, str, layer);
+			}
+		}
+		else if (target.substring(0, 5) == 'attr:')
+		{
+			var name = target.substring(5);
+
+			if (attrs != null)
+			{
+				attrs[name] = str;
+			}
+
+			overlay.setAttribute(id, name, (value == null) ? '' : String(value), layer);
+		}
+		else
+		{
+			this.rt.log('warn', 'links', 'Unknown property target ' + target + ' on ' + id);
+		}
+
+		return null;
+	};
+
+	/**
+	 * Runs, pauses or stops the animation link of a cell.
+	 */
+	LinkEngine.prototype.updateAnimation = function(rec, env)
+	{
+		var L = Hmi.Links;
+		var link = rec.links.animation;
+		var animator = this.rt.animator;
+		var run = (link.expr == null || String(link.expr).trim() === '') ? true :
+			L.isTrue(this.evaluate(rec, link.expr, env));
+		var preset = link.preset || 'spin';
+		var rate = (link.rateExpr != null && String(link.rateExpr).trim() !== '') ?
+			this.evaluate(rec, link.rateExpr, env) : undefined;
+		var reverse = link.reverseExpr != null && String(link.reverseExpr).trim() !== '' &&
+			L.isTrue(this.evaluate(rec, link.reverseExpr, env));
+
+		if (preset == 'custom')
+		{
+			// Named animation of the object (hmiAnimations)
+			var name = link.name || null;
+			var active = rec.customAnimation;
+
+			if (run && !active)
+			{
+				animator.start(rec.id, name);
+				rec.customAnimation = true;
+			}
+			else if (!run && active)
+			{
+				animator.stop(rec.id, name);
+				rec.customAnimation = false;
+			}
+
+			return;
+		}
+
+		var duration = (L.animationDuration != null) ? L.animationDuration(preset, rate) :
+			undefined;
+		var params = {};
+
+		if (preset == 'spin')
+		{
+			if (rate !== undefined && !isNaN(parseFloat(rate)))
+			{
+				params.rpm = parseFloat(rate);
+			}
+
+			params.reverse = reverse;
+		}
+
+		if (preset == 'glow')
+		{
+			params.color = link.color || '#E53935';
+		}
+
+		var def = {name: 'hmiLinkAnimation', preset: preset, params: params,
+			duration: (preset != 'spin' && duration != null) ? Math.round(duration) : undefined};
+		animator.setLinkAnimation(rec.id, def, run, duration === null);
+	};
+
+	/**
+	 * Plays, pauses or stops the video/audio of the given cells.
+	 */
+	LinkEngine.prototype.mediaCommand = function(cells, command)
+	{
+		var rt = this.rt;
+
+		for (var i = 0; i < cells.length; i++)
+		{
+			try
+			{
+				Hmi.Actions.types.playMedia(rt, {target: cells[i].id, command: command},
+					{cell: cells[i]});
+			}
+			catch (e)
+			{
+				rt.log('warn', 'links', 'Media ' + command + ' failed: ' + e.message);
+			}
+		}
+	};
+
+	/**
+	 * Returns the cells for an object reference: '' or 'Me' (the object),
+	 * a cell id or tag:<draw.io tag>.
+	 */
+	LinkEngine.prototype.resolveObjects = function(rec, object)
+	{
+		var rt = this.rt;
+		object = (object == null) ? '' : String(object).trim();
+
+		if (object === '' || object.toLowerCase() == 'me')
+		{
+			return (rec != null) ? [rec.cell] : [];
+		}
+
+		if (object.substring(0, 4) == 'tag:')
+		{
+			var tag = object.substring(4);
+			var graph = rt.graph;
+			var result = [];
+			var cells = graph.model.getDescendants(graph.model.getRoot());
+
+			for (var i = 0; i < cells.length; i++)
+			{
+				var tags = (graph.getTagsForCell != null) ? graph.getTagsForCell(cells[i]) : '';
+
+				if (tags && (' ' + tags + ' ').indexOf(' ' + tag + ' ') >= 0)
+				{
+					result.push(cells[i]);
+				}
+			}
+
+			return result;
+		}
+
+		var cell = rt.getCell(object);
+
+		return (cell != null) ? [cell] : [];
+	};
+
+	/**
+	 * Starts, pauses or stops animations of objects ('start', 'pause',
+	 * 'stop'). An empty name runs the object's animation link or its first
+	 * named animation.
+	 */
+	LinkEngine.prototype.animationCommand = function(rec, object, command, name)
+	{
+		var animator = this.rt.animator;
+		var cells = this.resolveObjects(rec, object);
+
+		for (var i = 0; i < cells.length; i++)
+		{
+			var target = this.cells[cells[i].id];
+			var n = (name != null && name !== '') ? name : null;
+
+			// Animation link of the target
+			if (n == null && target != null && target.links.animation != null &&
+				(target.links.animation.preset || 'spin') != 'custom')
+			{
+				var def = animator.linkDefs[cells[i].id];
+
+				if (command == 'stop')
+				{
+					animator.setLinkAnimation(cells[i].id, null, false);
+				}
+				else if (def != null)
+				{
+					animator[(command == 'pause') ? 'pause' : 'start'](cells[i].id, def.name);
+				}
+				else if (command == 'start')
+				{
+					this.updateAnimation(target, this.createEnv(target.cell));
+				}
+
+				continue;
+			}
+
+			if (n == null && target != null && target.links.animation != null)
+			{
+				n = target.links.animation.name || null;
+			}
+
+			if (command == 'pause')
+			{
+				animator.pause(cells[i].id, n);
+			}
+			else if (command == 'stop')
+			{
+				animator.stop(cells[i].id, n);
+			}
+			else
+			{
+				animator.start(cells[i].id, n);
+			}
+		}
+
+		this.rt.requestFlush();
+	};
+
+	/**
+	 * Data change and condition scripts of an object.
+	 */
+	LinkEngine.prototype.updateScripts = function(rec, env)
+	{
+		var L = Hmi.Links;
+		var links = rec.links;
+		var self = this;
+
+		if (links.dataChange != null && links.dataChange.script)
+		{
+			var v = this.evaluate(rec, links.dataChange.expr, env);
+			var changed = (L.changed != null) ? L.changed(rec.dataPrev, v,
+				parseFloat(links.dataChange.deadband) || 0) : v !== rec.dataPrev;
+
+			if (changed)
+			{
+				rec.dataPrev = v;
+				this.runQuickScript(rec, links.dataChange.script);
+			}
+		}
+
+		if (links.condition != null)
+		{
+			var c = links.condition;
+			var b = L.isTrue(this.evaluate(rec, c.expr, env));
+
+			if (b !== rec.condPrev)
+			{
+				var first = rec.condPrev === undefined;
+				rec.condPrev = b;
+
+				if (rec.condTimer != null)
+				{
+					clearInterval(rec.condTimer);
+					rec.condTimer = null;
+				}
+
+				if (b && c.onTrue)
+				{
+					this.runQuickScript(rec, c.onTrue);
+				}
+				else if (!b && !first && c.onFalse)
+				{
+					this.runQuickScript(rec, c.onFalse);
+				}
+
+				var repeat = b ? c.whileTrue : c.whileFalse;
+
+				if (repeat)
+				{
+					rec.condTimer = setInterval(function()
+					{
+						if (!self.rt.running)
+						{
+							clearInterval(rec.condTimer);
+							rec.condTimer = null;
+
+							return;
+						}
+
+						self.runQuickScript(rec, repeat);
+					}, Math.max(100, parseFloat(c.period) || 1000));
+				}
+			}
+		}
 	};
 
 	/**
@@ -699,7 +1255,7 @@
 			{
 				var rec = self.cells[id];
 
-				if (rec.links.blink != null && (rec.links.blink.speed || 'medium') == speed)
+				if (rec.blinkLink != null && (rec.blinkLink.speed || 'medium') == speed)
 				{
 					self.applyBlink(rec);
 					any = any || rec.blinking;
@@ -722,7 +1278,7 @@
 	LinkEngine.prototype.applyBlink = function(rec)
 	{
 		var overlay = this.rt.overlay;
-		var link = rec.links.blink;
+		var link = rec.blinkLink || rec.links.blink || STATE_BLINK;
 		var off = rec.blinking && this.blinkPhase[link.speed || 'medium'] === true;
 
 		if (rec.blinkOff == off)
@@ -803,7 +1359,7 @@
 		{
 			var rec = this.cells[cell.id];
 
-			if (rec != null && rec.disabled)
+			if (rec != null && (rec.disabled || rec.roleBlocked))
 			{
 				return true;
 			}
@@ -945,7 +1501,14 @@
 		var evt = (me != null) ? me.getEvent() : null;
 		var right = evt != null && mxEvent.isRightMouseButton(evt);
 		this.setObjPos(rec);
-		this.pressed = {rec: rec, right: right};
+		var confirm = LinkEngine.needsConfirm(links);
+		this.pressed = {rec: rec, right: right, confirm: confirm};
+
+		// With a confirmation, press links act once after it (in click)
+		if (confirm)
+		{
+			return true;
+		}
 
 		if (!right)
 		{
@@ -1005,6 +1568,11 @@
 			return false;
 		}
 
+		if (p.confirm)
+		{
+			return true;
+		}
+
 		if (!p.right && p.rec.links.pushDiscrete != null)
 		{
 			this.pushUp(p.rec);
@@ -1056,9 +1624,45 @@
 			return false;
 		}
 
-		this.activate(rec, false);
+		var self = this;
+		var confirm = LinkEngine.needsConfirm(rec.links);
+		this.guard(rec, function()
+		{
+			// Press links did not act on mouse down when a confirmation was due
+			self.activate(rec, false, confirm);
+		});
 
 		return true;
+	};
+
+	/**
+	 * Runs fn after the confirmation and delay of the touch options.
+	 */
+	LinkEngine.prototype.guard = function(rec, fn)
+	{
+		var opts = rec.links.touchOptions;
+		var delay = (opts != null) ? parseFloat(opts.delay) || 0 : 0;
+		var run = function()
+		{
+			if (delay > 0)
+			{
+				setTimeout(fn, delay);
+			}
+			else
+			{
+				fn();
+			}
+		};
+
+		if (LinkEngine.needsConfirm(rec.links) && this.rt.events != null)
+		{
+			this.rt.events.confirm({title: opts.confirmTitle || null,
+				text: this.rt.resolveVars(String(opts.confirm), rec.cell)}, run);
+		}
+		else
+		{
+			run();
+		}
 	};
 
 	/**
@@ -1082,7 +1686,7 @@
 	 * Runs the click behaviour of the touch links of a cell. With keyOnly,
 	 * only links whose key equivalent is keySpec run, including press links.
 	 */
-	LinkEngine.prototype.activate = function(rec, keySpec)
+	LinkEngine.prototype.activate = function(rec, keySpec, press)
 	{
 		var links = rec.links;
 		var match = function(type)
@@ -1105,8 +1709,40 @@
 		{
 			this.inputValue(rec, 'inputString');
 		}
+		else if (match('inputChoice'))
+		{
+			this.inputChoice(rec);
+		}
 
-		if (keySpec !== false)
+		if (match('pushValue'))
+		{
+			this.pushValueLink(rec);
+		}
+
+		if (match('openUrl'))
+		{
+			this.openUrl(rec);
+		}
+
+		if (match('sendMessage'))
+		{
+			this.sendMessage(rec);
+		}
+
+		if (match('control'))
+		{
+			var cmds = links.control.commands || [];
+
+			for (var i = 0; i < cmds.length; i++)
+			{
+				if (cmds[i] != null)
+				{
+					this.controlCommand(rec, cmds[i]);
+				}
+			}
+		}
+
+		if (keySpec !== false || press)
 		{
 			if (match('pushDiscrete'))
 			{
@@ -1141,6 +1777,152 @@
 			{
 				api.hide(list[i]);
 			}
+		}
+	};
+
+	/**
+	 * Choice input: a list of options, writes the chosen value.
+	 */
+	LinkEngine.prototype.inputChoice = function(rec)
+	{
+		var link = rec.links.inputChoice;
+		var options = link.options || [];
+		var labels = [];
+		var self = this;
+
+		for (var i = 0; i < options.length; i++)
+		{
+			labels.push((options[i].label != null && options[i].label !== '') ?
+				String(options[i].label) : String(options[i].value));
+		}
+
+		Hmi.Keypad.choice(link.message || link.tag, labels).then(function(index)
+		{
+			if (index >= 0 && options[index] != null)
+			{
+				var v = options[index].value;
+				var def = self.rt.tags.getDef(link.tag);
+
+				if (def != null && (def.type == 'number' || def.type == 'integer') &&
+					!isNaN(parseFloat(v)))
+				{
+					v = parseFloat(v);
+				}
+
+				self.write(rec, link.tag, v);
+			}
+		});
+	};
+
+	/**
+	 * Analog/string value pushbutton: set, add, subtract or expression.
+	 */
+	LinkEngine.prototype.pushValueLink = function(rec)
+	{
+		var link = rec.links.pushValue;
+		var self = this;
+		var v = Hmi.Links.pushValue(link, this.rt.tags.getValue(link.tag), function()
+		{
+			return self.evaluate(rec, link.expr);
+		});
+
+		if (v !== undefined)
+		{
+			this.write(rec, link.tag, v);
+		}
+	};
+
+	/**
+	 * Opens a URL in a new tab, the same window or a dialog.
+	 */
+	LinkEngine.prototype.openUrl = function(rec, url, target, opts)
+	{
+		var rt = this.rt;
+		var link = rec.links.openUrl || {};
+		url = Graph.sanitizeLink(rt.resolveVars(String((url != null) ? url : (link.url || '')),
+			rec.cell));
+		target = target || link.target || 'blank';
+
+		if (url == null || url === '')
+		{
+			rt.log('warn', 'links', 'URL not allowed on ' + rec.id);
+
+			return;
+		}
+
+		if (target == 'dialog' && Hmi.Faceplate != null)
+		{
+			opts = opts || link;
+			Hmi.Faceplate.showUrl(rt.mainRuntime || rt, url, {title: opts.title || url,
+				width: opts.width || 640, height: opts.height || 480});
+		}
+		else if (target == 'self')
+		{
+			window.location.href = url;
+		}
+		else
+		{
+			var wnd = window.open(url, '_blank');
+
+			if (wnd != null)
+			{
+				wnd.opener = null;
+			}
+		}
+	};
+
+	/**
+	 * Sends a named message to the page and/or the embedding host.
+	 */
+	LinkEngine.prototype.sendMessage = function(rec, name, payload, to)
+	{
+		var link = rec.links.sendMessage || {};
+		name = (name != null) ? name : link.name;
+		to = to || link.to || 'page';
+
+		if (payload === undefined && link.payloadExpr != null && String(link.payloadExpr).trim() !== '')
+		{
+			payload = this.evaluate(rec, link.payloadExpr);
+		}
+
+		if (to == 'page' || to == 'both')
+		{
+			Hmi.Actions.types.emit(this.rt, {name: name, payload: payload}, {cell: rec.cell});
+		}
+
+		if (to == 'host' || to == 'both')
+		{
+			this.postToHost(rec, name, payload);
+		}
+	};
+
+	LinkEngine.prototype.postToHost = function(rec, name, payload)
+	{
+		var target = window.opener || window.parent;
+
+		if (target != null && target != window)
+		{
+			target.postMessage(JSON.stringify({event: 'hmiMessage', name: name, payload: payload,
+				cellId: rec.id}), '*');
+		}
+	};
+
+	/**
+	 * Runs one animation/media control command.
+	 */
+	LinkEngine.prototype.controlCommand = function(rec, cmd)
+	{
+		var c = String(cmd.command || 'startAnimation');
+
+		if (/Media$/.test(c))
+		{
+			this.mediaCommand(this.resolveObjects(rec, cmd.object),
+				(c == 'playMedia') ? 'play' : ((c == 'pauseMedia') ? 'pause' : 'stop'));
+		}
+		else
+		{
+			this.animationCommand(rec, cmd.object, (c == 'pauseAnimation') ? 'pause' :
+				((c == 'stopAnimation') ? 'stop' : 'start'), cmd.animation);
 		}
 	};
 
@@ -1635,6 +2417,42 @@
 				{
 					rt.alarms.ack((tag != null && tag !== '') ? String(tag) : undefined);
 				}
+			},
+			openUrl: function(url, target)
+			{
+				self.openUrl(rec, url, (target != null && target !== '') ? String(target) : 'blank', {});
+			},
+			message: function(text, level)
+			{
+				Hmi.Actions.toast(String(text), (level != null && level !== '') ? String(level) : 'info');
+			},
+			emit: function(name, payload)
+			{
+				self.sendMessage(rec, String(name), payload, 'page');
+			},
+			postToHost: function(name, payload)
+			{
+				self.postToHost(rec, String(name), payload);
+			},
+			animation: function(object, command, name)
+			{
+				self.animationCommand(rec, object, command, name);
+			},
+			media: function(object, command)
+			{
+				self.mediaCommand(self.resolveObjects(rec, object), command);
+			},
+			setProperty: function(object, target, value)
+			{
+				var cells = self.resolveObjects(rec, object);
+
+				for (var i = 0; i < cells.length; i++)
+				{
+					self.applyProperty({id: cells[i].id, cell: cells[i]}, target, value, null, null,
+						'action');
+				}
+
+				rt.requestFlush();
 			}
 		};
 	};
@@ -2050,7 +2868,13 @@
 				if (rec != null)
 				{
 					mxEvent.consume(evt);
-					engine.activate(rec, pressed);
+					(function(engine, rec)
+					{
+						engine.guard(rec, function()
+						{
+							engine.activate(rec, pressed);
+						});
+					})(engine, rec);
 
 					return;
 				}
@@ -2092,6 +2916,15 @@
 	 */
 	LinkEngine.prototype.reset = function()
 	{
+		for (var id in this.cells)
+		{
+			if (this.cells[id].condTimer != null)
+			{
+				clearInterval(this.cells[id].condTimer);
+				this.cells[id].condTimer = null;
+			}
+		}
+
 		this.stopBlink();
 		this.stopWhile(null);
 		this.closeInline();

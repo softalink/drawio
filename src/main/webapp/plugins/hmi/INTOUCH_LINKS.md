@@ -293,3 +293,157 @@ InTouch windows map to **pages**. A page's document config can declare `hmi.wind
 - **Define Missing Tags…** turns undeclared referenced tags (placeholder tags, page 84) into catalogue entries. The type is inferred from usage: discrete links give boolean, analog links give number, string links give string.
 - **Validator.** It checks `hmiLinks`: expression syntax, undeclared tags, `max > min` for analog input (page 71), duplicate key equivalents on the same page, and windows that do not exist.
 - **Design-time display.** Cells with links show their design appearance. A small link badge (a chain icon in the cell's top-right corner) appears only while the HMI tab or the Animation Links dialog is open (`Hmi.LinksDialog.decorate(ui, on)`).
+
+## 11. Extension links from meta2d
+
+These links add the HMI/SCADA functions of meta2d that InTouch's animation links do not have (comparison in `docs/hmi/META2D_INTOUCH_COMPARISON.md`). They follow the same rules as §2–§9:
+- one link of each type per object, stored in `hmiLinks`
+- expressions in InTouch mode (§1)
+- results in overlay layer `link`
+- key equivalents (`key`) on every touch link
+
+### 11.1 Schema
+
+```js
+{
+  // ---------- Display links ----------
+  opacity:    {expr, valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100},  // alpha in %
+  states:     {expr, states: [State, ...]},           // multi-state appearance, first match wins
+  properties: {items: [{target, expr}]},              // any property, like meta2d realTimes
+  widgetData: {expr, series: [{tag, name, maxPoints: 600}]},  // mxgraph.hmi widgets and charts
+
+  // ---------- Animation links ----------
+  animation:  {expr, preset: 'spin'|'pulse'|'shake'|'fadeInOut'|'blink'|'colorCycle'|'bounce'|'sway'|'glow'|'custom',
+               name, rateExpr, reverseExpr, color},
+  flow:       {expr, type: 'dash'|'dots'|'beads'|'arrows'|'liquid', reverseExpr, speedExpr, color, width},
+  media:      {expr, mode: 'play'|'pause'},          // video/audio widget plays while true
+
+  // ---------- Touch links ----------
+  inputChoice: {tag, key: Key, message, options: [{label, value}]},
+  pushValue:   {tag, key: Key, action: 'set'|'add'|'subtract'|'expression', value, expr, min, max},
+  openUrl:     {key: Key, url, target: 'blank'|'self'|'dialog', title, width: 640, height: 480},
+  sendMessage: {key: Key, name, payloadExpr, to: 'page'|'host'|'both'},
+  control:     {key: Key, commands: [{object, command, animation}]},
+  touchOptions:{confirm, confirmTitle, roles: [], delay: 0},
+
+  // ---------- Object scripts ----------
+  dataChange: {expr, deadband: 0, script},
+  condition:  {expr, onTrue, onFalse, whileTrue, whileFalse, period: 1000}
+}
+```
+
+`State` is `{match, fillColor, lineColor, textColor, label, image, opacity, visible, blink}`.
+- Every field except `match` is optional. Empty fields keep the design value.
+- `match` is one of:
+  - a single value, compared as a number when both sides are numeric and as a string otherwise (case-insensitive)
+  - a range `a..b`, meaning a ≤ v < b (either end may be empty)
+  - a comma list of values and ranges
+  - `*`, the default
+- `label` may contain `#` masks, which are formatted with the value as in §3.
+- `image` is an image URL. It is set as the style `image` on image shapes and as `hmiImage` otherwise.
+
+`properties.items[].target` uses the binding target syntax: `style:<key>`, `attr:<name>`, `prop:<name>` (sets `hmi<Name>`), `label`, `tooltip` or `visible`. Two style keys are shortcuts for mirroring:
+- `style:flipH` mirrors the object horizontally.
+- `style:flipV` mirrors it vertically.
+
+`widgetData` fields:
+- `expr` sets `hmiValue`. Array or object results are stored as JSON, for table, bar and pie widgets.
+- Each entry in `series` appends samples of its tag to the overlay series used by trend charts.
+
+`animation` fields:
+- It runs while `expr` is true. An empty `expr` means it always runs.
+- `preset` selects a built-in animation:
+  - `spin`, `pulse`, `shake`, `fadeInOut`, `blink` and `colorCycle` are the existing presets.
+  - `bounce` moves up and down.
+  - `sway` moves left and right.
+  - `glow` is a pulsing drop-shadow in `color`, like meta2d's success, warning and error shadows.
+  - `custom` runs the object's named animation `name` from `hmiAnimations`.
+- `rateExpr` (optional) sets the speed:
+  - for `spin`, revolutions per minute
+  - for the other presets, cycles per minute
+  - a rate ≤ 0 pauses the animation
+- `reverseExpr` (optional) reverses the spin direction while true.
+
+`flow` (for edges and pipes) maps to the `flowAnimation*` styles:
+- It runs while `expr` is true.
+- `speedExpr` sets the relative speed: 1 is normal and 2 is twice as fast (the duration is divided by it). A speed ≤ 0 stops the flow.
+- `reverseExpr` reverses the direction while true.
+- `type`, `color` and `width` set the look.
+
+`pushValue` writes on click:
+- `set` writes `value`.
+- `add` and `subtract` change the current value by `value`, clamped to `min`/`max`.
+- `expression` writes the result of `expr`.
+
+`openUrl` fields:
+- `url` may contain `${var}` placeholders.
+- `target` is `blank` (new tab), `self` or `dialog`. `dialog` opens a sandboxed iframe in a floating window (`Hmi.Faceplate.showUrl`).
+- Only `http:`, `https:` and relative URLs are allowed (`Graph.sanitizeLink`).
+
+`sendMessage` emits the named message:
+- `page`: to the HMI `message` events of the page, like the `emit` action.
+- `host`: to the embedding page through `postMessage` (`{event: 'hmiMessage', name, payload}`).
+- `payloadExpr` is evaluated at click time.
+
+`control.commands[]` fields:
+- `object` is `''` or `'Me'` for the object itself, a cell id, or `tag:<cell tag>` for every cell carrying that draw.io tag.
+- `command` is one of `startAnimation`, `pauseAnimation`, `stopAnimation`, `playMedia`, `pauseMedia` or `stopMedia`.
+- `animation` names the animation for the animation commands. Empty means the target's `animation` link preset, or its first named animation.
+
+`touchOptions` applies to every touch link of the object:
+- A non-empty `confirm` shows a confirmation, with `confirmTitle`, before the link acts. This applies to clicks and key equivalents. Pushbuttons ask on press, and when refused nothing is written.
+- `roles` limits the touch links to users with any of the roles. Other users see the object as disabled.
+- `delay` (ms) delays the action after confirmation.
+- Sliders honour `roles` but ask for no confirmation, because they write while dragging.
+
+Object scripts run QuickScript (§6):
+- `dataChange` runs `script` whenever the value of `expr` changes, by more than `deadband` for numbers, including the first evaluation after the page opens. This corresponds to meta2d `valueUpdate` events and triggers.
+- `condition` runs `onTrue` when `expr` becomes true and `onFalse` when it becomes false. `whileTrue` and `whileFalse` repeat every `period` ms while it holds. This is like InTouch condition scripts, attached to the object.
+
+### 11.2 QuickScript additions
+
+| Function | Calls |
+|---|---|
+| `OpenURL(url [, target])` | `api.openUrl(url, target)` |
+| `ShowMessage(text [, level])` | `api.message(text, level)`; level is `info`, `warn` or `error` (a toast) |
+| `SendMessage(name [, payload])` | `api.emit(name, payload)` (page `message` events) |
+| `PostToHost(name [, payload])` | `api.postToHost(name, payload)` |
+| `StartAnimation(object [, name])`, `PauseAnimation`, `StopAnimation` | `api.animation(object, 'start'\|'pause'\|'stop', name)` |
+| `PlayMedia(object)`, `PauseMedia`, `StopMedia` | `api.media(object, 'play'\|'pause'\|'stop')` |
+| `SetProperty(object, target, value)` | `api.setProperty(object, target, value)`: a transient `properties`-style target |
+| `Navigate(page)` | `api.show(page)` with `replace` semantics |
+
+`object` follows the `control` rules: `"Me"` or `""` means the object running the script.
+
+### 11.3 Pure functions (`core/HmiLinks.js`)
+
+| Function | Semantics |
+|---|---|
+| `Hmi.Links.opacity(link, v)` | Opacity 0..100 = lerp(v, valueAtMin, valueAtMax, minPercent, maxPercent), or `null`. |
+| `Hmi.Links.matchState(match, v)` | `true` if `v` matches the State `match` (rules above). |
+| `Hmi.Links.state(link, v)` | The first matching State, or `null`. |
+| `Hmi.Links.animationDuration(preset, rate)` | ms per cycle: `60000 / rate` for a positive rate, `null` for a rate ≤ 0 (paused), and `undefined` when there is no rate (the preset default). |
+| `Hmi.Links.pushValue(link, current, evalExpr)` | The value to write (number or string) or `undefined`. `evalExpr()` evaluates `link.expr`. |
+| `Hmi.Links.changed(prev, next, deadband)` | `true` if a data change script should run. |
+
+`Hmi.Links.refs` also returns:
+- the tags of `states`, `properties`, `widgetData` (including `series` tags), `animation` (including `rateExpr` and `reverseExpr`), `flow`, `media`, `inputChoice`, `pushValue`, `sendMessage.payloadExpr`, `dataChange.expr` and `condition.expr`
+- the tags read and written by the object scripts
+
+### 11.4 Editor
+
+The Animation Links dialog keeps the InTouch layout and adds:
+
+| Band | Groups and links |
+|---|---|
+| **Display** | Miscellaneous gains **Opacity**. A new group, **States and Properties**, has **Multi-State**, **Properties** and **Widget Data**. |
+| **Animation** (new band) | Group **Animation**: **Animation**, **Flow** and **Media** |
+| **Touch** | User Inputs gains **Choice**. Touch Pushbuttons gains **Analog/String Value**. A new group, **Actions**, has **Open URL**, **Send Message**, **Animation/Media Control** and **Touch Options**. |
+| **Scripts** (new band) | Group **Object Scripts**: **Data Change** and **Condition** |
+
+Each new link has a settings dialog like the existing ones:
+- tag pickers on tag fields and expression syntax checks
+- list editors for states, property items, series, choice options and control commands
+- QuickScript editors for the scripts
+
+The validator, Substitute Tags and Define Missing Tags cover the new links.

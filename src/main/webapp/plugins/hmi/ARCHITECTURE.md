@@ -345,6 +345,10 @@ Hmi.ScriptHost({policy: 'off'|'prompt'|'on', timeout: 50}): run(code, args, api)
   - key equivalents (one document listener for all engines; the newest engine wins)
   - the QuickScript API, and pages as replace / overlay / popup windows through `Hmi.Faceplate`
 
+  - the meta2d extension links (`INTOUCH_LINKS.md` §11): states, properties, widget data, flow, media, the touch actions and touch options, and the object scripts (`updateScripts`)
+
+  Animation links run through `Hmi.Animator.setLinkAnimation`, which keeps one link-defined animation per cell next to the named `hmiAnimations`. The animator presets now include `bounce`, `sway` and `glow`.
+
   Faceplates get their own engine on the proxy runtime.
 - **`Hmi.Halo(rt)`** (runtime/HmiHalo.js) draws the hover, pressed and focus halo of interactive objects. The glow is a CSS `drop-shadow` filter on the rendered nodes. The outline is either an SVG rectangle in the view's overlay pane (`outlineShape: 'rect'`) or a temporary SVG filter that grows the shape's alpha by blur and threshold and draws the ring (`outlineShape: 'shape'`, `Hmi.Halo.createShapeOutlineFilter`). `Hmi.EventDispatcher.getHaloCell` chooses the target, and the halo is re-applied after overlay redraws and view changes. `Hmi.Halo.normalize`, `PRESETS`, `filterFor` and `colorFor` are shared with **`Hmi.HaloDialog`** (ui/HmiHaloDialog.js, the page settings dialog). Settings come from `hoverHalo` (global, then `runtime.hoverHalo`), and the per-cell styles `hmiHalo=0`, `hmiHaloStyle`, `hmiHaloOutline` and `hmiHaloColor` override them.
 - **`Hmi.Keypad`** (runtime/HmiKeypad.js) is the on-screen numeric keypad, keyboard and choice modal: `numeric(opts)`, `keyboard(opts)` and `choice(title, labels)`, which return Promises.

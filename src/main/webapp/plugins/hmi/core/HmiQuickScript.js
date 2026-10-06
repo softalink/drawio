@@ -7,7 +7,13 @@
  * Usage: Hmi.QuickScript.compile(src).run(api, env) -> Promise
  *   api = {read(tag), write(tag, value) -> Promise, show, hide, hideSelf,
  *          showAt(name, x, y, 'center'|'topleft'), dialogValueEntry(tag, lo, hi, prompt),
- *          dialogStringEntry(tag, prompt), log(text), ack(tag)}
+ *          dialogStringEntry(tag, prompt), log(text), ack(tag),
+ *          openUrl(url, target), message(text, level), emit(name, payload),
+ *          postToHost(name, payload), animation(object, 'start'|'pause'|'stop', name),
+ *          media(object, 'play'|'pause'|'stop'), setProperty(object, target, value)}
+ *   (the last group is INTOUCH_LINKS.md 11.2; Navigate(page) calls
+ *   api.show(page, {replace: true}); a bare Me as the object argument is the
+ *   string 'Me')
  *   env = {value, tagEntry, tagDef, alarmOf, prop} (optional extras for Hmi.Expr)
  *
  * Deviations from InTouch: function calls with a result (DialogValueEntry,
@@ -375,7 +381,20 @@
 		'ack': { min: 1, max: 1, tagArg: 0 },
 		'alarmack': { min: 1, max: 1, tagArg: 0 },
 		'settagvalue': { min: 2, max: 2, tagArg: 0 },
-		'gettagvalue': { min: 1, max: 1, tagArg: 0 }
+		'gettagvalue': { min: 1, max: 1, tagArg: 0 },
+		// INTOUCH_LINKS.md 11.2 (meArg: a bare Me is the string 'Me')
+		'openurl': { min: 1, max: 2 },
+		'showmessage': { min: 1, max: 2 },
+		'sendmessage': { min: 1, max: 2 },
+		'posttohost': { min: 1, max: 2 },
+		'startanimation': { min: 1, max: 2, meArg: 0 },
+		'pauseanimation': { min: 1, max: 2, meArg: 0 },
+		'stopanimation': { min: 1, max: 2, meArg: 0 },
+		'playmedia': { min: 1, max: 1, meArg: 0 },
+		'pausemedia': { min: 1, max: 1, meArg: 0 },
+		'stopmedia': { min: 1, max: 1, meArg: 0 },
+		'setproperty': { min: 3, max: 3, meArg: 0 },
+		'navigate': { min: 1, max: 1 }
 	};
 
 	var IDENT_RE = /^[A-Za-z_$@#][A-Za-z0-9_$@#.\\\/]*$/;
@@ -439,6 +458,10 @@
 			if (spec.tagArg === i && IDENT_RE.test(t))
 			{
 				args.push({ name: t });
+			}
+			else if (spec.meArg === i && /^me$/i.test(t))
+			{
+				args.push({ name: 'Me', isMe: true });
 			}
 			else
 			{
@@ -694,7 +717,98 @@
 			throw new QsError((open.kind === 'if' ? 'IF without ENDIF' : 'FOR without NEXT'), open.line);
 		}
 
-		return { body: root, decls: decls, refs: refs };
+		return { body: root, decls: decls, refs: refs, writes: collectWrites(root, decls) };
+	};
+
+	/**
+	 * Names written by a program: assignment targets and tag arguments of
+	 * statement functions, without DIM variables and FOR loop variables
+	 * (which are returned in the `locals` property of the result).
+	 */
+	function collectWrites(body, decls)
+	{
+		var locals = {};
+		var out = [];
+		var localList = [];
+
+		for (var i = 0; i < decls.length; i++)
+		{
+			locals[decls[i].name.toLowerCase()] = true;
+			localList.push(decls[i].name);
+		}
+
+		function add(name)
+		{
+			if (name != null && !locals[name.toLowerCase()] && out.indexOf(name) < 0)
+			{
+				out.push(name);
+			}
+		};
+
+		function walk(list)
+		{
+			for (var j = 0; j < list.length; j++)
+			{
+				var n = list[j];
+
+				if (n.type === 'for')
+				{
+					locals[n.name.toLowerCase()] = true;
+					localList.push(n.name);
+					walk(n.body);
+				}
+				else if (n.type === 'if')
+				{
+					for (var b = 0; b < n.branches.length; b++)
+					{
+						walk(n.branches[b].body);
+					}
+				}
+			}
+		};
+
+		function collect(list)
+		{
+			for (var j = 0; j < list.length; j++)
+			{
+				var n = list[j];
+
+				if (n.type === 'assign')
+				{
+					add(n.target);
+				}
+				else if (n.type === 'call')
+				{
+					if (n.assignTo != null)
+					{
+						add(n.assignTo);
+					}
+
+					if (STMT_FUNCS[n.fn].tagArg != null && n.args[STMT_FUNCS[n.fn].tagArg].name != null &&
+						n.fn !== 'gettagvalue')
+					{
+						add(n.args[STMT_FUNCS[n.fn].tagArg].name);
+					}
+				}
+				else if (n.type === 'for')
+				{
+					collect(n.body);
+				}
+				else if (n.type === 'if')
+				{
+					for (var b = 0; b < n.branches.length; b++)
+					{
+						collect(n.branches[b].body);
+					}
+				}
+			}
+		};
+
+		walk(body);
+		collect(body);
+		out.locals = localList;
+
+		return out;
 	};
 
 	// ---------------------------------------------------------------
@@ -901,6 +1015,50 @@
 				need('read');
 				r = api.read(vals[0]);
 				break;
+
+			case 'openurl':
+				need('openUrl');
+				r = api.openUrl(vals[0], vals[1]);
+				break;
+
+			case 'showmessage':
+				need('message');
+				r = api.message(vals[0], vals[1]);
+				break;
+
+			case 'sendmessage':
+				need('emit');
+				r = api.emit(vals[0], vals[1]);
+				break;
+
+			case 'posttohost':
+				need('postToHost');
+				r = api.postToHost(vals[0], vals[1]);
+				break;
+
+			case 'startanimation':
+			case 'pauseanimation':
+			case 'stopanimation':
+				need('animation');
+				r = api.animation(vals[0], fn.substring(0, fn.length - 9), vals[1]);
+				break;
+
+			case 'playmedia':
+			case 'pausemedia':
+			case 'stopmedia':
+				need('media');
+				r = api.media(vals[0], fn.substring(0, fn.length - 5));
+				break;
+
+			case 'setproperty':
+				need('setProperty');
+				r = api.setProperty(vals[0], vals[1], vals[2]);
+				break;
+
+			case 'navigate':
+				need('show');
+				r = api.show(vals[0], { replace: true });
+				break;
 		}
 
 		if (isThenable(r))
@@ -1102,6 +1260,8 @@
 
 		return {
 			refs: program.refs,
+			writes: program.writes,
+			locals: program.writes.locals,
 			run: function(api, env)
 			{
 				var ctx;

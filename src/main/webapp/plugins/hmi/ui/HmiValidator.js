@@ -173,10 +173,123 @@
 			{
 				checkIntouchExpr(list, cellId, prefix + ' expression', obj[key]);
 			}
-			else if (obj[key] != null && typeof obj[key] === 'object' && key != 'scripts')
+			else if (/Expr$/.test(key) && typeof obj[key] === 'string')
+			{
+				checkIntouchExpr(list, cellId, prefix + ' ' + key, obj[key]);
+			}
+			else if (obj[key] != null && typeof obj[key] === 'object' && key != 'scripts' &&
+				key != 'key')
 			{
 				walkLinkExprs(list, cellId, prefix, obj[key]);
 			}
+		}
+	};
+
+	var SCRIPT_FIELDS = {dataChange: ['script'],
+		condition: ['onTrue', 'onFalse', 'whileTrue', 'whileFalse']};
+
+	function numeric(v)
+	{
+		return typeof v === 'number' || (typeof v === 'string' && v !== '' && !isNaN(Number(v)));
+	};
+
+	function hasObject(ctx, id)
+	{
+		if (id == null || id === '' || id === 'Me')
+		{
+			return true;
+		}
+
+		if (id.indexOf('tag:') == 0)
+		{
+			var tag = id.substring(4);
+			var found = false;
+			var cells = ctx.graph.model.cells;
+
+			for (var cid in cells)
+			{
+				var v = cells[cid].value;
+				var t = (v != null && typeof v === 'object' && v.getAttribute != null) ?
+					v.getAttribute('tags') : null;
+
+				found = found || (t != null && (' ' + t + ' ').indexOf(' ' + tag + ' ') >= 0);
+			}
+
+			return found;
+		}
+
+		return ctx.graph.model.getCell(id) != null;
+	};
+
+	/**
+	 * Checks of the extension links (INTOUCH_LINKS.md §11): choice options,
+	 * push value operands, URLs, control objects and object scripts.
+	 */
+	function checkExtensionLink(list, cellId, type, l, prefix, ctx)
+	{
+		if (type == 'inputChoice' && (!Array.isArray(l.options) || l.options.length == 0))
+		{
+			list.push({level: 'error', cellId: cellId, message: prefix + ': no options defined'});
+		}
+
+		if (type == 'pushValue' && (l.action == 'add' || l.action == 'subtract') &&
+			!numeric(l.value))
+		{
+			list.push({level: 'error', cellId: cellId, message: prefix + ': action ' + l.action +
+				' needs a numeric value'});
+		}
+
+		if (type == 'pushValue' && l.action == 'expression' && (l.expr == null || l.expr === ''))
+		{
+			list.push({level: 'error', cellId: cellId, message: prefix + ': expression is empty'});
+		}
+
+		if (type == 'openUrl' && Hmi.LinksDialog != null)
+		{
+			var key = Hmi.LinksDialog.urlError(l.url);
+
+			if (key == 'hmiLnkRequired')
+			{
+				list.push({level: 'error', cellId: cellId, message: prefix + ': url is empty'});
+			}
+			else if (key != null)
+			{
+				list.push({level: 'error', cellId: cellId, message: prefix + ': url "' + l.url +
+					'" is not allowed (only http, https and relative URLs)'});
+			}
+		}
+
+		if (type == 'control' && Array.isArray(l.commands))
+		{
+			for (var c = 0; c < l.commands.length; c++)
+			{
+				var cmd = l.commands[c] || {};
+
+				if (!hasObject(ctx, cmd.object))
+				{
+					list.push({level: 'error', cellId: cellId, message: prefix + ': command ' +
+						(c + 1) + ': object "' + cmd.object + '" not found'});
+				}
+			}
+		}
+
+		if (SCRIPT_FIELDS[type] != null && Hmi.QuickScript != null && Hmi.QuickScript.compile != null)
+		{
+			SCRIPT_FIELDS[type].forEach(function(k)
+			{
+				if (typeof l[k] === 'string' && l[k] !== '')
+				{
+					try
+					{
+						Hmi.QuickScript.compile(l[k]);
+					}
+					catch (e)
+					{
+						list.push({level: 'error', cellId: cellId, message: prefix + ' ' + k +
+							' script: ' + e.message});
+					}
+				}
+			});
 		}
 	};
 
@@ -255,6 +368,8 @@
 				}
 			}
 
+			checkExtensionLink(list, cellId, type, l, prefix, ctx);
+
 			if ((type == 'showWindow' || type == 'hideWindow') && l.windows != null &&
 				Hmi.Actions != null && Hmi.Actions.findPage != null)
 			{
@@ -280,7 +395,24 @@
 		{
 			var seen = {};
 
-			L.linkRefs(links, ctx.knownTags).forEach(function(r)
+			var all = L.linkRefs(links, ctx.knownTags);
+
+			if (Hmi.Links != null && Hmi.Links.refs != null)
+			{
+				try
+				{
+					L.cleanRefs(Hmi.Links.refs(links) || []).forEach(function(n)
+					{
+						all.push({name: n});
+					});
+				}
+				catch (e)
+				{
+					// ignore
+				}
+			}
+
+			all.forEach(function(r)
 			{
 				if (!seen[r.name])
 				{

@@ -163,6 +163,23 @@
 			num('maxPercent', 'hmiLnkMaxPercent', 100, 'p')];
 	};
 
+	var ANIM_PRESETS = [['spin', 'hmiLnkAnim_spin'], ['pulse', 'hmiLnkAnim_pulse'],
+		['shake', 'hmiLnkAnim_shake'], ['fadeInOut', 'hmiLnkAnim_fadeInOut'],
+		['blink', 'hmiLnkAnim_blink'], ['colorCycle', 'hmiLnkAnim_colorCycle'],
+		['bounce', 'hmiLnkAnim_bounce'], ['sway', 'hmiLnkAnim_sway'], ['glow', 'hmiLnkAnim_glow'],
+		['custom', 'hmiLnkAnim_custom']];
+
+	var FLOW_TYPES = [['dash', 'hmiLnkFlow_dash'], ['dots', 'hmiLnkFlow_dots'],
+		['beads', 'hmiLnkFlow_beads'], ['arrows', 'hmiLnkFlow_arrows'],
+		['liquid', 'hmiLnkFlow_liquid']];
+
+	var CONTROL_COMMANDS = ['startAnimation', 'pauseAnimation', 'stopAnimation', 'playMedia',
+		'pauseMedia', 'stopMedia'];
+
+	var PROP_TARGETS = ['style:fillColor', 'style:strokeColor', 'style:fontColor', 'style:opacity',
+		'style:strokeWidth', 'style:rotation', 'style:flipH', 'style:flipV', 'label', 'tooltip',
+		'visible', 'attr:', 'prop:'];
+
 	var KEY_FIELD = field('key', 'key', 'hmiLnkKeyEquivalent', {def: null});
 
 	function buildSpecs()
@@ -311,6 +328,83 @@
 			[KEY_FIELD, field('windows', 'windows', 'hmiLnkWindows', {})], null, 500);
 		def('hideWindow', T('hmiLnkWindowsToHide'),
 			[KEY_FIELD, field('windows', 'windows', 'hmiLnkWindows', {})], null, 500);
+
+		// ---- Extension links from meta2d (INTOUCH_LINKS.md §11) ----
+		def('opacity', arrow('hmiLnkOpacity', 'hmiLnkAnalogValue'),
+			[expr()].concat(percentFields('hmiLnkOpacityPercent')));
+		def('states', T('hmiLnkMultiState'),
+			[expr(), field('states', 'states', 'hmiLnkStates', {def: [{match: '*'}]})], null, 700);
+		def('properties', T('hmiLnkProperties'),
+			[field('items', 'propItems', 'hmiLnkPropItems', {def: [{target: '', expr: ''}]})], null, 620);
+		def('widgetData', T('hmiLnkWidgetData'),
+			[expr({optional: true}), field('series', 'series', 'hmiLnkSeries', {def: []})], null, 600);
+
+		def('animation', T('hmiLnkAnimation'),
+			[expr({optional: true}),
+			sel('preset', 'hmiLnkPreset', 'spin', ANIM_PRESETS),
+			field('name', 'text', 'hmiLnkAnimName', {def: '', showWhen: {preset: 'custom'}}),
+			color('color', 'hmiLnkColor', '', {optional: true, showWhen: {preset: 'glow'}}),
+			field('rateExpr', 'expr', 'hmiLnkRateExpr', {optional: true}),
+			field('reverseExpr', 'expr', 'hmiLnkReverseExpr', {optional: true,
+				showWhen: {preset: 'spin'}})]);
+		def('flow', T('hmiLnkFlow'),
+			[expr({optional: true}),
+			sel('type', 'hmiLnkFlowType', 'dash', FLOW_TYPES),
+			color('color', 'hmiLnkColor', '', {optional: true}),
+			num('width', 'hmiLnkLineWidth', undefined, null, {optional: true, min: 1}),
+			field('speedExpr', 'expr', 'hmiLnkSpeedExpr', {optional: true}),
+			field('reverseExpr', 'expr', 'hmiLnkReverseExpr', {optional: true})]);
+		def('media', T('hmiLnkMedia'),
+			[expr(), sel('mode', 'hmiLnkMediaMode', 'play', [['play', 'hmiLnkMediaPlay'],
+				['pause', 'hmiLnkMediaPause']])]);
+
+		def('inputChoice', arrow('hmiLnkInput', 'hmiLnkChoice'),
+			[field('tag', 'tag', 'hmiLnkTagname'), KEY_FIELD,
+			field('message', 'text', 'hmiLnkMessage', {def: ''}),
+			field('options', 'choices', 'hmiLnkOptions', {def: [{label: '', value: ''}]})], null, 560);
+		def('pushValue', arrow('hmiLnkPushbutton', 'hmiLnkAnalogStringValue'),
+			[field('tag', 'tag', 'hmiLnkTagname'), KEY_FIELD,
+			sel('action', 'hmiLnkPushAction', 'set', [['set', 'hmiLnkPushSet'],
+				['add', 'hmiLnkPushAdd'], ['subtract', 'hmiLnkPushSubtract'],
+				['expression', 'hmiLnkExpression']]),
+			field('value', 'valueText', 'hmiLnkValue', {def: '', showWhen: {action: ['set', 'add', 'subtract']}}),
+			expr({showWhen: {action: 'expression'}}),
+			num('min', 'hmiLnkMinimum', undefined, 'lim', {optional: true,
+				showWhen: {action: ['add', 'subtract']}}),
+			num('max', 'hmiLnkMaximum', undefined, 'lim', {optional: true,
+				showWhen: {action: ['add', 'subtract']}})]);
+		def('openUrl', T('hmiLnkOpenUrl'),
+			[KEY_FIELD, field('url', 'text', 'hmiLnkUrl', {def: '', required: true}),
+			sel('target', 'hmiLnkUrlTarget', 'blank', [['blank', 'hmiLnkUrlBlank'],
+				['self', 'hmiLnkUrlSelf'], ['dialog', 'hmiLnkUrlDialog']]),
+			field('title', 'text', 'hmiLnkWindowTitle', {def: '', optional: true,
+				showWhen: {target: 'dialog'}}),
+			num('width', 'hmiLnkWidth', 640, 'sz', {min: 50, showWhen: {target: 'dialog'}}),
+			num('height', 'hmiLnkHeight', 480, 'sz', {min: 50, showWhen: {target: 'dialog'}})]);
+		def('sendMessage', T('hmiLnkSendMessage'),
+			[KEY_FIELD, field('name', 'text', 'hmiLnkMessageName', {def: '', required: true}),
+			field('payloadExpr', 'expr', 'hmiLnkPayloadExpr', {optional: true}),
+			sel('to', 'hmiLnkMessageTo', 'page', [['page', 'hmiLnkToPage'], ['host', 'hmiLnkToHost'],
+				['both', 'hmiLnkToBoth']])]);
+		def('control', T('hmiLnkControl'),
+			[KEY_FIELD, field('commands', 'commands', 'hmiLnkCommands',
+			{def: [{object: '', command: 'startAnimation'}]})], null, 680);
+		def('touchOptions', T('hmiLnkTouchOptions'),
+			[field('confirm', 'text', 'hmiLnkConfirm', {def: '', optional: true}),
+			field('confirmTitle', 'text', 'hmiLnkConfirmTitle', {def: '', optional: true}),
+			field('roles', 'roles', 'hmiLnkRoles', {def: []}),
+			num('delay', 'hmiLnkDelay', 0, null, {min: 0})]);
+
+		def('dataChange', T('hmiLnkDataChange'),
+			[expr(), num('deadband', 'hmiLnkDeadband', 0, null, {min: 0}),
+			field('script', 'script', 'hmiLnkScript', {def: '', rows: 8})], null, 560);
+		def('condition', T('hmiLnkCondition'),
+			[expr(),
+			field('onTrue', 'script', 'hmiLnkOnTrue', {def: '', rows: 4, optional: true}),
+			field('onFalse', 'script', 'hmiLnkOnFalse', {def: '', rows: 4, optional: true}),
+			field('whileTrue', 'script', 'hmiLnkWhileTrue', {def: '', rows: 4, optional: true}),
+			field('whileFalse', 'script', 'hmiLnkWhileFalse', {def: '', rows: 4, optional: true}),
+			num('period', 'hmiLnkPeriod', 1000, null, {min: 10})], null, 560);
 	};
 
 	/**
@@ -331,15 +425,28 @@
 			['fillHorizontal', 'hmiLnkHorizontal']]},
 		{title: 'hmiLnkMiscellaneous', items: [['visibility', 'hmiLnkVisibility'],
 			['blink', 'hmiLnkBlink'], ['orientation', 'hmiLnkOrientation'],
-			['disable', 'hmiLnkDisable'], ['tooltip', 'hmiLnkTooltip']]},
+			['disable', 'hmiLnkDisable'], ['tooltip', 'hmiLnkTooltip'],
+			['opacity', 'hmiLnkOpacity']]},
+		{title: 'hmiLnkStatesProps', items: [['states', 'hmiLnkMultiState'],
+			['properties', 'hmiLnkProperties'], ['widgetData', 'hmiLnkWidgetData']]},
+		{band: 'hmiLnkAnimationLinks'},
+		{title: 'hmiLnkAnimationGroup', items: [['animation', 'hmiLnkAnimation'],
+			['flow', 'hmiLnkFlow'], ['media', 'hmiLnkMedia']]},
 		{band: 'hmiLnkTouchLinks'},
 		{title: 'hmiLnkUserInputs', items: [['inputDiscrete', 'hmiLnkDiscrete'],
-			['inputAnalog', 'hmiLnkAnalog'], ['inputString', 'hmiLnkString']]},
+			['inputAnalog', 'hmiLnkAnalog'], ['inputString', 'hmiLnkString'],
+			['inputChoice', 'hmiLnkChoice']]},
 		{title: 'hmiLnkSliders', items: [['sliderV', 'hmiLnkVertical'],
 			['sliderH', 'hmiLnkHorizontal']]},
 		{title: 'hmiLnkTouchPushbuttons', items: [['pushDiscrete', 'hmiLnkDiscreteValue'],
 			['pushAction', 'hmiLnkAction'], ['showWindow', 'hmiLnkShowWindow'],
-			['hideWindow', 'hmiLnkHideWindow']]}
+			['hideWindow', 'hmiLnkHideWindow'], ['pushValue', 'hmiLnkAnalogStringValue']]},
+		{title: 'hmiLnkActions', items: [['openUrl', 'hmiLnkOpenUrl'],
+			['sendMessage', 'hmiLnkSendMessage'], ['control', 'hmiLnkControl'],
+			['touchOptions', 'hmiLnkTouchOptions']]},
+		{band: 'hmiLnkScriptsBand'},
+		{title: 'hmiLnkObjectScripts', items: [['dataChange', 'hmiLnkDataChange'],
+			['condition', 'hmiLnkCondition']]}
 	];
 
 	var COLOR_KINDS = [['discrete', 'hmiLnkDiscrete'], ['analog', 'hmiLnkAnalog'],
@@ -354,7 +461,9 @@
 		'sizeHeight', 'sizeWidth', 'lineColor', 'fillColor', 'textColor', 'fillVertical',
 		'fillHorizontal', 'visibility', 'blink', 'orientation', 'disable', 'tooltip',
 		'inputDiscrete', 'inputAnalog', 'inputString', 'sliderV', 'sliderH', 'pushDiscrete',
-		'pushAction', 'showWindow', 'hideWindow'];
+		'pushAction', 'showWindow', 'hideWindow', 'opacity', 'states', 'properties', 'widgetData',
+		'animation', 'flow', 'media', 'inputChoice', 'pushValue', 'openUrl', 'sendMessage',
+		'control', 'touchOptions', 'dataChange', 'condition'];
 
 	// ---------------------------------------------------------------
 	// Expression helpers
@@ -469,6 +578,17 @@
 			}
 		};
 
+		function addScriptRefs(src)
+		{
+			if (typeof src === 'string' && src !== '')
+			{
+				scriptRefs(src, known).forEach(function(n)
+				{
+					add(n, 'any', false);
+				});
+			}
+		};
+
 		var numExpr = {valueAnalog: 1, locationH: 1, locationV: 1, orientation: 1,
 			sizeHeight: 1, sizeWidth: 1, fillVertical: 1, fillHorizontal: 1};
 		var boolExpr = {valueDiscrete: 1, blink: 1, visibility: 1, disable: 1};
@@ -543,6 +663,83 @@
 			{
 				add(l.tag, 'number', true);
 			}
+			else if (type == 'opacity')
+			{
+				addExpr(l.expr, 'number', 'number');
+			}
+			else if (type == 'states' || type == 'dataChange')
+			{
+				addExpr(l.expr, 'any', 'any');
+
+				if (type == 'dataChange')
+				{
+					addScriptRefs(l.script);
+				}
+			}
+			else if (type == 'properties')
+			{
+				(l.items || []).forEach(function(it)
+				{
+					addExpr(it.expr, 'any', 'any');
+				});
+			}
+			else if (type == 'widgetData')
+			{
+				addExpr(l.expr, 'number', 'number');
+				(l.series || []).forEach(function(se)
+				{
+					add(se.tag, 'number', false);
+				});
+			}
+			else if (type == 'animation')
+			{
+				addExpr(l.expr, 'boolean', 'any');
+				addExpr(l.rateExpr, 'number', 'number');
+				addExpr(l.reverseExpr, 'boolean', 'any');
+			}
+			else if (type == 'flow')
+			{
+				addExpr(l.expr, 'boolean', 'any');
+				addExpr(l.speedExpr, 'number', 'number');
+				addExpr(l.reverseExpr, 'boolean', 'any');
+			}
+			else if (type == 'media')
+			{
+				addExpr(l.expr, 'boolean', 'any');
+			}
+			else if (type == 'inputChoice')
+			{
+				var opts = l.options || [];
+				var allNum = opts.length > 0 && opts.every(function(o)
+				{
+					return typeof o.value === 'number' ||
+						(typeof o.value === 'string' && o.value !== '' && !isNaN(Number(o.value)));
+				});
+				add(l.tag, allNum ? 'number' : 'string', true);
+			}
+			else if (type == 'pushValue')
+			{
+				var textual = (l.action == 'set' || l.action == null) && typeof l.value === 'string' &&
+					l.value !== '' && isNaN(Number(l.value));
+				add(l.tag, textual ? 'string' : 'number', true);
+
+				if (l.action == 'expression')
+				{
+					addExpr(l.expr, 'any', 'any');
+				}
+			}
+			else if (type == 'sendMessage')
+			{
+				addExpr(l.payloadExpr, 'any', 'any');
+			}
+			else if (type == 'condition')
+			{
+				addExpr(l.expr, 'boolean', 'any');
+				['onTrue', 'onFalse', 'whileTrue', 'whileFalse'].forEach(function(k)
+				{
+					addScriptRefs(l[k]);
+				});
+			}
 			else if (type == 'pushAction' && l.scripts != null)
 			{
 				for (var i = 0; i < l.scripts.length; i++)
@@ -585,6 +782,196 @@
 		}
 
 		return el;
+	};
+
+	/**
+	 * Generic list editor: one card per item with reorder and delete
+	 * buttons and an Add button. opts = {label, role, addKey, addLabel,
+	 * items, blank(), build(content, item) → {get(), validate()}, tall,
+	 * max, emptyKey}. Returns {rows, get(), validate()}.
+	 */
+	function listEditor(E, section, opts)
+	{
+		var h = document.createElement('div');
+		h.className = 'geDialogHint geHmiSubHead';
+		mxUtils.write(h, T(opts.label));
+		section.appendChild(h);
+		var list = document.createElement('div');
+		section.appendChild(list);
+		var entries = [];
+		var addBtn = E.button(T(opts.addLabel || 'hmiAddItem'), function()
+		{
+			addEntry(opts.blank());
+			sync();
+		});
+		addBtn.style.marginTop = '6px';
+		mark(addBtn, opts.addKey);
+		section.appendChild(addBtn);
+
+		function sync()
+		{
+			addBtn.disabled = (opts.max != null && entries.length >= opts.max);
+		};
+
+		function small(glyph, title, fn)
+		{
+			var b = E.button(glyph, fn);
+			b.style.cssText = 'margin:0;flex:0 0 28px;width:28px;min-width:0;padding:0;height:24px;';
+			b.setAttribute('title', title);
+
+			return b;
+		};
+
+		function move(entry, dir)
+		{
+			var i = entries.indexOf(entry);
+			var j = i + dir;
+
+			if (j < 0 || j >= entries.length)
+			{
+				return;
+			}
+
+			entries.splice(i, 1);
+			entries.splice(j, 0, entry);
+
+			if (dir < 0)
+			{
+				list.insertBefore(entry.card, entries[j + 1].card);
+			}
+			else
+			{
+				list.insertBefore(entries[j - 1].card, entry.card);
+			}
+		};
+
+		function addEntry(item)
+		{
+			var card = document.createElement('div');
+			card.className = 'geHmiCard';
+			card.style.cssText += 'display:flex;align-items:flex-start;column-gap:8px;';
+			card.setAttribute('data-role', opts.role);
+			var content = document.createElement('div');
+			content.style.cssText = 'flex:1;min-width:0;';
+			card.appendChild(content);
+			var built = opts.build(content, item);
+			var actions = document.createElement('div');
+			actions.style.cssText = 'display:flex;flex:0 0 auto;gap:4px;' +
+				(opts.tall ? 'flex-direction:column;' : 'align-self:center;');
+			var entry = {card: card, built: built};
+			actions.appendChild(small('▲', mxResources.get('moveUp') || 'Up', function()
+			{
+				move(entry, -1);
+			}));
+			actions.appendChild(small('▼', mxResources.get('moveDown') || 'Down', function()
+			{
+				move(entry, 1);
+			}));
+			actions.appendChild(small('✕', mxResources.get('delete'), function()
+			{
+				entries.splice(entries.indexOf(entry), 1);
+				card.parentNode.removeChild(card);
+				sync();
+			}));
+			card.appendChild(actions);
+			entries.push(entry);
+			list.appendChild(card);
+		};
+
+		(opts.items || []).forEach(addEntry);
+		sync();
+
+		return {rows: [h, list, addBtn], get: function()
+		{
+			return entries.map(function(e)
+			{
+				return e.built.get();
+			});
+		}, validate: function()
+		{
+			if (entries.length == 0 && opts.emptyKey != null)
+			{
+				return T(opts.label) + ': ' + T(opts.emptyKey);
+			}
+
+			for (var i = 0; i < entries.length; i++)
+			{
+				var err = entries[i].built.validate();
+
+				if (err != null)
+				{
+					return T(opts.label) + ' ' + (i + 1) + ': ' + err;
+				}
+			}
+
+			return null;
+		}};
+	};
+
+	/**
+	 * Text to value: numeric strings become numbers (so that 1.50 stays a
+	 * string but 12 is a number).
+	 */
+	function textValue(s)
+	{
+		s = trim(s);
+
+		return (s !== '' && String(Number(s)) === s) ? Number(s) : s;
+	};
+
+	function cardRow(content)
+	{
+		var row = E_inline(content);
+		row.style.marginTop = (content.children.length > 1) ? '6px' : '0';
+
+		return row;
+	};
+
+	function E_inline(content)
+	{
+		return Hmi.Editors.inlineFields(content);
+	};
+
+	function isColor(c)
+	{
+		return /^#[0-9A-F]{6}$/i.test(c);
+	};
+
+	/**
+	 * QuickScript editor: textarea + Check button + result line. Returns
+	 * {el, area, check() → error | null}.
+	 */
+	function scriptBox(E, initial, rows)
+	{
+		var box = document.createElement('div');
+		var area = document.createElement('textarea');
+		area.className = 'geHmiMono';
+		area.setAttribute('rows', String(rows || 7));
+		area.setAttribute('spellcheck', 'false');
+		area.style.cssText = 'width:100%;box-sizing:border-box;resize:vertical;';
+		area.value = initial || '';
+		mark(area, 'script');
+		box.appendChild(area);
+
+		var bar = document.createElement('div');
+		bar.style.cssText = 'display:flex;align-items:center;column-gap:8px;margin-top:6px;';
+		var result = document.createElement('span');
+		result.className = 'geDialogHint';
+		result.style.cssText = 'flex:1;min-width:0;line-height:normal;';
+		result.setAttribute('data-role', 'scriptResult');
+		var check = E.button(T('hmiLnkCheck'), function()
+		{
+			var err = checkScript(area.value);
+			result.className = (err == null) ? 'geDialogHint' : 'geHmiError';
+			result.textContent = (err == null) ? T('hmiLnkScriptOk') : err;
+		});
+		check.style.margin = '0';
+		mark(check, 'checkScript');
+		bar.appendChild(check);
+		bar.appendChild(result);
+		box.appendChild(bar);
+
+		return {el: box, area: area};
 	};
 
 	/**
@@ -658,7 +1045,9 @@
 			{
 				for (var k in f.showWhen)
 				{
-					if (vals[k] !== f.showWhen[k])
+					var want = f.showWhen[k];
+
+					if (Array.isArray(want) ? want.indexOf(vals[k]) < 0 : vals[k] !== want)
 					{
 						return false;
 					}
@@ -686,6 +1075,20 @@
 				{
 					w.update(vals);
 				}
+			}
+
+			var inl = section.querySelectorAll('.geDialogInlineFields');
+
+			for (var k = 0; k < inl.length; k++)
+			{
+				var any = false;
+
+				for (var c = 0; c < inl[k].children.length; c++)
+				{
+					any = any || (inl[k].children[c].style.display != 'none');
+				}
+
+				inl[k].style.display = any ? '' : 'none';
 			}
 		};
 
@@ -786,6 +1189,11 @@
 				return input.value;
 			}, validate: function()
 			{
+				if (f.required && trim(input.value) === '')
+				{
+					return T(f.label) + ': ' + T('hmiLnkRequired');
+				}
+
 				return (f.maxLength != null && input.value.length > f.maxLength) ?
 					T(f.label) + ': ' + T('hmiLnkTooLong').replace('{1}', f.maxLength) : null;
 			}};
@@ -814,7 +1222,7 @@
 
 				if (isNaN(n))
 				{
-					return T(f.label) + ': ' + T('hmiLnkNumberRequired');
+					return f.optional ? null : T(f.label) + ': ' + T('hmiLnkNumberRequired');
 				}
 
 				if ((f.min != null && n < f.min) || (f.max != null && n > f.max))
@@ -1275,32 +1683,9 @@
 				top.appendChild(del);
 				card.appendChild(top);
 
-				var area = document.createElement('textarea');
-				area.className = 'geHmiMono';
-				area.setAttribute('rows', '7');
-				area.setAttribute('spellcheck', 'false');
-				area.style.cssText = 'width:100%;box-sizing:border-box;resize:vertical;';
-				area.value = s.script || '';
-				mark(area, 'script');
-				card.appendChild(area);
-
-				var bar = document.createElement('div');
-				bar.style.cssText = 'display:flex;align-items:center;column-gap:8px;margin-top:6px;';
-				var result = document.createElement('span');
-				result.className = 'geDialogHint';
-				result.style.cssText = 'flex:1;min-width:0;line-height:normal;';
-				result.setAttribute('data-role', 'scriptResult');
-				var check = E.button(T('hmiLnkCheck'), function()
-				{
-					var err = checkScript(area.value);
-					result.className = (err == null) ? 'geDialogHint' : 'geHmiError';
-					result.textContent = (err == null) ? T('hmiLnkScriptOk') : err;
-				});
-				check.style.margin = '0';
-				mark(check, 'checkScript');
-				bar.appendChild(check);
-				bar.appendChild(result);
-				card.appendChild(bar);
+				var sb = scriptBox(E, s.script || '', 7);
+				var area = sb.area;
+				card.appendChild(sb.el);
 
 				var item = {cond: cond, period: period, area: area};
 				items.push(item);
@@ -1556,6 +1941,420 @@
 			}};
 		};
 
+		builders.script = function(f, v)
+		{
+			inlineRow = null;
+			inlineName = null;
+			var h = document.createElement('div');
+			h.className = 'geDialogHint geHmiSubHead';
+			mxUtils.write(h, T(f.label));
+			section.appendChild(h);
+			var sb = scriptBox(E, v || '', f.rows || 4);
+			mark(sb.area, f.key);
+			section.appendChild(sb.el);
+
+			return {rows: [h, sb.el], get: function()
+			{
+				return sb.area.value;
+			}, validate: function()
+			{
+				if (trim(sb.area.value) === '')
+				{
+					return f.optional ? null : T(f.label) + ': ' + T('hmiLnkRequired');
+				}
+
+				var err = checkScript(sb.area.value);
+
+				return (err != null) ? T(f.label) + ': ' + err : null;
+			}};
+		};
+
+		builders.valueText = function(f, v)
+		{
+			var input = E.textInput(v != null ? String(v) : '');
+			mark(input, f.key);
+			var row = place(f, input);
+			row.appendChild(input);
+
+			return {rows: [row], get: function()
+			{
+				return textValue(input.value);
+			}, validate: function()
+			{
+				return (trim(input.value) === '') ? T(f.label) + ': ' + T('hmiLnkRequired') : null;
+			}};
+		};
+
+		builders.roles = function(f, v)
+		{
+			var input = E.textInput((v || []).join(', '), T('hmiLnkRolesHint'));
+			mark(input, f.key);
+			var row = place(f, input);
+			row.appendChild(input);
+
+			return {rows: [row], get: function()
+			{
+				return input.value.split(',').map(trim).filter(function(r)
+				{
+					return r !== '';
+				});
+			}};
+		};
+
+		builders.states = function(f, v)
+		{
+			inlineRow = null;
+			inlineName = null;
+
+			return listEditor(E, section, {label: f.label, role: 'state', addKey: 'addState',
+				addLabel: 'hmiLnkAddState', items: v || [], tall: true, emptyKey: 'hmiLnkNeedState',
+				blank: function()
+				{
+					return {match: ''};
+				}, build: function(content, s)
+				{
+					var r1 = cardRow(content);
+					var match = E.textInput(s.match != null ? String(s.match) : '', T('hmiLnkMatchHint'));
+					mark(match, 'stMatch');
+					E.inlineField(r1, T('hmiLnkMatch') + ':', match);
+					var label = E.textInput(s.label || '');
+					mark(label, 'stLabel');
+					E.inlineField(r1, T('hmiLnkLabel') + ':', label);
+
+					var r2 = cardRow(content);
+					var cols = {};
+					[['fillColor', 'hmiLnkFillColor'], ['lineColor', 'hmiLnkLineColor'],
+						['textColor', 'hmiLnkTextColor']].forEach(function(c)
+					{
+						cols[c[0]] = E.colorInput(ui, s[c[0]] || '');
+						mark(cols[c[0]].input, 'st_' + c[0]);
+						E.inlineField(r2, T(c[1]) + ':', cols[c[0]]);
+					});
+
+					var r3 = cardRow(content);
+					var image = E.textInput(s.image || '');
+					mark(image, 'stImage');
+					E.inlineField(r3, T('hmiLnkImage') + ':', image);
+					var op = E.numberInput(s.opacity != null ? s.opacity : '');
+					op.setAttribute('step', 'any');
+					op.style.maxWidth = '70px';
+					mark(op, 'stOpacity');
+					E.inlineField(r3, T('hmiLnkOpacity') + ':', op);
+
+					var r4 = cardRow(content);
+					var vis = E.select([{value: '', label: T('hmiLnkKeep')},
+						{value: 'true', label: T('hmiLnkVisible')},
+						{value: 'false', label: T('hmiLnkHidden')}],
+						s.visible === true ? 'true' : (s.visible === false ? 'false' : ''));
+					mark(vis, 'stVisible');
+					E.inlineField(r4, T('hmiLnkVisibility') + ':', vis);
+					var blink = E.checkbox(T('hmiLnkBlink'), s.blink === true);
+					blink.style.minHeight = '0';
+					mark(blink.input, 'stBlink');
+					E.inlineField(r4, null, blink);
+
+					return {get: function()
+					{
+						var o = {match: trim(match.value)};
+
+						['fillColor', 'lineColor', 'textColor'].forEach(function(k)
+						{
+							if (cols[k].getValue() !== '')
+							{
+								o[k] = cols[k].getValue();
+							}
+						});
+
+						if (label.value !== '')
+						{
+							o.label = label.value;
+						}
+
+						if (trim(image.value) !== '')
+						{
+							o.image = trim(image.value);
+						}
+
+						var n = parseFloat(op.value);
+
+						if (!isNaN(n))
+						{
+							o.opacity = n;
+						}
+
+						if (vis.value !== '')
+						{
+							o.visible = (vis.value == 'true');
+						}
+
+						if (blink.input.checked)
+						{
+							o.blink = true;
+						}
+
+						return o;
+					}, validate: function()
+					{
+						if (trim(match.value) === '')
+						{
+							return T('hmiLnkMatch') + ': ' + T('hmiLnkRequired');
+						}
+
+						for (var k in cols)
+						{
+							var c = cols[k].getValue();
+
+							if (c !== '' && !isColor(c))
+							{
+								return T('hmiLnk' + k.charAt(0).toUpperCase() + k.substring(1)) +
+									': ' + T('hmiLnkColorInvalid');
+							}
+						}
+
+						var n = parseFloat(op.value);
+
+						if (op.value !== '' && (isNaN(n) || n < 0 || n > 100))
+						{
+							return T('hmiLnkOpacity') + ': ' + T('hmiLnkOutOfRange') + ' [0, 100]';
+						}
+
+						return null;
+					}};
+				}});
+		};
+
+		builders.propItems = function(f, v)
+		{
+			inlineRow = null;
+			inlineName = null;
+
+			return listEditor(E, section, {label: f.label, role: 'property', addKey: 'addProperty',
+				addLabel: 'hmiLnkAddProperty', items: v || [], emptyKey: 'hmiLnkNeedProperty',
+				blank: function()
+				{
+					return {target: '', expr: ''};
+				}, build: function(content, it)
+				{
+					var top = document.createElement('div');
+					top.style.cssText = 'display:flex;align-items:center;column-gap:8px;';
+					var choices = [{value: '', label: T('hmiLnkCommonTargets')}];
+					var known = false;
+					PROP_TARGETS.forEach(function(t)
+					{
+						choices.push({value: t, label: t});
+						known = known || (t == it.target);
+					});
+					var pick = E.select(choices, known ? it.target : '');
+					pick.style.cssText = 'flex:0 0 150px;width:150px;min-width:0;';
+					mark(pick, 'propPick');
+					var target = E.textInput(it.target || '', T('hmiLnkTargetHint'));
+					target.style.cssText = 'flex:1;min-width:0;';
+					mark(target, 'propTarget');
+					top.appendChild(pick);
+					top.appendChild(target);
+					content.appendChild(top);
+					mxEvent.addListener(pick, 'change', function()
+					{
+						if (pick.value !== '')
+						{
+							target.value = pick.value;
+							target.focus();
+							target.dispatchEvent(new Event('input', {bubbles: true}));
+						}
+					});
+
+					var ex = E.tagPicker(ui, it.expr || '', {expression: true,
+						placeholder: T('hmiLnkExprHint')});
+					mark(ex.input, 'propExpr');
+					ex.style.cssText = 'display:flex;margin-top:6px;';
+					content.appendChild(ex);
+
+					return {get: function()
+					{
+						return {target: trim(target.value), expr: trim(ex.input.value)};
+					}, validate: function()
+					{
+						if (trim(target.value) === '')
+						{
+							return T('hmiLnkTarget') + ': ' + T('hmiLnkRequired');
+						}
+
+						if (!/^(style:.+|attr:.+|prop:.+|label|tooltip|visible)$/.test(trim(target.value)))
+						{
+							return T('hmiLnkTarget') + ': ' + T('hmiLnkTargetInvalid');
+						}
+
+						if (trim(ex.input.value) === '')
+						{
+							return T('hmiLnkExpression') + ': ' + T('hmiLnkRequired');
+						}
+
+						try
+						{
+							compileExpr(trim(ex.input.value));
+						}
+						catch (e)
+						{
+							return T('hmiLnkExpression') + ': ' + e.message;
+						}
+
+						return null;
+					}};
+				}});
+		};
+
+		builders.series = function(f, v)
+		{
+			inlineRow = null;
+			inlineName = null;
+
+			return listEditor(E, section, {label: f.label, role: 'series', addKey: 'addSeries',
+				addLabel: 'hmiLnkAddSeries', items: v || [],
+				blank: function()
+				{
+					return {tag: '', name: '', maxPoints: 600};
+				}, build: function(content, it)
+				{
+					var line = document.createElement('div');
+					line.style.cssText = 'display:flex;align-items:center;column-gap:8px;';
+					var tag = E.tagPicker(ui, it.tag || '');
+					mark(tag.input, 'seriesTag');
+					var name = E.textInput(it.name || '', T('hmiLnkSeriesName'));
+					name.style.cssText = 'flex:0 0 110px;width:110px;min-width:0;';
+					mark(name, 'seriesName');
+					var max = E.numberInput(it.maxPoints != null ? it.maxPoints : 600);
+					max.setAttribute('title', T('hmiLnkMaxPoints'));
+					max.setAttribute('min', '1');
+					max.style.cssText = 'flex:0 0 76px;width:76px;min-width:0;';
+					mark(max, 'seriesMax');
+					line.appendChild(tag);
+					line.appendChild(name);
+					line.appendChild(max);
+					content.appendChild(line);
+
+					return {get: function()
+					{
+						var o = {tag: trim(tag.input.value)};
+
+						if (trim(name.value) !== '')
+						{
+							o.name = trim(name.value);
+						}
+
+						var n = parseInt(max.value, 10);
+						o.maxPoints = isNaN(n) ? 600 : n;
+
+						return o;
+					}, validate: function()
+					{
+						if (trim(tag.input.value) === '')
+						{
+							return T('hmiLnkTagname') + ': ' + T('hmiLnkRequired');
+						}
+
+						var n = parseInt(max.value, 10);
+
+						return (max.value !== '' && (isNaN(n) || n < 1)) ?
+							T('hmiLnkMaxPoints') + ': ' + T('hmiLnkOutOfRange') + ' [1, ∞]' : null;
+					}};
+				}});
+		};
+
+		builders.choices = function(f, v)
+		{
+			inlineRow = null;
+			inlineName = null;
+
+			return listEditor(E, section, {label: f.label, role: 'choice', addKey: 'addChoice',
+				addLabel: 'hmiLnkAddChoice', items: v || [], emptyKey: 'hmiLnkNeedChoice',
+				blank: function()
+				{
+					return {label: '', value: ''};
+				}, build: function(content, it)
+				{
+					var line = document.createElement('div');
+					line.style.cssText = 'display:flex;align-items:center;column-gap:8px;';
+					var label = E.textInput(it.label != null ? String(it.label) : '', T('hmiLnkLabel'));
+					label.style.cssText = 'flex:1;min-width:0;';
+					mark(label, 'choiceLabel');
+					var value = E.textInput(it.value != null ? String(it.value) : '', T('hmiLnkValue'));
+					value.style.cssText = 'flex:1;min-width:0;';
+					mark(value, 'choiceValue');
+					line.appendChild(label);
+					line.appendChild(value);
+					content.appendChild(line);
+
+					return {get: function()
+					{
+						return {label: label.value, value: textValue(value.value)};
+					}, validate: function()
+					{
+						if (trim(label.value) === '')
+						{
+							return T('hmiLnkLabel') + ': ' + T('hmiLnkRequired');
+						}
+
+						return (trim(value.value) === '') ? T('hmiLnkValue') + ': ' + T('hmiLnkRequired') : null;
+					}};
+				}});
+		};
+
+		builders.commands = function(f, v)
+		{
+			inlineRow = null;
+			inlineName = null;
+
+			return listEditor(E, section, {label: f.label, role: 'command', addKey: 'addCommand',
+				addLabel: 'hmiLnkAddCommand', items: v || [], emptyKey: 'hmiLnkNeedCommand',
+				blank: function()
+				{
+					return {object: '', command: 'startAnimation'};
+				}, build: function(content, it)
+				{
+					var line = document.createElement('div');
+					line.style.cssText = 'display:flex;align-items:center;column-gap:8px;';
+					var obj = E.textInput(it.object || '', T('hmiLnkObjectHint'));
+					obj.style.cssText = 'flex:1 1 120px;min-width:0;';
+					mark(obj, 'cmdObject');
+					var cmd = E.select(CONTROL_COMMANDS.map(function(c)
+					{
+						return {value: c, label: T('hmiLnkCmd_' + c)};
+					}), it.command || 'startAnimation');
+					cmd.style.cssText = 'flex:0 0 170px;width:170px;min-width:0;';
+					mark(cmd, 'cmdCommand');
+					var anim = E.textInput(it.animation || '', T('hmiLnkAnimName'));
+					anim.style.cssText = 'flex:1 1 110px;min-width:0;';
+					mark(anim, 'cmdAnimation');
+					line.appendChild(obj);
+					line.appendChild(cmd);
+					line.appendChild(anim);
+					content.appendChild(line);
+
+					function sync()
+					{
+						anim.disabled = (cmd.value.indexOf('Animation') < 0);
+					};
+
+					mxEvent.addListener(cmd, 'change', sync);
+					sync();
+
+					return {get: function()
+					{
+						var o = {object: trim(obj.value), command: cmd.value};
+
+						if (!anim.disabled && trim(anim.value) !== '')
+						{
+							o.animation = trim(anim.value);
+						}
+
+						return o;
+					}, validate: function()
+					{
+						return null;
+					}};
+				}});
+		};
+
 		for (var i = 0; i < spec.fields.length; i++)
 		{
 			var f = spec.fields[i];
@@ -1703,6 +2502,41 @@
 			return T('hmiLnkPasswordChar') + ': ' + T('hmiLnkRequired');
 		}
 
+		if (spec.id == 'pushValue' && (v.action == 'add' || v.action == 'subtract') &&
+			typeof v.value !== 'number')
+		{
+			return T('hmiLnkValue') + ': ' + T('hmiLnkNumberRequired');
+		}
+
+		if (spec.id == 'pushValue' && typeof v.min === 'number' && typeof v.max === 'number' &&
+			v.max <= v.min)
+		{
+			return T('hmiLnkMaximum') + ': ' + T('hmiLnkMaxGreaterMin');
+		}
+
+		if (spec.id == 'openUrl' && LinksDialog.urlError(v.url) != null)
+		{
+			return T('hmiLnkUrl') + ': ' + T(LinksDialog.urlError(v.url));
+		}
+
+		if (spec.id == 'animation' && v.preset == 'custom' && trim(v.name) === '')
+		{
+			return T('hmiLnkAnimName') + ': ' + T('hmiLnkRequired');
+		}
+
+		if (spec.id == 'widgetData' && trim(v.expr) === '' && (v.series || []).length == 0)
+		{
+			return T('hmiLnkNeedWidgetData');
+		}
+
+		if (spec.id == 'condition' && ['onTrue', 'onFalse', 'whileTrue', 'whileFalse'].every(function(k)
+		{
+			return trim(v[k]) === '';
+		}))
+		{
+			return T('hmiLnkNeedConditionScript');
+		}
+
 		if (Hmi.Schema != null && Hmi.Schema.validate != null && LinksDialog.schemaSupportsLinks())
 		{
 			var holder = {};
@@ -1717,6 +2551,26 @@
 		}
 
 		return null;
+	};
+
+	/**
+	 * Returns a resource key describing why an openUrl link target is not
+	 * allowed (empty, or a scheme other than http/https), else null.
+	 * Relative URLs and ${var} placeholders at the start are accepted.
+	 */
+	LinksDialog.urlError = function(url)
+	{
+		var u = trim(url);
+
+		if (u === '')
+		{
+			return 'hmiLnkRequired';
+		}
+
+		var m = /^([a-z][a-z0-9+.\-]*):/i.exec(u.replace(/[\u0000-\u0020]/g, ''));
+
+		return (m != null && m[1].toLowerCase() != 'http' && m[1].toLowerCase() != 'https') ?
+			'hmiLnkUrlScheme' : null;
 	};
 
 	var schemaChecked = null;
@@ -1879,7 +2733,22 @@
 			pushDiscrete: ['hmiLnkTouchPushbuttons', 'hmiLnkDiscreteValue'],
 			pushAction: ['hmiLnkTouchPushbuttons', 'hmiLnkAction'],
 			showWindow: ['hmiLnkTouchPushbuttons', 'hmiLnkShowWindow'],
-			hideWindow: ['hmiLnkTouchPushbuttons', 'hmiLnkHideWindow']};
+			hideWindow: ['hmiLnkTouchPushbuttons', 'hmiLnkHideWindow'],
+			opacity: ['hmiLnkMiscellaneous', 'hmiLnkOpacity'],
+			states: ['hmiLnkStatesProps', 'hmiLnkMultiState'],
+			properties: ['hmiLnkStatesProps', 'hmiLnkProperties'],
+			widgetData: ['hmiLnkStatesProps', 'hmiLnkWidgetData'],
+			animation: ['hmiLnkAnimationGroup', 'hmiLnkAnimation'],
+			flow: ['hmiLnkAnimationGroup', 'hmiLnkFlow'],
+			media: ['hmiLnkAnimationGroup', 'hmiLnkMedia'],
+			inputChoice: ['hmiLnkUserInputs', 'hmiLnkChoice'],
+			pushValue: ['hmiLnkTouchPushbuttons', 'hmiLnkAnalogStringValue'],
+			openUrl: ['hmiLnkActions', 'hmiLnkOpenUrl'],
+			sendMessage: ['hmiLnkActions', 'hmiLnkSendMessage'],
+			control: ['hmiLnkActions', 'hmiLnkControl'],
+			touchOptions: ['hmiLnkActions', 'hmiLnkTouchOptions'],
+			dataChange: ['hmiLnkObjectScripts', 'hmiLnkDataChange'],
+			condition: ['hmiLnkObjectScripts', 'hmiLnkCondition']};
 		var colorKinds = {discrete: 'hmiLnkDiscrete', analog: 'hmiLnkAnalog',
 			discreteAlarm: 'hmiLnkDiscreteAlarm', analogAlarm: 'hmiLnkAnalogAlarm'};
 		var colorLabels = {lineColor: 'hmiLnkLineColor', fillColor: 'hmiLnkFillColor',
@@ -1932,6 +2801,93 @@
 				else if (type == 'showWindow' || type == 'hideWindow')
 				{
 					detail = shorten((l.windows || []).join(', '), 30);
+				}
+				else if (type == 'states')
+				{
+					var ns = (l.states || []).length;
+					detail = shorten(l.expr || '', 20) + ', ' + ns + ' ' + T(ns == 1 ?
+						'hmiLnkStateSingular' : 'hmiLnkStatePlural');
+				}
+				else if (type == 'properties')
+				{
+					detail = shorten((l.items || []).map(function(it)
+					{
+						return it.target;
+					}).join(', '), 40);
+				}
+				else if (type == 'widgetData')
+				{
+					var nr = (l.series || []).length;
+					detail = shorten(l.expr || '', 20) + (nr > 0 ? (l.expr ? ', ' : '') + nr + ' ' +
+						T(nr == 1 ? 'hmiLnkSeriesSingular' : 'hmiLnkSeriesPlural') : '');
+				}
+				else if (type == 'animation')
+				{
+					detail = T('hmiLnkAnim_' + (l.preset || 'spin')) + (l.expr ? ', ' + shorten(l.expr, 20) : '');
+				}
+				else if (type == 'flow')
+				{
+					detail = T('hmiLnkFlow_' + (l.type || 'dash')) + (l.expr ? ', ' + shorten(l.expr, 20) : '');
+				}
+				else if (type == 'media')
+				{
+					detail = T(l.mode == 'pause' ? 'hmiLnkMediaPause' : 'hmiLnkMediaPlay') + ', ' +
+						shorten(l.expr || '', 20);
+				}
+				else if (type == 'inputChoice')
+				{
+					var no = (l.options || []).length;
+					detail = shorten(l.tag || '', 20) + ', ' + no + ' ' + T(no == 1 ?
+						'hmiLnkOptionSingular' : 'hmiLnkOptionPlural');
+				}
+				else if (type == 'pushValue')
+				{
+					detail = shorten(l.tag || '', 20) + ', ' + (l.action == 'expression' ?
+						shorten(l.expr || '', 16) : T('hmiLnkPush' + String(l.action || 'set').charAt(0).toUpperCase() +
+						String(l.action || 'set').substring(1)) + ' ' + shorten(String(l.value != null ? l.value : ''), 12));
+				}
+				else if (type == 'openUrl')
+				{
+					detail = shorten(l.url || '', 32);
+				}
+				else if (type == 'sendMessage')
+				{
+					detail = shorten(l.name || '', 24) + ', ' + T('hmiLnkTo' + String(l.to || 'page').charAt(0).toUpperCase() +
+						String(l.to || 'page').substring(1));
+				}
+				else if (type == 'control')
+				{
+					var nc = (l.commands || []).length;
+					detail = nc + ' ' + T(nc == 1 ? 'hmiLnkCommandSingular' : 'hmiLnkCommandPlural');
+				}
+				else if (type == 'touchOptions')
+				{
+					var parts = [];
+
+					if (l.confirm)
+					{
+						parts.push(T('hmiLnkConfirm'));
+					}
+
+					if (l.roles != null && l.roles.length > 0)
+					{
+						parts.push(T('hmiLnkRoles') + ' ' + shorten(l.roles.join('/'), 20));
+					}
+
+					if (l.delay > 0)
+					{
+						parts.push(T('hmiLnkDelay') + ' ' + l.delay + ' ms');
+					}
+
+					detail = parts.join(', ');
+				}
+				else if (type == 'dataChange')
+				{
+					detail = shorten(l.expr || '', 28);
+				}
+				else if (type == 'condition')
+				{
+					detail = shorten(l.expr || '', 28);
 				}
 				else if (type == 'tooltip')
 				{

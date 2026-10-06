@@ -416,6 +416,279 @@
 	};
 
 	// ---------------------------------------------------------------
+	// Extension links (INTOUCH_LINKS.md 11)
+	// ---------------------------------------------------------------
+
+	/**
+	 * Opacity in percent (0..100) or null.
+	 */
+	function opacity(link, v)
+	{
+		var n = numberOrNull(v);
+
+		if (link == null || n == null)
+		{
+			return null;
+		}
+
+		var pct = lerp(n, num(link.valueAtMin, 0), num(link.valueAtMax, 100),
+			num(link.minPercent, 0), num(link.maxPercent, 100));
+
+		return norm(Math.min(100, Math.max(0, pct)));
+	};
+
+	/**
+	 * Strictly numeric value (number or numeric string, no booleans), or NaN.
+	 */
+	function strictNum(v)
+	{
+		if (typeof v === 'number')
+		{
+			return isFinite(v) ? v : NaN;
+		}
+
+		if (typeof v === 'string')
+		{
+			var s = v.replace(/^\s+|\s+$/g, '');
+
+			if (s !== '')
+			{
+				var n = Number(s);
+
+				return isFinite(n) ? n : NaN;
+			}
+		}
+
+		return NaN;
+	};
+
+	function matchPart(part, v)
+	{
+		var t = part.replace(/^\s+|\s+$/g, '');
+
+		if (t === '')
+		{
+			return false;
+		}
+
+		if (t === '*')
+		{
+			return true;
+		}
+
+		if (v == null)
+		{
+			return false;
+		}
+
+		var dots = t.indexOf('..');
+
+		if (dots >= 0)
+		{
+			var n = strictNum(v);
+
+			if (isNaN(n))
+			{
+				return false;
+			}
+
+			var a = t.substring(0, dots).replace(/^\s+|\s+$/g, '');
+			var b = t.substring(dots + 2).replace(/^\s+|\s+$/g, '');
+			var lo = (a === '') ? -Infinity : strictNum(a);
+			var hi = (b === '') ? Infinity : strictNum(b);
+
+			if (isNaN(lo) || isNaN(hi))
+			{
+				return false;
+			}
+
+			return lo <= n && n < hi;
+		}
+
+		var low = t.toLowerCase();
+
+		if (typeof v === 'boolean')
+		{
+			return v ? (low === '1' || low === 'true' || low === 'on') :
+				(low === '0' || low === 'false' || low === 'off');
+		}
+
+		var nv = strictNum(v);
+		var nt = strictNum(t);
+
+		if (!isNaN(nv) && !isNaN(nt))
+		{
+			return nv === nt;
+		}
+
+		return String(v).replace(/^\s+|\s+$/g, '').toLowerCase() === low;
+	};
+
+	/**
+	 * True when v matches the State match: a value, a range a..b (a <= v < b,
+	 * either end optional), a comma list of these, or * (default).
+	 */
+	function matchState(match, v)
+	{
+		if (match == null)
+		{
+			return false;
+		}
+
+		var parts = String(match).split(',');
+
+		for (var i = 0; i < parts.length; i++)
+		{
+			if (matchPart(parts[i], v))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	/**
+	 * First State of link.states that matches v, or null.
+	 */
+	function state(link, v)
+	{
+		if (link == null || !(link.states instanceof Array))
+		{
+			return null;
+		}
+
+		for (var i = 0; i < link.states.length; i++)
+		{
+			var st = link.states[i];
+
+			if (st != null && matchState(st.match, v))
+			{
+				return st;
+			}
+		}
+
+		return null;
+	};
+
+	/**
+	 * Milliseconds per cycle for a rate in cycles per minute: undefined when
+	 * there is no (numeric) rate, null when the rate is <= 0 (paused).
+	 */
+	function animationDuration(preset, rate)
+	{
+		var n = strictNum(rate);
+
+		if (isNaN(n))
+		{
+			return undefined;
+		}
+
+		return (n <= 0) ? null : 60000 / n;
+	};
+
+	/**
+	 * Value written by a pushValue link or undefined.
+	 */
+	function pushValue(link, current, evalExpr)
+	{
+		if (link == null)
+		{
+			return undefined;
+		}
+
+		var action = link.action || 'set';
+
+		if (action === 'set')
+		{
+			var val = link.value;
+
+			if (val == null)
+			{
+				return undefined;
+			}
+
+			if (typeof val === 'number')
+			{
+				return val;
+			}
+
+			var n = strictNum(val);
+
+			return isNaN(n) ? String(val) : n;
+		}
+
+		if (action === 'add' || action === 'subtract')
+		{
+			var d = strictNum(link.value);
+
+			if (isNaN(d))
+			{
+				return undefined;
+			}
+
+			var cur = strictNum(current);
+			var r = (isNaN(cur) ? 0 : cur) + (action === 'add' ? d : -d);
+			var min = strictNum(link.min);
+			var max = strictNum(link.max);
+
+			if (!isNaN(max))
+			{
+				r = Math.min(max, r);
+			}
+
+			if (!isNaN(min))
+			{
+				r = Math.max(min, r);
+			}
+
+			return norm(r);
+		}
+
+		if (action === 'expression')
+		{
+			return (typeof evalExpr === 'function') ? evalExpr() : undefined;
+		}
+
+		return undefined;
+	};
+
+	/**
+	 * True when a data change script should run.
+	 */
+	function changed(prev, next, deadband)
+	{
+		if (prev === undefined)
+		{
+			return next !== undefined;
+		}
+
+		if (typeof prev === 'number' && typeof next === 'number')
+		{
+			if (isNaN(prev) || isNaN(next))
+			{
+				return !(isNaN(prev) && isNaN(next));
+			}
+
+			return Math.abs(next - prev) > num(deadband, 0);
+		}
+
+		if (prev !== null && next !== null && typeof prev === 'object' && typeof next === 'object')
+		{
+			try
+			{
+				return JSON.stringify(prev) !== JSON.stringify(next);
+			}
+			catch (e)
+			{
+				return prev !== next;
+			}
+		}
+
+		return prev !== next;
+	};
+
+	// ---------------------------------------------------------------
 	// Dependencies
 	// ---------------------------------------------------------------
 
@@ -465,6 +738,38 @@
 		}
 	};
 
+	function addScriptRefs(out, src)
+	{
+		if (typeof src !== 'string' || src === '' || Hmi.QuickScript == null)
+		{
+			return;
+		}
+
+		try
+		{
+			var c = Hmi.QuickScript.compile(src);
+			var i;
+			var locals = (c.locals || []).map(function(n) { return n.toLowerCase(); });
+
+			for (i = 0; i < c.refs.length; i++)
+			{
+				if (locals.indexOf(c.refs[i].toLowerCase()) < 0)
+				{
+					addRef(out, c.refs[i]);
+				}
+			}
+
+			for (i = 0; c.writes != null && i < c.writes.length; i++)
+			{
+				addRef(out, c.writes[i]);
+			}
+		}
+		catch (e)
+		{
+			// invalid scripts have no dependencies
+		}
+	};
+
 	function refs(links)
 	{
 		var out = [];
@@ -490,6 +795,42 @@
 
 			addExprRefs(out, link.expr);
 			addRef(out, link.tag);
+
+			if (type === 'properties' && link.items instanceof Array)
+			{
+				for (var pi = 0; pi < link.items.length; pi++)
+				{
+					addExprRefs(out, link.items[pi] != null ? link.items[pi].expr : null);
+				}
+			}
+			else if (type === 'widgetData' && link.series instanceof Array)
+			{
+				for (var si = 0; si < link.series.length; si++)
+				{
+					addRef(out, link.series[si] != null ? link.series[si].tag : null);
+				}
+			}
+			else if (type === 'animation' || type === 'flow')
+			{
+				addExprRefs(out, link.rateExpr);
+				addExprRefs(out, link.speedExpr);
+				addExprRefs(out, link.reverseExpr);
+			}
+			else if (type === 'sendMessage')
+			{
+				addExprRefs(out, link.payloadExpr);
+			}
+			else if (type === 'dataChange')
+			{
+				addScriptRefs(out, link.script);
+			}
+			else if (type === 'condition')
+			{
+				addScriptRefs(out, link.onTrue);
+				addScriptRefs(out, link.onFalse);
+				addScriptRefs(out, link.whileTrue);
+				addScriptRefs(out, link.whileFalse);
+			}
 
 			if (type === 'inputAnalog')
 			{
@@ -562,6 +903,12 @@
 		pushValues: pushValues,
 		refs: refs,
 		inputLimits: inputLimits,
-		isTagName: isTagName
+		isTagName: isTagName,
+		opacity: opacity,
+		matchState: matchState,
+		state: state,
+		animationDuration: animationDuration,
+		pushValue: pushValue,
+		changed: changed
 	};
 })();

@@ -56,6 +56,19 @@ TAGS = [
     {'name': 'Counter', 'type': 'number', 'access': 'rw', 'local': True, 'initial': 0},
     {'name': 'Held', 'type': 'number', 'access': 'rw', 'local': True, 'initial': 0},
     {'name': 'Hover', 'type': 'boolean', 'access': 'rw', 'local': True, 'initial': False},
+    # meta2d extension links
+    {'name': 'Rpm', 'type': 'number', 'access': 'r', 'min': 0, 'max': 60, 'initial': 30,
+     'sim': {'kind': 'sine', 'min': 0, 'max': 60, 'period': 20000, 'interval': 500}},
+    {'name': 'Status', 'type': 'integer', 'access': 'r', 'initial': 0,
+     'sim': {'kind': 'list', 'values': [0, 1, 2, 3], 'interval': 3000}},
+    {'name': 'FlowOn', 'type': 'boolean', 'access': 'r', 'initial': True,
+     'sim': {'kind': 'toggle', 'interval': 6000}},
+    {'name': 'Recipe', 'type': 'string', 'access': 'rw', 'local': True, 'initial': 'A'},
+    {'name': 'Batch', 'type': 'number', 'access': 'rw', 'local': True, 'min': 0, 'max': 10,
+     'initial': 5},
+    {'name': 'Changes', 'type': 'number', 'access': 'rw', 'local': True, 'initial': 0},
+    {'name': 'HighCount', 'type': 'number', 'access': 'rw', 'local': True, 'initial': 0},
+    {'name': 'Animate', 'type': 'boolean', 'access': 'rw', 'local': True, 'initial': True},
 ]
 
 RUNTIME = {'fit': 'page', 'panZoom': True, 'nav': 'tabs', 'maxRate': 30, 'quality': 'outline',
@@ -441,6 +454,147 @@ def touch_page():
     return p
 
 
+def meta2d_page():
+    p = Page('itd-meta2d', 'meta2d Extensions', {'version': 1, 'sources': [], 'tags': [],
+                                                 'triggers': []})
+    p.text(20, 8, 900, 30, 'Extension links from meta2d', 20, True, '#263238')
+    p.text(20, 36, 1200, 18, 'Links that meta2d has and InTouch does not, configured in the same '
+           'Animation Links dialog (Animation, Actions and Scripts groups).', 11)
+
+    W, H, X0, Y0, DX, DY = 300, 205, 20, 64, 312, 215
+
+    def pos(c, r):
+        return X0 + c * DX, Y0 + r * DY
+
+    # Row 0: display
+    x, y = pos(0, 0)
+    p.tile(x, y, W, H, 'Multi-State', 'Status 0..3: colour, label and blink per state')
+    p.add(x + 50, y + 45, 200, 70, 'rounded=1;html=1;fillColor=#9E9E9E;strokeColor=#424242;'
+          'fontColor=#FFFFFF;fontStyle=1;fontSize=14;', 'STATE', {
+              'states': {'expr': 'Status', 'states': [
+                  {'match': '0', 'fillColor': '#9E9E9E', 'label': 'STOPPED'},
+                  {'match': '1', 'fillColor': '#43A047', 'label': 'RUNNING'},
+                  {'match': '2', 'fillColor': '#FB8C00', 'label': 'WARNING'},
+                  {'match': '3..', 'fillColor': '#E53935', 'label': 'FAULT #', 'blink': True},
+                  {'match': '*', 'fillColor': '#607D8B', 'label': '?'}]}},
+          cid='itd-m2d-states')
+
+    x, y = pos(1, 0)
+    p.tile(x, y, W, H, 'Opacity and Properties', 'Opacity follows Level; flip and dash by expression')
+    p.add(x + 20, y + 45, 120, 70, 'rounded=1;html=1;fillColor=#1E88E5;strokeColor=#0D47A1;'
+          'fontColor=#FFFFFF;fontStyle=1;', 'OPACITY', {
+              'opacity': {'expr': 'Level', 'valueAtMin': 0, 'valueAtMax': 100, 'minPercent': 15,
+                          'maxPercent': 100}}, cid='itd-m2d-opacity')
+    p.add(x + 160, y + 45, 120, 70, 'shape=triangle;direction=east;html=1;fillColor=#FFCC80;'
+          'strokeColor=#EF6C00;', '', {
+              'properties': {'items': [
+                  {'target': 'style:flipH', 'expr': 'IF(Pump, 1, 0)'},
+                  {'target': 'style:dashed', 'expr': 'IF(Level > 50, 1, 0)'},
+                  {'target': 'tooltip', 'expr': '"Pump " + IF(Pump, "on", "off")'}]}},
+          cid='itd-m2d-properties')
+
+    x, y = pos(2, 0)
+    p.tile(x, y, 2 * W + 12, H, 'Widget Data', 'Gauge value and trend series from links')
+    p.add(x + 20, y + 30, 160, 160, 'shape=mxgraph.hmi.radialGauge;html=1;noLabel=1;hmiMin=0;'
+          'hmiMax=100;hmiUnit=%;hmiValue=0;', 'Level', {'widgetData': {'expr': 'Level'}},
+          cid='itd-m2d-gauge')
+    p.add(x + 200, y + 30, 390, 160, 'shape=mxgraph.hmi.trendChart;html=1;noLabel=1;', 'Trend', {
+        'widgetData': {'series': [{'tag': 'Level', 'name': 'Level', 'maxPoints': 600},
+                                  {'tag': 'Rpm', 'name': 'Rpm', 'maxPoints': 600}]}},
+        cid='itd-m2d-trend')
+
+    # Row 1: animation
+    x, y = pos(0, 1)
+    p.tile(x, y, W, H, 'Animation: Spin and Glow', 'Fan spins at Rpm; glow while HighAlarm')
+    p.add(x + 40, y + 45, 90, 90, 'shape=mxgraph.hmi.fan;html=1;noLabel=1;fillColor=#90A4AE;', '', {
+        'animation': {'expr': 'Animate', 'preset': 'spin', 'rateExpr': 'Rpm'}},
+        cid='itd-m2d-spin')
+    p.add(x + 170, y + 55, 90, 70, 'ellipse;html=1;fillColor=#FFFFFF;strokeColor=#E53935;'
+          'strokeWidth=2;fontStyle=1;', 'ALERT', {
+              'animation': {'expr': 'HighAlarm', 'preset': 'glow', 'color': '#E53935'}},
+          cid='itd-m2d-glow')
+
+    x, y = pos(1, 1)
+    p.tile(x, y, W, H, 'Animation: Bounce and Sway', 'Preset animations while Animate')
+    p.add(x + 40, y + 60, 80, 60, 'rounded=1;html=1;fillColor=#A5D6A7;strokeColor=#2E7D32;', 'Bounce', {
+        'animation': {'expr': 'Animate', 'preset': 'bounce', 'rateExpr': '60'}},
+        cid='itd-m2d-bounce')
+    p.add(x + 170, y + 60, 80, 60, 'rounded=1;html=1;fillColor=#CE93D8;strokeColor=#6A1B9A;', 'Sway', {
+        'animation': {'expr': 'Animate', 'preset': 'sway'}}, cid='itd-m2d-sway')
+
+    x, y = pos(2, 1)
+    p.tile(x, y, W, H, 'Flow', 'Pipe flow while FlowOn, speed and direction by expression')
+    p.cells.append(('<object id="itd-m2d-flow" label="" hmiLinks=%s><mxCell style="endArrow=none;'
+                    'html=1;strokeWidth=8;strokeColor=#90CAF9;flowAnimationDuration=600;" edge="1" '
+                    'parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="%d" y="%d" '
+                    'as="sourcePoint"/><mxPoint x="%d" y="%d" as="targetPoint"/></mxGeometry>'
+                    '</mxCell></object>') % (quoteattr(json.dumps({'flow': {
+                        'expr': 'FlowOn', 'type': 'dash', 'speedExpr': '0.5 + Level / 50',
+                        'reverseExpr': 'Level > 80', 'color': '#0D47A1', 'width': 4}},
+                        separators=(',', ':'))), x + 20, y + 110, x + 280, y + 110))
+
+    x, y = pos(3, 1)
+    p.tile(x, y, W, H, 'Object Scripts', 'Data change counts Status changes; condition on Temp')
+    p.add(x + 20, y + 45, 260, 50, LABEL, 'Changes', {
+        'dataChange': {'expr': 'Status', 'script': 'Changes = Changes + 1;'},
+        'valueString': {'expr': '"Status changes: " + Text(Changes, "#")'}}, cid='itd-m2d-datachange')
+    p.add(x + 20, y + 110, 260, 50, LABEL, 'High', {
+        'condition': {'expr': 'Temp > 80', 'onTrue': 'HighCount = HighCount + 1;',
+                      'onFalse': 'ShowMessage("Temp back to normal");'},
+        'valueString': {'expr': '"Temp > 80 count: " + Text(HighCount, "#")'}},
+        cid='itd-m2d-condition')
+
+    # Row 2: touch
+    x, y = pos(0, 2)
+    p.tile(x, y, W, H - 20, 'Choice Input and Value Pushbuttons', 'Recipe choice; Batch -1 / +1')
+    p.add(x + 20, y + 35, 260, 44, LABEL, 'Recipe', {
+        'inputChoice': {'tag': 'Recipe', 'message': 'Select the recipe', 'options': [
+            {'label': 'Recipe A', 'value': 'A'}, {'label': 'Recipe B', 'value': 'B'},
+            {'label': 'Recipe C', 'value': 'C'}]},
+        'valueString': {'expr': '"Recipe " + Recipe'}}, cid='itd-m2d-choice')
+    p.add(x + 20, y + 95, 70, 44, BUTTON, '-1', {
+        'pushValue': {'tag': 'Batch', 'action': 'subtract', 'value': 1, 'min': 0, 'max': 10}},
+        cid='itd-m2d-minus')
+    p.add(x + 100, y + 95, 100, 44, LABEL, 'Batch #', {
+        'valueAnalog': {'expr': 'Batch', 'format': {'mode': 'text'}}}, cid='itd-m2d-batch')
+    p.add(x + 210, y + 95, 70, 44, BUTTON, '+1', {
+        'pushValue': {'tag': 'Batch', 'action': 'add', 'value': 1, 'min': 0, 'max': 10}},
+        cid='itd-m2d-plus')
+
+    x, y = pos(1, 2)
+    p.tile(x, y, W, H - 20, 'Actions', 'Open URL, send message, control animations')
+    p.add(x + 20, y + 35, 120, 44, BUTTON, 'Open URL', {
+        'openUrl': {'url': 'https://www.drawio.com', 'target': 'blank'}}, cid='itd-m2d-url')
+    p.add(x + 160, y + 35, 120, 44, BUTTON, 'Send Message', {
+        'sendMessage': {'name': 'hello', 'payloadExpr': 'Level', 'to': 'both'}}, cid='itd-m2d-message')
+    p.add(x + 20, y + 95, 120, 44, BUTTON, 'Pause fan', {
+        'control': {'commands': [{'object': 'itd-m2d-spin', 'command': 'pauseAnimation'}]}},
+        cid='itd-m2d-pause')
+    p.add(x + 160, y + 95, 120, 44, BUTTON, 'Resume fan', {
+        'control': {'commands': [{'object': 'itd-m2d-spin', 'command': 'startAnimation'}]}},
+        cid='itd-m2d-resume')
+
+    x, y = pos(2, 2)
+    p.tile(x, y, 2 * W + 12, H - 20, 'Touch Options and new script functions',
+           'Confirmation before acting; scripts can open URLs, show messages, control animations')
+    p.add(x + 20, y + 35, 200, 44, BUTTON + 'fillColor=#C62828;strokeColor=#8E0000;',
+          'Reset Batch (confirm)', {
+              'pushValue': {'tag': 'Batch', 'action': 'set', 'value': 0},
+              'touchOptions': {'confirm': 'Reset the batch counter?', 'confirmTitle': 'Batch'}},
+          cid='itd-m2d-confirm')
+    p.add(x + 240, y + 35, 200, 44, BUTTON + 'fillColor=#00897B;strokeColor=#004D40;',
+          'Script: toggle animations', {
+              'pushAction': {'scripts': [{'condition': 'onLeftUp', 'script':
+                  'IF Animate THEN\n  Animate = 0;\n  StopAnimation("itd-m2d-bounce");\n'
+                  'ELSE\n  Animate = 1;\nENDIF;\nShowMessage("Animate = " + Text(Animate, "#"));'}]}},
+          cid='itd-m2d-script')
+    p.add(x + 460, y + 35, 130, 44, BUTTON + 'fillColor=#6D4C41;strokeColor=#3E2723;',
+          'Operators only', {
+              'pushValue': {'tag': 'Batch', 'action': 'set', 'value': 10},
+              'touchOptions': {'roles': ['operator']}}, cid='itd-m2d-roles')
+    return p
+
+
 def window_page(pid, name, wtype, x, y):
     doc = {'version': 1, 'sources': [], 'tags': [], 'triggers': [],
            'window': {'type': wtype, 'x': x, 'y': y, 'width': 360, 'height': 260,
@@ -466,7 +620,7 @@ def window_page(pid, name, wtype, x, y):
 
 
 def main():
-    pages = [display_page(), touch_page(),
+    pages = [display_page(), touch_page(), meta2d_page(),
              window_page('itd-overlay', 'Overlay Window', 'overlay', 860, 120),
              window_page('itd-popup', 'Popup Window', 'popup', None, None)]
     xml = ('<mxfile host="app.diagrams.net" agent="hmi-template-generator" version="24.0.0" '
