@@ -447,3 +447,61 @@ Each new link has a settings dialog like the existing ones:
 - QuickScript editors for the scripts
 
 The validator, Substitute Tags and Define Missing Tags cover the new links.
+
+## 12. Unified editor
+
+Two dialogs configure every HMI/SCADA feature:
+- the **Animation Links** dialog configures an object
+- the **Screen Settings** dialog configures the page and the document
+
+The HMI tab of the format panel only summarises and launches.
+
+### 12.1 Animation Links dialog: object-level features stored outside `hmiLinks`
+
+The features of the generic HMI model (ARCHITECTURE.md §2) appear as links in the dialog. Each is edited in place in its existing storage, so no data is converted and the runtime is unchanged.
+
+| Tab → group | Link id | Storage | Editor |
+|---|---|---|---|
+| Display → States and Properties | `bindings` | `hmiBindings` (tag/expression → any target, with transforms and formats) | list of bindings; each row opens the binding editor |
+| Animation → Animation | `keyframes` | `hmiAnimations` (named animations: presets or keyframes, autoPlay, cycles, next) | list of named animations |
+| Touch → Actions | `events` | `hmiEvents` (click, dblclick, mousedown, mouseup, enter, leave, contextmenu, longpress, change, valueChange, message, pageOpen, pageClose → action lists, conditions, confirm, delay) | list of event handlers |
+| Touch → Actions | `security` | `hmiRoles` (comma list) and the attribute `hmiRolesMode` (`hide`/`disable`) | `roles`, `mode` |
+| Touch → Actions | `hoverHalo` | styles `hmiHalo`, `hmiHaloStyle`, `hmiHaloOutline`, `hmiHaloColor` | page default / glow / outline / glow and outline / off; outline shape; colour |
+| Scripts → Triggers (new group) | `triggers` | `hmiTriggers` entries without `states` | conditions with and/or, actions, else actions, deadband, on/off delay |
+| Scripts → Triggers | `stateMachines` | `hmiTriggers` entries with `states` | named states, each with conditions, and/or and actions |
+
+A link is "on" while its storage is non-empty. Unchecking clears the storage. All changes are written with the hmiLinks changes as one undoable edit when OK is pressed.
+
+The `security` link writes `hmiRoles` and `hmiRolesMode`:
+- `hide` (the default) hides the object from users without the roles.
+- `disable` disables it.
+
+`Touch Options.roles` still gates only the touch links.
+
+### 12.2 Dialog API
+
+`Hmi.LinksDialog.show(ui, cells, opts)` accepts these options:
+- `opts.tab`: `display`, `animation`, `touch` or `scripts`.
+- `opts.link`: a link id. The dialog opens on that link's tab and opens its settings dialog.
+
+`Hmi.LinksDialog.objectSummary(cell)` returns one entry `[{id, tab, text}]` per configured link, covering both `hmiLinks` and the storages in §12.1.
+
+### 12.3 Screen Settings dialog
+
+`Hmi.ScreenSettings.show(ui, opts)` (ui/HmiScreenSettings.js) is a tabbed dialog for the current page/document. Its tabs, in order (`opts.tab` selects one):
+
+| Tab | Content |
+|---|---|
+| `sources` | the Data Sources list and editor (previously the Data Sources dialog) |
+| `tags` | the tag catalogue and tag editor (previously the Tags dialog list) |
+| `pageTriggers` | the document-level triggers of the page |
+| `runtime` | simulation mode, scripts, fit, navigation, max rate, quality, pan/zoom, design width/height, theme, blink half-periods |
+| `hoverHalo` | the page hover halo settings (previously the Hover Halo dialog) |
+| `window` | the InTouch window type of this page (replace / overlay / popup, x, y, width, height, title; §8) |
+
+One OK button saves all tabs as a single undoable edit. The old menu actions (Data Sources…, Tags…, Hover Halo…) open Screen Settings on the matching tab.
+
+### 12.4 HMI tab
+
+- **Object selected:** the tab shows a compact list of the object's configured links (`objectSummary`). Clicking a line opens the Animation Links dialog on that link. Below the list are the **Animation Links…** button and the Tag Browser.
+- **No selection:** the tab shows a page summary (sources, tags, objects with links, page triggers) and these buttons: **Screen Settings…**, Tag Browser, Substitute Tags, Define Missing Tags, Validate, Live Preview and Run Screen.

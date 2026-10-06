@@ -959,7 +959,11 @@
 
 			if (cfg.roles != null && cfg.roles.length > 0 && !this.hasRoles(cfg.roles))
 			{
-				if (mode == 'disable')
+				// Per-object mode (Security link) or the global default
+				var cellMode = (cfg.cell != null && cfg.cell.value != null &&
+					typeof cfg.cell.value === 'object') ? cfg.cell.value.getAttribute('hmiRolesMode') : null;
+
+				if ((cellMode || mode) == 'disable')
 				{
 					this.overlay.setStyle(id, 'opacity', 40, 'action');
 					cfg.disabled = true;
