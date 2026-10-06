@@ -27,7 +27,7 @@ cd src/main/webapp/plugins/hmi/test && node --test --test-concurrency=1
 End-to-end tests need Playwright with Chromium. Set `PLAYWRIGHT_MODULE` and `CHROMIUM_PATH` if they are not auto-detected.
 
 ```sh
-node --test --test-concurrency=1 etc/hmi/e2e/runtime.e2e.js etc/hmi/e2e/ui.e2e.js etc/hmi/e2e/runscreen.e2e.js etc/hmi/e2e/links.e2e.js etc/hmi/e2e/links-ui.e2e.js etc/hmi/e2e/halo.e2e.js etc/hmi/e2e/links-meta2d.e2e.js etc/hmi/e2e/links-meta2d-ui.e2e.js
+node --test --test-concurrency=1 etc/hmi/e2e/runtime.e2e.js etc/hmi/e2e/ui.e2e.js etc/hmi/e2e/runscreen.e2e.js etc/hmi/e2e/links.e2e.js etc/hmi/e2e/links-ui.e2e.js etc/hmi/e2e/halo.e2e.js etc/hmi/e2e/links-meta2d.e2e.js etc/hmi/e2e/links-meta2d-ui.e2e.js etc/hmi/e2e/links-help.e2e.js
 node --test --test-concurrency=1 etc/hmi/e2e/perf.e2e.js
 HMI_SOAK_MINUTES=1440 node --test --test-name-pattern=soak etc/hmi/e2e/perf.e2e.js
 node --test etc/hmi/e2e/bundle.e2e.js    # after the Ant build

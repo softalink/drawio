@@ -52,6 +52,8 @@
 		'runtime/HmiEmbed.js',
 		'ui/HmiResources.js',
 		'ui/HmiEditors.js',
+		'ui/HmiHelpTexts.js',
+		'ui/HmiHelp.js',
 		'ui/HmiSourcesDialog.js',
 		'ui/HmiTagsDialog.js',
 		'ui/HmiTagBrowser.js',

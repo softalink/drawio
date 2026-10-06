@@ -683,6 +683,8 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="runtime/HmiEmbed.js" />
 				<file name="ui/HmiResources.js" />
 				<file name="ui/HmiEditors.js" />
+				<file name="ui/HmiHelpTexts.js" />
+				<file name="ui/HmiHelp.js" />
 				<file name="ui/HmiSourcesDialog.js" />
 				<file name="ui/HmiTagsDialog.js" />
 				<file name="ui/HmiTagBrowser.js" />

@@ -34,6 +34,23 @@
 		return String(s == null ? '' : s).replace(/^\s+|\s+$/g, '');
 	};
 
+	/**
+	 * Appends the quick-help icon of the key (or the first of several keys
+	 * with a text) to the parent. Nothing is added when there is no text.
+	 */
+	function addHelp(parent, keys, title)
+	{
+		return (Hmi.Help != null && parent != null) ? Hmi.Help.attach(parent, keys, title) : null;
+	};
+
+	/**
+	 * Adds the help icon to the label of a form row or inline field.
+	 */
+	function labelHelp(row, keys, title)
+	{
+		return addHelp((row != null) ? row.querySelector('.geDialogFormLabel') : null, keys, title);
+	};
+
 	// ---------------------------------------------------------------
 	// Option lists
 	// ---------------------------------------------------------------
@@ -785,6 +802,23 @@
 	};
 
 	/**
+	 * Column legend of a list editor whose columns have no labels of their
+	 * own: one small caption with a help icon per column, appended to the
+	 * heading. columns = [[label resource key, help keys], ...].
+	 */
+	function legend(head, columns)
+	{
+		for (var i = 0; columns != null && i < columns.length; i++)
+		{
+			var cap = document.createElement('span');
+			cap.className = 'geHmiLegend';
+			mxUtils.write(cap, T(columns[i][0]));
+			addHelp(cap, columns[i][1]);
+			head.appendChild(cap);
+		}
+	};
+
+	/**
 	 * Generic list editor: one card per item with reorder and delete
 	 * buttons and an Add button. opts = {label, role, addKey, addLabel,
 	 * items, blank(), build(content, item) → {get(), validate()}, tall,
@@ -795,6 +829,8 @@
 		var h = document.createElement('div');
 		h.className = 'geDialogHint geHmiSubHead';
 		mxUtils.write(h, T(opts.label));
+		addHelp(h, opts.helpKeys);
+		legend(h, opts.legend);
 		section.appendChild(h);
 		var list = document.createElement('div');
 		section.appendChild(list);
@@ -942,7 +978,7 @@
 	 * QuickScript editor: textarea + Check button + result line. Returns
 	 * {el, area, check() → error | null}.
 	 */
-	function scriptBox(E, initial, rows)
+	function scriptBox(E, initial, rows, helpKeys)
 	{
 		var box = document.createElement('div');
 		var area = document.createElement('textarea');
@@ -969,6 +1005,7 @@
 		check.style.margin = '0';
 		mark(check, 'checkScript');
 		bar.appendChild(check);
+		addHelp(bar, helpKeys);
 		bar.appendChild(result);
 		box.appendChild(bar);
 
@@ -994,8 +1031,19 @@
 		var inlineName = null;
 		var form = {el: container, extras: {}};
 
+		// Help keys of a field (spec specific, then shared); col is the
+		// column of a list or composite editor
+		function fkeys(key, col)
+		{
+			var k = (col != null) ? key + '.' + col : key;
+
+			return ['field.' + spec.id + '.' + k, 'field.' + k];
+		};
+
 		function place(f, el, labelKey)
 		{
+			var r;
+
 			if (f.inline != null)
 			{
 				if (inlineRow == null || inlineName != f.inline)
@@ -1004,13 +1052,18 @@
 					inlineName = f.inline;
 				}
 
-				return E.inlineField(inlineRow, T(f.label) + ':', el);
+				r = E.inlineField(inlineRow, T(f.label) + ':', el);
+			}
+			else
+			{
+				inlineRow = null;
+				inlineName = null;
+				r = E.row(section, T(labelKey || f.label) + ':');
 			}
 
-			inlineRow = null;
-			inlineName = null;
+			labelHelp(r, fkeys(f.key));
 
-			return E.row(section, T(labelKey || f.label) + ':');
+			return r;
 		};
 
 		var needed = {alarmType: true};
@@ -1101,6 +1154,7 @@
 			var el = document.createElement('div');
 			el.className = 'geDialogHint geHmiSubHead';
 			mxUtils.write(el, T(f.label));
+			addHelp(el, 'heading.' + f.label);
 			section.appendChild(el);
 
 			return {rows: [el]};
@@ -1284,6 +1338,7 @@
 			cb.input.setAttribute('id', id);
 			lbl.setAttribute('for', id);
 			mxEvent.addListener(cb.input, 'change', refresh);
+			addHelp(cb, fkeys(f.key));
 
 			return {rows: [cb], get: function()
 			{
@@ -1323,6 +1378,8 @@
 			var shift = E.checkbox(T('hmiLnkShift'), !!(v && v.shift));
 			ctrl.style.minHeight = '0';
 			shift.style.minHeight = '0';
+			addHelp(ctrl, fkeys('key', 'ctrl'));
+			addHelp(shift, fkeys('key', 'shift'));
 			var select = E.select(keyChoices(), (v && v.key) || '');
 			select.style.flex = '1';
 			mark(select, 'key');
@@ -1357,10 +1414,12 @@
 			var h = document.createElement('div');
 			h.className = 'geDialogHint geHmiSubHead';
 			mxUtils.write(h, T('hmiLnkAdvancedFormatting'));
+			addHelp(h, 'heading.hmiLnkAdvancedFormatting');
 			section.appendChild(h);
 			rows.push(h);
 
 			var modeRow = E.row(section, T('hmiLnkFormatting') + ':');
+			labelHelp(modeRow, fkeys('format', 'mode'));
 			var mode = E.select(opts(FORMAT_MODES), v.mode || 'text');
 			mark(mode, 'formatMode');
 			modeRow.appendChild(mode);
@@ -1379,6 +1438,7 @@
 			rows.push(modeRow);
 
 			var fixed = E.checkbox(T('hmiLnkFixedWidth'), !!v.fixedWidth);
+			addHelp(fixed, fkeys('format', 'fixedWidth'));
 			mark(fixed.input, 'formatFixedWidth');
 			section.appendChild(fixed);
 			rows.push(fixed);
@@ -1395,9 +1455,9 @@
 			mark(prec, 'formatPrecision');
 			mark(from, 'formatBitsFrom');
 			mark(to, 'formatBitsTo');
-			E.inlineField(inl, T('hmiLnkPrecision') + ':', prec);
-			E.inlineField(inl, T('hmiLnkBitsFrom') + ':', from);
-			E.inlineField(inl, T('hmiLnkBitsTo') + ':', to);
+			labelHelp(E.inlineField(inl, T('hmiLnkPrecision') + ':', prec), fkeys('format', 'precision'));
+			labelHelp(E.inlineField(inl, T('hmiLnkBitsFrom') + ':', from), fkeys('format', 'bitsFrom'));
+			labelHelp(E.inlineField(inl, T('hmiLnkBitsTo') + ':', to), fkeys('format', 'bitsTo'));
 			rows.push(inl);
 
 			function sync()
@@ -1452,6 +1512,9 @@
 			var h = document.createElement('div');
 			h.className = 'geDialogHint geHmiSubHead';
 			mxUtils.write(h, T('hmiLnkBreakPoints') + ' (' + T('hmiLnkBreakPointsHint') + ')');
+			addHelp(h, fkeys('breakpoints'));
+			legend(h, [['hmiLnkValue', fkeys('breakpoints', 'value')],
+				['hmiLnkColor', fkeys('breakpoints', 'color')]]);
 			section.appendChild(h);
 			var list = document.createElement('div');
 			section.appendChild(list);
@@ -1591,6 +1654,7 @@
 				for (var i = 0; i < keys.length; i++)
 				{
 					var row = E.row(holder, T(LABELS[keys[i]]) + ':');
+					labelHelp(row, fkeys('colors', keys[i]));
 					row.style.marginTop = i > 0 ? '6px' : '0';
 					var ci = E.colorInput(ui, store[keys[i]]);
 					mark(ci.input, 'color_' + keys[i]);
@@ -1678,13 +1742,15 @@
 				del.style.cssText = 'margin:0;flex:0 0 34px;width:34px;min-width:0;padding:0;';
 				del.setAttribute('title', mxResources.get('delete'));
 				top.appendChild(cond);
+				addHelp(top, fkeys('scripts', 'condition'));
 				top.appendChild(perLbl);
+				addHelp(perLbl, fkeys('scripts', 'period'));
 				top.appendChild(period);
 				top.appendChild(ms);
 				top.appendChild(del);
 				card.appendChild(top);
 
-				var sb = scriptBox(E, s.script || '', 7);
+				var sb = scriptBox(E, s.script || '', 7, fkeys('scripts', 'script'));
 				var area = sb.area;
 				card.appendChild(sb.el);
 
@@ -1771,6 +1837,7 @@
 			var h = document.createElement('div');
 			h.className = 'geDialogHint geHmiSubHead';
 			mxUtils.write(h, T('hmiLnkWindows'));
+			addHelp(h, fkeys('windows'));
 			section.appendChild(h);
 			var list = document.createElement('div');
 			list.className = 'geHmiPick';
@@ -1836,8 +1903,10 @@
 			wh.className = 'geDialogHint geHmiSubHead';
 			mxUtils.write(wh, T('hmiLnkWindowSettings').replace('{1}', ui.currentPage != null ?
 				ui.currentPage.getName() : ''));
+			addHelp(wh, fkeys('windows', 'settings'));
 			section.appendChild(wh);
 			var typeRow = E.row(section, T('hmiLnkWindowType') + ':');
+			labelHelp(typeRow, fkeys('windows', 'type'));
 			var typeSel = E.select(opts([['replace', 'hmiLnkWin_replace'],
 				['overlay', 'hmiLnkWin_overlay'], ['popup', 'hmiLnkWin_popup']]), current.type || 'replace');
 			mark(typeSel, 'windowType');
@@ -1847,16 +1916,17 @@
 			var wy = E.numberInput(current.y != null ? current.y : '');
 			mark(wx, 'windowX');
 			mark(wy, 'windowY');
-			E.inlineField(geo1, 'X:', wx);
-			E.inlineField(geo1, 'Y:', wy);
+			labelHelp(E.inlineField(geo1, 'X:', wx), fkeys('windows', 'x'));
+			labelHelp(E.inlineField(geo1, 'Y:', wy), fkeys('windows', 'y'));
 			var geo2 = E.inlineFields(section);
 			var ww = E.numberInput(current.width != null ? current.width : '');
 			var wht = E.numberInput(current.height != null ? current.height : '');
 			mark(ww, 'windowWidth');
 			mark(wht, 'windowHeight');
-			E.inlineField(geo2, T('width') + ':', ww);
-			E.inlineField(geo2, T('height') + ':', wht);
+			labelHelp(E.inlineField(geo2, T('width') + ':', ww), fkeys('windows', 'width'));
+			labelHelp(E.inlineField(geo2, T('height') + ':', wht), fkeys('windows', 'height'));
 			var titleRow = E.row(section, T('hmiLnkWindowTitle') + ':');
+			labelHelp(titleRow, fkeys('windows', 'title'));
 			var wtitle = E.textInput(current.title || '');
 			mark(wtitle, 'windowTitle');
 			titleRow.appendChild(wtitle);
@@ -1949,6 +2019,7 @@
 			var h = document.createElement('div');
 			h.className = 'geDialogHint geHmiSubHead';
 			mxUtils.write(h, T(f.label));
+			addHelp(h, fkeys(f.key));
 			section.appendChild(h);
 			var sb = scriptBox(E, v || '', f.rows || 4);
 			mark(sb.area, f.key);
@@ -2007,7 +2078,8 @@
 			inlineRow = null;
 			inlineName = null;
 
-			return listEditor(E, section, {label: f.label, role: 'state', addKey: 'addState',
+			return listEditor(E, section, {label: f.label, helpKeys: fkeys('states'),
+				role: 'state', addKey: 'addState',
 				addLabel: 'hmiLnkAddState', items: v || [], tall: true, emptyKey: 'hmiLnkNeedState',
 				blank: function()
 				{
@@ -2017,10 +2089,10 @@
 					var r1 = cardRow(content);
 					var match = E.textInput(s.match != null ? String(s.match) : '', T('hmiLnkMatchHint'));
 					mark(match, 'stMatch');
-					E.inlineField(r1, T('hmiLnkMatch') + ':', match);
+					labelHelp(E.inlineField(r1, T('hmiLnkMatch') + ':', match), fkeys('states', 'match'));
 					var label = E.textInput(s.label || '');
 					mark(label, 'stLabel');
-					E.inlineField(r1, T('hmiLnkLabel') + ':', label);
+					labelHelp(E.inlineField(r1, T('hmiLnkLabel') + ':', label), fkeys('states', 'label'));
 
 					var r2 = cardRow(content);
 					var cols = {};
@@ -2029,18 +2101,18 @@
 					{
 						cols[c[0]] = E.colorInput(ui, s[c[0]] || '');
 						mark(cols[c[0]].input, 'st_' + c[0]);
-						E.inlineField(r2, T(c[1]) + ':', cols[c[0]]);
+						labelHelp(E.inlineField(r2, T(c[1]) + ':', cols[c[0]]), fkeys('states', c[0]));
 					});
 
 					var r3 = cardRow(content);
 					var image = E.textInput(s.image || '');
 					mark(image, 'stImage');
-					E.inlineField(r3, T('hmiLnkImage') + ':', image);
+					labelHelp(E.inlineField(r3, T('hmiLnkImage') + ':', image), fkeys('states', 'image'));
 					var op = E.numberInput(s.opacity != null ? s.opacity : '');
 					op.setAttribute('step', 'any');
 					op.style.maxWidth = '70px';
 					mark(op, 'stOpacity');
-					E.inlineField(r3, T('hmiLnkOpacity') + ':', op);
+					labelHelp(E.inlineField(r3, T('hmiLnkOpacity') + ':', op), fkeys('states', 'opacity'));
 
 					var r4 = cardRow(content);
 					var vis = E.select([{value: '', label: T('hmiLnkKeep')},
@@ -2048,21 +2120,22 @@
 						{value: 'false', label: T('hmiLnkHidden')}],
 						s.visible === true ? 'true' : (s.visible === false ? 'false' : ''));
 					mark(vis, 'stVisible');
-					E.inlineField(r4, T('hmiLnkVisibility') + ':', vis);
+					labelHelp(E.inlineField(r4, T('hmiLnkVisibility') + ':', vis), fkeys('states', 'visible'));
 					var blink = E.checkbox(T('hmiLnkBlink'), s.blink === true);
 					blink.style.minHeight = '0';
 					mark(blink.input, 'stBlink');
+					addHelp(blink, fkeys('states', 'blink'));
 					E.inlineField(r4, null, blink);
 
 					// Align the label columns of the four rows
 					[r1, r2, r3, r4].forEach(function(r)
 					{
 						var l = r.children[0].querySelector('.geDialogFormLabel');
-						l.style.minWidth = '72px';
+						l.style.minWidth = '96px';
 					});
 					[r1, r3].forEach(function(r)
 					{
-						r.children[1].querySelector('.geDialogFormLabel').style.minWidth = '56px';
+						r.children[1].querySelector('.geDialogFormLabel').style.minWidth = '76px';
 					});
 
 					return {get: function()
@@ -2140,7 +2213,9 @@
 			inlineRow = null;
 			inlineName = null;
 
-			return listEditor(E, section, {label: f.label, role: 'property', addKey: 'addProperty',
+			return listEditor(E, section, {label: f.label, helpKeys: fkeys('items'),
+				legend: [['hmiLnkTarget', fkeys('items', 'target')],
+				['hmiLnkExpression', fkeys('items', 'expr')]], role: 'property', addKey: 'addProperty',
 				addLabel: 'hmiLnkAddProperty', items: v || [], emptyKey: 'hmiLnkNeedProperty',
 				blank: function()
 				{
@@ -2220,7 +2295,9 @@
 			inlineRow = null;
 			inlineName = null;
 
-			return listEditor(E, section, {label: f.label, role: 'series', addKey: 'addSeries',
+			return listEditor(E, section, {label: f.label, helpKeys: fkeys('series'),
+				legend: [['hmiLnkTagname', fkeys('series', 'tag')], ['hmiLnkSeriesName', fkeys('series', 'name')],
+				['hmiLnkMaxPoints', fkeys('series', 'maxPoints')]], role: 'series', addKey: 'addSeries',
 				addLabel: 'hmiLnkAddSeries', items: v || [],
 				blank: function()
 				{
@@ -2277,7 +2354,9 @@
 			inlineRow = null;
 			inlineName = null;
 
-			return listEditor(E, section, {label: f.label, role: 'choice', addKey: 'addChoice',
+			return listEditor(E, section, {label: f.label, helpKeys: fkeys('options'),
+				legend: [['hmiLnkLabel', fkeys('options', 'label')], ['hmiLnkValue', fkeys('options', 'value')]],
+				role: 'choice', addKey: 'addChoice',
 				addLabel: 'hmiLnkAddChoice', items: v || [], emptyKey: 'hmiLnkNeedChoice',
 				blank: function()
 				{
@@ -2316,7 +2395,11 @@
 			inlineRow = null;
 			inlineName = null;
 
-			return listEditor(E, section, {label: f.label, role: 'command', addKey: 'addCommand',
+			return listEditor(E, section, {label: f.label, helpKeys: fkeys('commands'),
+				legend: [['hmiLnkColObject', fkeys('commands', 'object')],
+				['hmiLnkColCommand', fkeys('commands', 'command')],
+				['hmiLnkColAnimation', fkeys('commands', 'animation')]],
+				role: 'command', addKey: 'addCommand',
 				addLabel: 'hmiLnkAddCommand', items: v || [], emptyKey: 'hmiLnkNeedCommand',
 				blank: function()
 				{
@@ -2665,6 +2748,7 @@
 		var div = document.createElement('div');
 		var hd = document.createElement('h3');
 		mxUtils.write(hd, spec.title);
+		addHelp(hd, 'link.' + id);
 		div.appendChild(hd);
 		div.appendChild(form.el);
 
@@ -2925,6 +3009,17 @@
 	// Main dialog
 	// ---------------------------------------------------------------
 
+	/**
+	 * Tab of every band: [tab id, label resource key].
+	 */
+	var TAB_OF_BAND = {hmiLnkDisplayLinks: ['display', 'hmiLnkTabDisplay'],
+		hmiLnkAnimationLinks: ['animation', 'hmiLnkTabAnimation'],
+		hmiLnkTouchLinks: ['touch', 'hmiLnkTabTouch'],
+		hmiLnkScriptsBand: ['scripts', 'hmiLnkTabScripts']};
+
+	// The tab used last in this session
+	var lastTab = null;
+
 	function editableCells(ui, cells)
 	{
 		var model = ui.editor.graph.model;
@@ -2981,11 +3076,24 @@
 		info.style.cssText = 'margin:-8px 0 10px 0;text-align:center;line-height:normal;';
 		var name = graph.convertValueToString(cells[0]);
 		name = (name != null && name !== '') ? String(name).replace(/<[^>]*>/g, '').substring(0, 40) : cells[0].id;
-		info.textContent = (cells.length == 1) ? name :
+		info.textContent = (cells.length == 1) ? T('hmiLnkObject').replace('{1}', name) :
 			T('hmiLnkAppliesTo').replace('{1}', cells.length) + (same ? '' : ' — ' + T('hmiLnkDiffer'));
+		info.setAttribute('title', (cells.length == 1) ? 'ID: ' + cells[0].id :
+			cells.map(function(c)
+			{
+				return c.id;
+			}).join(', '));
 		div.appendChild(info);
 
 		var rows = {};
+		var tabs = [];
+		var tablist = document.createElement('div');
+		tablist.className = 'geHmiTabs';
+		tablist.setAttribute('role', 'tablist');
+		tablist.setAttribute('aria-label', T('hmiLnkTabs'));
+		var panels = document.createElement('div');
+		panels.className = 'geHmiTabPanels';
+		var selected = null;
 
 		function isOn(id)
 		{
@@ -3010,6 +3118,47 @@
 					return o;
 				})())[0] : '';
 				rows[id].row.setAttribute('title', s || rows[id].label);
+			}
+
+			refreshTabs();
+		};
+
+		// Count badge of every tab: number of enabled links
+		function refreshTabs()
+		{
+			for (var i = 0; i < tabs.length; i++)
+			{
+				var n = 0;
+
+				for (var j = 0; j < tabs[i].ids.length; j++)
+				{
+					n += isOn(tabs[i].ids[j]) ? 1 : 0;
+				}
+
+				tabs[i].count = n;
+				tabs[i].countEl.textContent = '(' + n + ')';
+				tabs[i].countEl.className = 'geHmiTabCount' + (n > 0 ? ' geHmiHas' : '');
+				tabs[i].button.setAttribute('data-count', String(n));
+			}
+		};
+
+		function selectTab(tab, focus)
+		{
+			selected = tab;
+			lastTab = tab.id;
+
+			for (var i = 0; i < tabs.length; i++)
+			{
+				var on = (tabs[i] == tab);
+				tabs[i].button.setAttribute('aria-selected', on ? 'true' : 'false');
+				tabs[i].button.setAttribute('tabindex', on ? '0' : '-1');
+				tabs[i].wrap.className = 'geHmiTabWrap' + (on ? ' geHmiSel' : '');
+				tabs[i].panel.hidden = !on;
+			}
+
+			if (focus)
+			{
+				tab.button.focus();
 			}
 		};
 
@@ -3037,7 +3186,7 @@
 			});
 		};
 
-		function addRow(section, id, labelKey)
+		function addRow(section, id, labelKey, tab)
 		{
 			var row = document.createElement('div');
 			row.className = 'geDialogCheckRow geHmiLinkRow';
@@ -3057,9 +3206,11 @@
 			cb.setAttribute('data-role', 'check');
 			row.appendChild(cb);
 			row.appendChild(lbl);
+			addHelp(row, 'link.' + id);
 			row.appendChild(btn);
 			section.appendChild(row);
 			rows[id] = {row: row, cb: cb, label: T(labelKey)};
+			tab.ids.push(id);
 
 			mxEvent.addListener(cb, 'change', function()
 			{
@@ -3078,19 +3229,70 @@
 		};
 
 		var grid = null;
+		var tab = null;
 
 		GROUPS.forEach(function(g)
 		{
 			if (g.band != null)
 			{
-				var band = document.createElement('div');
-				band.className = 'geHmiBand';
-				mxUtils.write(band, T(g.band));
-				div.appendChild(band);
+				var tabInfo = TAB_OF_BAND[g.band];
+				tab = {id: tabInfo[0], ids: [], count: 0};
+				var wrap = document.createElement('div');
+				wrap.className = 'geHmiTabWrap';
+				wrap.setAttribute('role', 'presentation');
+				var button = document.createElement('button');
+				button.setAttribute('type', 'button');
+				button.className = 'geHmiTab';
+				button.setAttribute('role', 'tab');
+				button.setAttribute('id', 'hmiLnkTab_' + tabInfo[0]);
+				button.setAttribute('aria-controls', 'hmiLnkPanel_' + tabInfo[0]);
+				button.setAttribute('data-tab', tabInfo[0]);
+				var label = document.createElement('span');
+				label.className = 'geHmiTabLabel';
+				mxUtils.write(label, T(tabInfo[1]));
+				button.appendChild(label);
+				tab.countEl = document.createElement('span');
+				tab.countEl.className = 'geHmiTabCount';
+				button.appendChild(tab.countEl);
+				wrap.appendChild(button);
+				addHelp(wrap, 'tab.' + tabInfo[0], T(tabInfo[1]));
+				tablist.appendChild(wrap);
+				tab.button = button;
+				tab.wrap = wrap;
+				tab.panel = document.createElement('div');
+				tab.panel.className = 'geHmiTabPanel';
+				tab.panel.setAttribute('role', 'tabpanel');
+				tab.panel.setAttribute('id', 'hmiLnkPanel_' + tabInfo[0]);
+				tab.panel.setAttribute('aria-labelledby', button.id);
+				tab.panel.setAttribute('data-panel', tabInfo[0]);
+				tab.panel.hidden = true;
 				grid = document.createElement('div');
-				grid.className = 'geHmiLinkGrid';
-				grid.style.gridTemplateColumns = 'repeat(auto-fill,minmax(200px,1fr))';
-				div.appendChild(grid);
+				grid.className = 'geHmiMasonry';
+				tab.panel.appendChild(grid);
+				panels.appendChild(tab.panel);
+				tabs.push(tab);
+
+				(function(t)
+				{
+					mxEvent.addListener(t.button, 'click', function()
+					{
+						selectTab(t, false);
+					});
+					mxEvent.addListener(t.button, 'keydown', function(evt)
+					{
+						var i = tabs.indexOf(t);
+						var key = evt.key;
+						var next = (key == 'ArrowRight' || key == 'ArrowDown') ? (i + 1) % tabs.length :
+							((key == 'ArrowLeft' || key == 'ArrowUp') ? (i + tabs.length - 1) % tabs.length :
+							((key == 'Home') ? 0 : ((key == 'End') ? tabs.length - 1 : -1)));
+
+						if (next >= 0)
+						{
+							mxEvent.consume(evt);
+							selectTab(tabs[next], true);
+						}
+					});
+				})(tab);
 
 				return;
 			}
@@ -3100,6 +3302,7 @@
 			var title = document.createElement('div');
 			title.className = 'geHmiGroupTitle';
 			mxUtils.write(title, T(g.title));
+			addHelp(title, 'group.' + g.title);
 			section.appendChild(title);
 			grid.appendChild(section);
 
@@ -3107,19 +3310,60 @@
 			{
 				COLOR_KINDS.forEach(function(k)
 				{
-					addRow(section, g.color + ':' + k[0], k[1]);
+					addRow(section, g.color + ':' + k[0], k[1], tab);
 				});
 			}
 			else
 			{
 				g.items.forEach(function(it)
 				{
-					addRow(section, it[0], it[1]);
+					addRow(section, it[0], it[1], tab);
 				});
 			}
 		});
 
+		div.appendChild(tablist);
+		div.appendChild(panels);
+
+		// Opens on the tab of the first enabled link, else on the last one used
+		var first = null;
+
+		for (var ti = 0; ti < tabs.length && first == null; ti++)
+		{
+			for (var tj = 0; tj < tabs[ti].ids.length; tj++)
+			{
+				if (isOn(tabs[ti].ids[tj]))
+				{
+					first = tabs[ti];
+					break;
+				}
+			}
+		}
+
+		var initial = tabs[0];
+
+		for (var tk = 0; tk < tabs.length; tk++)
+		{
+			if (tabs[tk].id == lastTab)
+			{
+				initial = tabs[tk];
+			}
+		}
+
+		if (first != null)
+		{
+			var keep = false;
+
+			for (var tm = 0; tm < initial.ids.length; tm++)
+			{
+				keep = keep || isOn(initial.ids[tm]);
+			}
+
+			initial = keep ? initial : first;
+		}
+
 		refreshRows();
+		selectTab(initial, false);
 		LinksDialog.decorate(ui, true);
 
 		var removeAll = Hmi.Editors.button(T('hmiLnkRemoveAll'), function()
@@ -3162,6 +3406,27 @@
 				LinksDialog.decorate(ui, false);
 			}
 		});
+
+		// Fixed size: the panel area gets the height of the tallest tab
+		var tallest = 0;
+
+		for (var tn = 0; tn < tabs.length; tn++)
+		{
+			for (var to = 0; to < tabs.length; to++)
+			{
+				tabs[to].panel.hidden = (to != tn);
+			}
+
+			tallest = Math.max(tallest, panels.offsetHeight);
+		}
+
+		for (var tp = 0; tp < tabs.length; tp++)
+		{
+			tabs[tp].panel.hidden = (tabs[tp] != selected);
+		}
+
+		panels.style.minHeight = tallest + 'px';
+		Hmi.Editors.fitDialog(div);
 
 		return dlg;
 	};

@@ -110,10 +110,16 @@
 		return wrap;
 	};
 
-	function formRow(parent, label, input)
+	function addHelp(parent, key)
+	{
+		return (Hmi.Help != null) ? Hmi.Help.attach(parent, key) : null;
+	};
+
+	function formRow(parent, label, input, helpKey)
 	{
 		var row = el('div', 'geDialogFormRow');
 		var lbl = el('span', 'geDialogFormLabel', label + ':');
+		addHelp(lbl, helpKey);
 		row.appendChild(lbl);
 		row.appendChild(input);
 		parent.appendChild(row);
@@ -309,7 +315,9 @@
 		var enabled = stored !== false;
 
 		var div = el('div');
-		div.appendChild(el('h3', null, mxResources.get('hmiHoverHalo')));
+		var title = el('h3', null, mxResources.get('hmiHoverHalo'));
+		addHelp(title, 'halo.dialog');
+		div.appendChild(title);
 
 		var hint = el('div', 'geDialogHint', mxResources.get('hmiHaloHint'));
 		hint.style.marginBottom = '10px';
@@ -318,13 +326,18 @@
 		// Presets
 		var presetSection = el('div', 'geDialogSection');
 		div.appendChild(presetSection);
+		var presetHead = el('div', 'geDialogHint geHmiSubHead', mxResources.get('hmiHaloPresets'));
+		addHelp(presetHead, 'halo.presets');
+		presetSection.appendChild(presetHead);
 		var presets = el('div', 'geHmiHaloPresets');
 		presetSection.appendChild(presets);
 		var presetButtons = {};
 
 		// Preview
+		var previewHead = el('div', 'geDialogHint geHmiSubHead', mxResources.get('hmiHaloPreview'));
+		addHelp(previewHead, 'halo.preview');
+		presetSection.appendChild(previewHead);
 		var preview = createPreview();
-		preview.style.marginTop = '10px';
 		presetSection.appendChild(preview);
 
 		// Basic settings
@@ -332,6 +345,7 @@
 		div.appendChild(basic);
 
 		var enabledCb = Hmi.Editors.checkbox(mxResources.get('hmiHaloEnabled'), enabled);
+		addHelp(enabledCb, 'halo.enabled');
 		basic.appendChild(enabledCb);
 
 		var styleSelect = document.createElement('select');
@@ -346,15 +360,15 @@
 			styleSelect.appendChild(opt);
 		}
 
-		var styleRow = formRow(basic, mxResources.get('hmiHaloStyle'), styleSelect);
+		var styleRow = formRow(basic, mxResources.get('hmiHaloStyle'), styleSelect, 'halo.style');
 		var color = Hmi.Editors.colorInput(ui, settings.color);
-		var colorRow = formRow(basic, mxResources.get('color'), color);
+		var colorRow = formRow(basic, mxResources.get('color'), color, 'halo.color');
 		var size = slider(1, 40, 1, settings.size, ' px');
-		var sizeRow = formRow(basic, mxResources.get('hmiHaloGlowSize'), size);
+		var sizeRow = formRow(basic, mxResources.get('hmiHaloGlowSize'), size, 'halo.size');
 		var intensity = slider(10, 100, 5, settings.intensity, ' %');
-		var intensityRow = formRow(basic, mxResources.get('hmiHaloIntensity'), intensity);
+		var intensityRow = formRow(basic, mxResources.get('hmiHaloIntensity'), intensity, 'halo.intensity');
 		var width = slider(1, 8, 1, settings.width, ' px');
-		var widthRow = formRow(basic, mxResources.get('hmiHaloLineWidth'), width);
+		var widthRow = formRow(basic, mxResources.get('hmiHaloLineWidth'), width, 'halo.width');
 		var outlineShape = document.createElement('select');
 		var shapes = [['rect', 'hmiHaloOutlineRect'], ['shape', 'hmiHaloOutlineShape']];
 
@@ -367,19 +381,21 @@
 		}
 
 		outlineShape.className = 'geHmiHaloOutlineShape';
-		var outlineShapeRow = formRow(basic, mxResources.get('hmiHaloOutlineFollows'), outlineShape);
+		var outlineShapeRow = formRow(basic, mxResources.get('hmiHaloOutlineFollows'), outlineShape, 'halo.outlineShape');
 
 		var padding = slider(0, 20, 1, settings.padding, ' px');
-		var paddingRow = formRow(basic, mxResources.get('hmiHaloPadding'), padding);
+		var paddingRow = formRow(basic, mxResources.get('hmiHaloPadding'), padding, 'halo.padding');
 		var radius = slider(0, 20, 1, settings.radius, ' px');
-		var radiusRow = formRow(basic, mxResources.get('hmiHaloRadius'), radius);
+		var radiusRow = formRow(basic, mxResources.get('hmiHaloRadius'), radius, 'halo.radius');
 		var dashed = Hmi.Editors.checkbox(mxResources.get('hmiHaloDashed'), settings.dashed);
+		addHelp(dashed, 'halo.dashed');
 		basic.appendChild(dashed);
 		var press = Hmi.Editors.checkbox(mxResources.get('hmiHaloPress'), settings.press !== false);
+		addHelp(press, 'halo.press');
 		basic.appendChild(press);
 		var pressColor = Hmi.Editors.colorInput(ui, settings.pressColor || '');
 		pressColor.input.setAttribute('placeholder', mxResources.get('hmiHaloSameColor'));
-		var pressColorRow = formRow(basic, mxResources.get('hmiHaloPressColor'), pressColor);
+		var pressColorRow = formRow(basic, mxResources.get('hmiHaloPressColor'), pressColor, 'halo.pressColor');
 
 		var read = function()
 		{
@@ -425,7 +441,11 @@
 
 				for (var j = 0; j < inputs.length; j++)
 				{
-					inputs[j].disabled = !rows[i][1];
+					// The help icons stay usable
+					if (!inputs[j].hasAttribute('data-help'))
+					{
+						inputs[j].disabled = !rows[i][1];
+					}
 				}
 			}
 

@@ -114,12 +114,13 @@ test('FOR / NEXT with STEP, nested and RETURN', async function()
 
 test('FOR iteration bound is global', async function()
 {
-	await assert.rejects(run('FOR i = 1 TO 100000\n DIM_ = 1;\nNEXT', {}), function(e)
+	// Loop bodies assign locals: tag writes take 5 ms each in this test api
+	await assert.rejects(run('DIM y AS INTEGER;\nFOR i = 1 TO 100000\n y = 1;\nNEXT', {}), function(e)
 	{
-		return e instanceof QS.Error && /iteration limit/.test(e.message) && e.line === 1;
+		return e instanceof QS.Error && /iteration limit/.test(e.message) && e.line === 2;
 	});
 	// nested loops share the budget: 100 * 101 > 10000
-	await assert.rejects(run('FOR a = 1 TO 100\n FOR b = 1 TO 100\n x = 1;\n NEXT;\n NEXT', {}),
+	await assert.rejects(run('DIM x AS INTEGER;\nFOR a = 1 TO 100\n FOR b = 1 TO 100\n x = 1;\n NEXT;\n NEXT', {}),
 		function(e) { return e instanceof QS.Error && /iteration limit/.test(e.message); });
 	// exactly at the limit is allowed
 	var api = await run('DIM n AS INTEGER; FOR i = 1 TO ' + QS.MAX_ITERATIONS + '\n n = n + 1;\nNEXT; T = n', {});

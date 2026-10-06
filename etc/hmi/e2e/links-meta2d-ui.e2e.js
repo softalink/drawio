@@ -248,9 +248,9 @@ async function fillAll(page)
 		await TT.wait(150);
 
 		out.rows = TT.dlg().querySelectorAll('[data-link]').length;
-		out.bands = Array.prototype.map.call(TT.dlg().querySelectorAll('.geHmiBand'), function(e)
+		out.bands = Array.prototype.map.call(TT.dlg().querySelectorAll('[role="tab"]'), function(e)
 		{
-			return e.textContent;
+			return e.querySelector('.geHmiTabLabel').textContent;
 		});
 		out.titles = Array.prototype.map.call(TT.dlg().querySelectorAll('.geHmiGroupTitle'), function(e)
 		{
@@ -428,7 +428,7 @@ test('Animation Links dialog configures every extension link and round-trips', a
 
 	assert.deepStrictEqual(page.hmiErrors, []);
 	assert.strictEqual(out.rows, 50);
-	assert.deepStrictEqual(out.bands, ['Display Links', 'Animation Links', 'Touch Links', 'Scripts']);
+	assert.deepStrictEqual(out.bands, ['Display', 'Animation', 'Touch', 'Scripts']);
 	assert.ok(['States and Properties', 'Animation', 'Actions', 'Object Scripts'].every(function(t)
 	{
 		return out.titles.indexOf(t) >= 0;

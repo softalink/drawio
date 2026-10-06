@@ -642,6 +642,14 @@
 		content.style.padding = '6px 0';
 		var style = graph.getCurrentCellStyle(cells[0]) || {};
 
+		function haloHelp(row, key)
+		{
+			if (Hmi.Help != null)
+			{
+				Hmi.Help.attach(row.querySelector('.geDialogFormLabel'), key);
+			}
+		};
+
 		var current = (mxUtils.getValue(style, 'hmiHalo', '1') == '0') ? 'off' :
 			mxUtils.getValue(style, 'hmiHaloStyle', 'default');
 		var options = [['default', 'hmiHaloPageDefault'], ['glow', 'hmiHaloGlow'],
@@ -661,6 +669,7 @@
 		select.style.position = 'static';
 		select.style.marginLeft = '6px';
 		var row = Hmi.Editors.row(content, mxResources.get('hmiHaloStyle') + ':');
+		haloHelp(row, 'halo.object.style');
 		row.appendChild(select);
 
 		var outline = document.createElement('select');
@@ -680,11 +689,13 @@
 		outline.style.position = 'static';
 		outline.style.marginLeft = '6px';
 		var outlineRow = Hmi.Editors.row(content, mxResources.get('hmiHaloOutlineFollows') + ':');
+		haloHelp(outlineRow, 'halo.object.outlineShape');
 		outlineRow.appendChild(outline);
 
 		var color = Hmi.Editors.colorInput(ui, mxUtils.getValue(style, 'hmiHaloColor', ''));
 		color.input.setAttribute('placeholder', mxResources.get('hmiHaloPageDefault'));
 		var colorRow = Hmi.Editors.row(content, mxResources.get('color') + ':');
+		haloHelp(colorRow, 'halo.object.color');
 		colorRow.appendChild(color);
 
 		var apply = function()

@@ -1144,23 +1144,40 @@
 		var style = document.createElement('style');
 		style.setAttribute('id', 'geHmiLinksStyle');
 		style.textContent =
-			'.geHmiLinkGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));' +
-				'gap:10px;align-items:start;margin-bottom:10px;}' +
-			'.geHmiLinkGrid>.geDialogSection{margin-bottom:0;}' +
+			// Tabs of the Animation Links dialog
+			'.geHmiTabs{display:flex;flex-wrap:wrap;column-gap:6px;margin:0 0 12px 0;' +
+				'border-bottom:1px solid light-dark(var(--field-border-color),var(--dark-field-border-color));}' +
+			'.geHmiTabWrap{display:flex;align-items:center;margin-bottom:-1px;padding-right:8px;' +
+				'border-bottom:2px solid transparent;}' +
+			'.geHmiTabWrap.geHmiSel{border-bottom-color:light-dark(var(--focus-color),var(--dark-focus-color));}' +
+			'.geHmiTab{display:inline-flex;align-items:baseline;column-gap:5px;margin:0;' +
+				'padding:8px 2px 8px 10px;border:0;border-radius:6px 6px 0 0;background:transparent;' +
+				'font-size:14px;line-height:normal;cursor:pointer;' +
+				'color:light-dark(var(--secondary-text-color),var(--dark-secondary-text-color));}' +
+			'.geHmiTab.geHmiTab:hover{background-color:light-dark(var(--soft-hover-color),var(--dark-soft-hover-color));}' +
+			'.geHmiTab:focus-visible{outline:2px solid light-dark(var(--focus-color),var(--dark-focus-color));' +
+				'outline-offset:-2px;}' +
+			'.geHmiTab[aria-selected="true"]{color:light-dark(var(--strong-text-color),var(--dark-strong-text-color));}' +
+			'.geHmiTabCount{font-variant-numeric:tabular-nums;' +
+				'color:light-dark(var(--faint-text-color),var(--dark-faint-text-color));}' +
+			'.geHmiTabCount.geHmiHas{color:light-dark(var(--focus-color),var(--dark-focus-color));}' +
+			// Masonry: the column gap equals the vertical gap between the cards
+			'.geHmiMasonry{column-width:215px;column-gap:10px;}' +
+			'.geHmiMasonry>.geDialogSection{display:block;box-sizing:border-box;width:100%;' +
+				'break-inside:avoid;margin:0 0 10px 0;}' +
+			'.geHmiLegend{margin-left:12px;}' +
 			'.geHmiGroupTitle{font-size:13px;font-weight:600;margin-bottom:4px;' +
 				'color:light-dark(var(--strong-text-color),var(--dark-strong-text-color));}' +
-			'.geHmiBand{font-size:13px;font-weight:600;margin:4px 0 6px 2px;' +
-				'color:light-dark(var(--secondary-text-color),var(--dark-secondary-text-color));}' +
 			'.geHmiSubHead{margin:10px 0 4px 0;line-height:normal;}' +
 			'.geDialogSection>.geHmiSubHead:first-child{margin-top:0;}' +
 			'.geHmiCard{border:1px solid light-dark(var(--field-border-color),var(--dark-field-border-color));' +
 				'background:light-dark(var(--field-color),var(--dark-field-color));border-radius:6px;' +
 				'padding:8px;margin-top:6px;}' +
 			'.geHmiLinkRow{display:flex;align-items:center;min-height:28px;}' +
-			'.geHmiLinkRow label{flex:1;min-width:0;white-space:nowrap;overflow:hidden;' +
-				'text-overflow:ellipsis;line-height:normal;}' +
+			'.geHmiLinkRow label{flex:1;min-width:0;line-height:normal;overflow-wrap:anywhere;}' +
 			'.geHmiLinkRow .geBtn{margin:0;padding:0 8px;min-width:30px;height:24px;flex:0 0 auto;}' +
 			'.geHmiLinkRow.geHmiOff .geBtn{opacity:0.45;}' +
+			'.geHmiLinkRow .geHmiHelp{margin:0 6px 0 4px;}' +
 			'.geHmiPick{border:1px solid light-dark(var(--field-border-color),var(--dark-field-border-color));' +
 				'background:light-dark(var(--field-color),var(--dark-field-color));border-radius:6px;' +
 				'overflow:auto;margin-top:6px;}' +
