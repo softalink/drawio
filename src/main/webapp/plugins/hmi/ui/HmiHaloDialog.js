@@ -16,7 +16,7 @@
 	/**
 	 * Preset keys in display order (Hmi.Halo.PRESETS plus 'off').
 	 */
-	HaloDialog.PRESETS = ['softGlow', 'subtleGlow', 'strongGlow', 'crispOutline',
+	HaloDialog.PRESETS = ['softGlow', 'subtleGlow', 'strongGlow', 'crispOutline', 'shapeOutline',
 		'dashedOutline', 'glowOutline', 'off'];
 
 	/**
@@ -240,7 +240,7 @@
 
 			for (var p = 0; p < panels.length; p++)
 			{
-				var old = panels[p].svg.querySelectorAll('[data-outline]');
+				var old = panels[p].svg.querySelectorAll('[data-outline],filter');
 
 				for (var k = 0; k < old.length; k++)
 				{
@@ -253,10 +253,25 @@
 					var active = cfg != null && sample.state != 'idle';
 					var pressed = sample.state == 'pressed' && cfg != null && cfg.press !== false;
 
-					sample.shape.style.filter = (active && cfg.style != 'outline') ?
-						Hmi.Halo.filterFor(cfg, pressed) : '';
+					var parts = [];
+					var shapeOutline = active && cfg.style != 'glow' && cfg.outlineShape == 'shape';
 
-					if (active && cfg.style != 'glow')
+					if (shapeOutline)
+					{
+						var f = Hmi.Halo.createShapeOutlineFilter(document, cfg, pressed,
+							{x: sample.x, y: sample.y, width: sample.w, height: sample.h});
+						panels[p].svg.appendChild(f);
+						parts.push('url(#' + f.getAttribute('id') + ')');
+					}
+
+					if (active && cfg.style != 'outline')
+					{
+						parts.push(Hmi.Halo.filterFor(cfg, pressed));
+					}
+
+					sample.shape.style.filter = parts.join(' ');
+
+					if (active && cfg.style != 'glow' && !shapeOutline)
 					{
 						var width = cfg.width + (pressed ? 1 : 0);
 						var r = svg('rect', {x: sample.x - cfg.padding + 0.5, y: sample.y - cfg.padding + 0.5,
@@ -339,6 +354,19 @@
 		var intensityRow = formRow(basic, mxResources.get('hmiHaloIntensity'), intensity);
 		var width = slider(1, 8, 1, settings.width, ' px');
 		var widthRow = formRow(basic, mxResources.get('hmiHaloLineWidth'), width);
+		var outlineShape = document.createElement('select');
+		var shapes = [['rect', 'hmiHaloOutlineRect'], ['shape', 'hmiHaloOutlineShape']];
+
+		for (var i = 0; i < shapes.length; i++)
+		{
+			var o = document.createElement('option');
+			o.value = shapes[i][0];
+			mxUtils.write(o, mxResources.get(shapes[i][1]));
+			outlineShape.appendChild(o);
+		}
+
+		outlineShape.className = 'geHmiHaloOutlineShape';
+		var outlineShapeRow = formRow(basic, mxResources.get('hmiHaloOutlineFollows'), outlineShape);
 
 		// Advanced settings
 		var advanced = ui.addAdvancedSection(div);
@@ -357,7 +385,7 @@
 
 		var read = function()
 		{
-			return Hmi.Halo.normalize([{style: styleSelect.value,
+			return Hmi.Halo.normalize([{style: styleSelect.value, outlineShape: outlineShape.value,
 				color: color.getValue() || Hmi.Halo.DEFAULTS.color,
 				size: size.getValue(), intensity: intensity.getValue(), width: width.getValue(),
 				padding: padding.getValue(), radius: radius.getValue(), dashed: dashed.input.checked,
@@ -367,6 +395,7 @@
 		var write = function(s)
 		{
 			styleSelect.value = s.style;
+			outlineShape.value = s.outlineShape;
 			color.setValue(s.color);
 			size.setValue(s.size);
 			intensity.setValue(s.intensity);
@@ -385,9 +414,10 @@
 			var s = read();
 			var glow = s.style != 'outline';
 			var line = s.style != 'glow';
+			var rect = line && s.outlineShape == 'rect';
 			var rows = [[styleRow, on], [colorRow, on], [sizeRow, on && glow],
-				[intensityRow, on && glow], [widthRow, on && line], [paddingRow, on && line],
-				[radiusRow, on && line], [dashed, on && line], [press, on],
+				[intensityRow, on && glow], [widthRow, on && line], [outlineShapeRow, on && line],
+				[paddingRow, on && line], [radiusRow, on && rect], [dashed, on && rect], [press, on],
 				[pressColorRow, on && press.input.checked]];
 
 			for (var i = 0; i < rows.length; i++)

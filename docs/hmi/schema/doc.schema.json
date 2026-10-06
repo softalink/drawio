@@ -25,8 +25,9 @@
           "description": "Hover halo of interactive objects: false (off) or settings (see runtime/HmiHalo.js).",
           "type": ["boolean", "object"],
           "properties": {
-            "preset": { "enum": ["softGlow", "subtleGlow", "strongGlow", "crispOutline", "dashedOutline", "glowOutline"] },
+            "preset": { "enum": ["softGlow", "subtleGlow", "strongGlow", "crispOutline", "shapeOutline", "dashedOutline", "glowOutline"] },
             "style": { "enum": ["glow", "outline", "glowOutline"], "default": "glow" },
+            "outlineShape": { "enum": ["rect", "shape"], "default": "rect" },
             "color": { "type": "string", "default": "#1E88E5" },
             "size": { "type": "number", "minimum": 1, "maximum": 40, "default": 6 },
             "intensity": { "type": "number", "minimum": 10, "maximum": 100, "default": 100 },

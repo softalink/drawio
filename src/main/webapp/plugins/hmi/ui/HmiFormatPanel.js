@@ -663,6 +663,25 @@
 		var row = Hmi.Editors.row(content, mxResources.get('hmiHaloStyle') + ':');
 		row.appendChild(select);
 
+		var outline = document.createElement('select');
+		outline.className = 'geHmiHaloOutlineSelect';
+		var outlines = [['default', 'hmiHaloPageDefault'], ['rect', 'hmiHaloOutlineRect'],
+			['shape', 'hmiHaloOutlineShape']];
+
+		for (var i = 0; i < outlines.length; i++)
+		{
+			var o = document.createElement('option');
+			o.value = outlines[i][0];
+			mxUtils.write(o, mxResources.get(outlines[i][1]));
+			outline.appendChild(o);
+		}
+
+		outline.value = mxUtils.getValue(style, 'hmiHaloOutline', 'default');
+		outline.style.position = 'static';
+		outline.style.marginLeft = '6px';
+		var outlineRow = Hmi.Editors.row(content, mxResources.get('hmiHaloOutlineFollows') + ':');
+		outlineRow.appendChild(outline);
+
 		var color = Hmi.Editors.colorInput(ui, mxUtils.getValue(style, 'hmiHaloColor', ''));
 		color.input.setAttribute('placeholder', mxResources.get('hmiHaloPageDefault'));
 		var colorRow = Hmi.Editors.row(content, mxResources.get('color') + ':');
@@ -680,6 +699,8 @@
 				graph.setCellStyles('hmiHaloStyle', (value == 'off' || value == 'default') ?
 					null : value, cells);
 				graph.setCellStyles('hmiHaloColor', (c != null && c !== '') ? c : null, cells);
+				graph.setCellStyles('hmiHaloOutline', (outline.value == 'default') ? null :
+					outline.value, cells);
 			}
 			finally
 			{
@@ -688,6 +709,7 @@
 		};
 
 		mxEvent.addListener(select, 'change', apply);
+		mxEvent.addListener(outline, 'change', apply);
 		mxEvent.addListener(color.input, 'change', apply);
 
 		// The colour picker sets the value without a change event

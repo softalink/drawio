@@ -11,12 +11,16 @@
 	var Resources = {};
 
 	Resources.DEFAULTS = {
+		hmiHaloOutlineFollows: 'Outline shape',
+		hmiHaloOutlineRect: 'Rectangle',
+		hmiHaloOutlineShape: 'Follow the object\'s shape',
+		hmiHaloPreset_shapeOutline: 'Shape outline',
 		hmiHoverHalo: 'Hover Halo',
 		hmiHaloHint: 'How interactive objects are highlighted in a running screen when the mouse is over them, when they have keyboard focus and while they are pressed.',
 		hmiHaloEnabled: 'Show hover halo',
 		hmiHaloStyle: 'Style',
 		hmiHaloGlow: 'Glow',
-		hmiHaloOutline: 'Outline rectangle',
+		hmiHaloOutline: 'Outline',
 		hmiHaloGlowOutline: 'Glow and outline',
 		hmiHaloGlowSize: 'Glow size',
 		hmiHaloIntensity: 'Glow intensity',

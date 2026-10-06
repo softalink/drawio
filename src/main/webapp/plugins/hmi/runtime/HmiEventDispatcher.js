@@ -481,6 +481,18 @@
 				self.keyDown(evt);
 			};
 			mxEvent.addListener(graph.container, 'keydown', this.keyListener);
+
+			// Leaving the screen ends the hover (no mouse move arrives there)
+			this.leaveListener = function(evt)
+			{
+				var to = evt.relatedTarget;
+
+				if (to == null || !graph.container.contains(to))
+				{
+					self.updateHover(null);
+				}
+			};
+			mxEvent.addListener(graph.container, 'mouseleave', this.leaveListener);
 		}
 
 		// Link clicks are handled by HMI events when present
@@ -501,6 +513,7 @@
 		{
 			mxEvent.removeListener(graph.container, 'contextmenu', this.contextListener);
 			mxEvent.removeListener(graph.container, 'keydown', this.keyListener);
+			mxEvent.removeListener(graph.container, 'mouseleave', this.leaveListener);
 		}
 
 		this.updateHover(null);

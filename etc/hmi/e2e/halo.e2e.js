@@ -81,6 +81,24 @@ test('halo dialog: presets, advanced settings, off and undo', async function()
 	await editor.click('.geDialog .gePrimaryBtn');
 	assert.deepStrictEqual(await storedHalo(editor), {style: 'outline'});
 
+	// Shape outline: the preview uses an SVG filter, the setting is stored
+	await editor.evaluate(function()
+	{
+		Hmi.HaloDialog.show(Hmi.ui);
+	});
+	await editor.waitForSelector('.geDialog [data-preset="shapeOutline"]');
+	await editor.click('[data-preset="shapeOutline"]');
+	assert.match(await editor.$eval('.geHmiHaloPreview [data-sample="lamp"] circle', function(c)
+	{
+		return c.style.filter;
+	}), /url\("?#geHmiHaloOutline/);
+	assert.strictEqual(await editor.$eval('.geDialog .geHmiHaloOutlineShape', function(e)
+	{
+		return e.value;
+	}), 'shape');
+	await editor.click('.geDialog .gePrimaryBtn');
+	assert.deepStrictEqual(await storedHalo(editor), {style: 'outline', outlineShape: 'shape', padding: 2});
+
 	// Strong glow with a colour and a dashed setting in the advanced part
 	await editor.evaluate(function()
 	{
@@ -155,6 +173,7 @@ test('halo per object (HMI tab) and runtime styles', async function()
 	{
 		var graph = Hmi.ui.editor.graph;
 		graph.setCellStyles('hmiHalo', '0', [graph.model.getCell('itd-push-reverse')]);
+		graph.setCellStyles('hmiHaloOutline', 'shape', [graph.model.getCell('itd-push-set')]);
 	});
 	var style = await editor.evaluate(function()
 	{
@@ -192,6 +211,14 @@ test('halo per object (HMI tab) and runtime styles', async function()
 		{
 			setTimeout(r, 500);
 		});
+	});
+
+	// A point on the page without objects (left of the title)
+	var blank = await page.evaluate(function()
+	{
+		var r = rt().graph.container.getBoundingClientRect();
+
+		return {x: r.left + 4, y: r.top + 4};
 	});
 
 	var hover = async function(id)
@@ -237,9 +264,44 @@ test('halo per object (HMI tab) and runtime styles', async function()
 	assert.strictEqual(h.outline, null);
 	assert.strictEqual(h.glow, '');
 
+	// Object override: outline that follows the shape (SVG filter)
+	h = await hover('itd-push-set');
+	assert.strictEqual(h.outline, null);
+	assert.match(h.glow, /url\("?#geHmiHaloOutline/);
+	assert.strictEqual(await page.evaluate(function()
+	{
+		return document.querySelectorAll('filter[id^="geHmiHaloOutline"]').length;
+	}), 1);
+	await page.mouse.move(blank.x, blank.y, {steps: 2});
+	assert.strictEqual(await page.evaluate(function()
+	{
+		return document.querySelectorAll('filter[id^="geHmiHaloOutline"]').length;
+	}), 0);
+
 	// Leaving removes the outline
-	await page.mouse.move(5, 890, {steps: 2});
-	assert.strictEqual(await page.$('[data-hmi-halo-outline]'), null);
+	await page.mouse.move(blank.x, blank.y, {steps: 2});
+	assert.ok(await page.$('[data-hmi-halo-outline]') == null, 'outline removed');
+
+	// Leaving the screen quickly (over another object) also ends the hover
+	var t = await page.evaluate(function()
+	{
+		var s = rt().graph.view.getState(rt().graph.model.getCell('itd-push-toggle'));
+		var r = s.shape.node.getBoundingClientRect();
+		var c = rt().graph.container.getBoundingClientRect();
+
+		return {x: r.left + r.width / 2, y: r.top + r.height / 2, out: c.bottom + 10};
+	});
+	await page.mouse.move(t.x, t.y, {steps: 2});
+	assert.ok(await page.$('[data-hmi-halo-outline]') != null);
+	await page.mouse.move(t.x, t.out);
+	assert.ok(await page.$('[data-hmi-halo-outline]') == null, 'hover ends outside the screen');
+
+	// Keyboard focus shows the halo, a mouse click does not keep it
+	await page.keyboard.press('Tab');
+	assert.ok(await page.evaluate(function()
+	{
+		return document.querySelector('[data-hmi-halo],[data-hmi-halo-outline]') != null;
+	}), 'focus halo');
 	assert.deepStrictEqual(errors, []);
 	await page.close();
 });

@@ -3,28 +3,35 @@
  * the mouse and on the keyboard-focused object, stronger while pressed.
  * Styles:
  * - glow: a soft CSS drop-shadow that follows the object's shape
- * - outline: a crisp rectangle around the object's bounds (SVG overlay)
+ * - outline: a crisp outline, either a rectangle around the object's bounds
+ *   (SVG overlay, outlineShape 'rect') or a ring that follows the object's
+ *   shape (SVG feMorphology filter, outlineShape 'shape')
  * - glowOutline: both
  * Only rendered nodes and the view's overlay pane are touched; the model
  * and the HMI overlay are not changed.
  *
  * Configuration (later wins): DRAWIO_CONFIG.hmi.hoverHalo, then the
  * document's runtime.hoverHalo. Either is false (off) or an object:
- *   {preset, style, color, size, intensity, width, padding, radius, dashed,
- *    press, pressColor, pressSize}
+ *   {preset, style, outlineShape, color, size, intensity, width, padding,
+ *    radius, dashed, press, pressColor, pressSize}
  * where preset is a key of Hmi.Halo.PRESETS whose values apply first.
  * Per cell: hmiHalo=0 (off), hmiHaloStyle=glow|outline|glowOutline,
- * hmiHaloColor=#RRGGBB.
+ * hmiHaloColor=#RRGGBB, hmiHaloOutline=rect|shape.
  */
 (function()
 {
 	var root = (typeof globalThis !== 'undefined') ? globalThis : window;
 	var Hmi = root.Hmi = root.Hmi || {};
 
-	var DEFAULTS = {style: 'glow', color: '#1E88E5', size: 6, intensity: 100, width: 2,
+	var DEFAULTS = {style: 'glow', outlineShape: 'rect', color: '#1E88E5', size: 6,
+		intensity: 100, width: 2,
 		padding: 3, radius: 4, dashed: false, press: true, pressColor: null, pressSize: null};
 
 	var STYLES = {glow: 1, outline: 1, glowOutline: 1};
+
+	var OUTLINE_SHAPES = {rect: 1, shape: 1};
+
+	var filterSeq = 0;
 
 	function Halo(rt)
 	{
@@ -34,6 +41,7 @@
 		this.pressed = false;
 		this.nodes = [];
 		this.rects = [];
+		this.filters = [];
 		this.config = Halo.getConfig(rt);
 	};
 
@@ -44,9 +52,13 @@
 		softGlow: {style: 'glow', size: 6, intensity: 100},
 		subtleGlow: {style: 'glow', size: 4, intensity: 45},
 		strongGlow: {style: 'glow', size: 12, intensity: 100},
-		crispOutline: {style: 'outline', width: 2, padding: 3, radius: 4, dashed: false},
-		dashedOutline: {style: 'outline', width: 2, padding: 4, radius: 0, dashed: true},
-		glowOutline: {style: 'glowOutline', size: 5, intensity: 70, width: 1, padding: 3, radius: 4}
+		crispOutline: {style: 'outline', outlineShape: 'rect', width: 2, padding: 3, radius: 4,
+			dashed: false},
+		shapeOutline: {style: 'outline', outlineShape: 'shape', width: 2, padding: 2},
+		dashedOutline: {style: 'outline', outlineShape: 'rect', width: 2, padding: 4, radius: 0,
+			dashed: true},
+		glowOutline: {style: 'glowOutline', outlineShape: 'rect', size: 5, intensity: 70, width: 1,
+			padding: 3, radius: 4}
 	};
 
 	Halo.DEFAULTS = DEFAULTS;
@@ -100,6 +112,7 @@
 		}
 
 		result.style = STYLES[result.style] ? result.style : 'glow';
+		result.outlineShape = OUTLINE_SHAPES[result.outlineShape] ? result.outlineShape : 'rect';
 		result.size = clamp(result.size, 1, 40, DEFAULTS.size);
 		result.intensity = clamp(result.intensity, 10, 100, DEFAULTS.intensity);
 		result.width = clamp(result.width, 1, 8, DEFAULTS.width);
@@ -171,6 +184,83 @@
 	};
 
 	/**
+	 * Creates an SVG filter that draws the source graphic plus a crisp ring
+	 * following its shape: the alpha grown by padding + width minus the
+	 * alpha grown by padding, flooded with the colour. region is the
+	 * filter region {x, y, width, height} in the user space of the element
+	 * that uses it. Returns the filter element (its id is unique).
+	 */
+	Halo.createShapeOutlineFilter = function(doc, cfg, pressed, region)
+	{
+		var ns = mxConstants.NS_SVG;
+		var width = cfg.width + (pressed ? 1 : 0);
+		var outer = cfg.padding + width;
+		var filter = doc.createElementNS(ns, 'filter');
+		filter.setAttribute('id', 'geHmiHaloOutline' + (filterSeq++));
+		filter.setAttribute('filterUnits', 'userSpaceOnUse');
+		filter.setAttribute('x', region.x - outer - 4);
+		filter.setAttribute('y', region.y - outer - 4);
+		filter.setAttribute('width', region.width + 2 * outer + 8);
+		filter.setAttribute('height', region.height + 2 * outer + 8);
+		filter.setAttribute('color-interpolation-filters', 'sRGB');
+
+		var add = function(tag, attrs)
+		{
+			var e = doc.createElementNS(ns, tag);
+
+			for (var key in attrs)
+			{
+				e.setAttribute(key, attrs[key]);
+			}
+
+			filter.appendChild(e);
+
+			return e;
+		};
+
+		// Rounded dilation by d: blur the alpha with sigma d/2 and keep what
+		// is above the level a straight edge reaches at distance d
+		// (0.5 * erfc(sqrt(2)) = 0.0228). Corners and curves stay round,
+		// unlike feMorphology, which dilates with a square.
+		var t = 0.0228;
+
+		var dilate = function(d, result)
+		{
+			add('feGaussianBlur', {'in': 'SourceAlpha', stdDeviation: d / 2, result: result + 'b'});
+			var ct = add('feComponentTransfer', {'in': result + 'b', result: result});
+			var fa = doc.createElementNS(ns, 'feFuncA');
+			fa.setAttribute('type', 'linear');
+			fa.setAttribute('slope', String(1 / t));
+			fa.setAttribute('intercept', '-0.5');
+			ct.appendChild(fa);
+		};
+
+		dilate(outer, 'outer');
+
+		if (cfg.padding > 0)
+		{
+			dilate(cfg.padding, 'inner');
+			add('feComposite', {'in': 'outer', in2: 'inner', operator: 'out', result: 'ring'});
+		}
+		else
+		{
+			add('feComposite', {'in': 'outer', in2: 'SourceAlpha', operator: 'out', result: 'ring'});
+		}
+
+		add('feFlood', {'flood-color': Halo.colorFor(cfg, pressed), result: 'color'});
+		add('feComposite', {'in': 'color', in2: 'ring', operator: 'in', result: 'line'});
+		var merge = add('feMerge', {});
+		var n1 = doc.createElementNS(ns, 'feMergeNode');
+		n1.setAttribute('in', 'line');
+		merge.appendChild(n1);
+		var n2 = doc.createElementNS(ns, 'feMergeNode');
+		n2.setAttribute('in', 'SourceGraphic');
+		merge.appendChild(n2);
+
+		return filter;
+	};
+
+	/**
 	 * Returns the settings for a cell: per-cell style overrides applied.
 	 */
 	Halo.prototype.getCellConfig = function(style)
@@ -178,8 +268,10 @@
 		var cfg = this.config;
 		var hs = mxUtils.getValue(style, 'hmiHaloStyle', null);
 		var hc = mxUtils.getValue(style, 'hmiHaloColor', null);
+		var ho = mxUtils.getValue(style, 'hmiHaloOutline', null);
 
-		if ((hs != null && STYLES[hs]) || (hc != null && hc != '' && hc != 'none'))
+		if ((hs != null && STYLES[hs]) || (hc != null && hc != '' && hc != 'none') ||
+			(ho != null && OUTLINE_SHAPES[ho]))
 		{
 			var copy = {};
 
@@ -196,6 +288,11 @@
 			if (hc != null && hc != '' && hc != 'none')
 			{
 				copy.color = hc;
+			}
+
+			if (ho != null && OUTLINE_SHAPES[ho])
+			{
+				copy.outlineShape = ho;
 			}
 
 			return copy;
@@ -251,7 +348,21 @@
 			{
 				var id = (evt.target != null && evt.target.getAttribute != null) ?
 					evt.target.getAttribute('data-hmi-cell') : null;
-				self.focusCell = (evt.type == 'focusin' && id != null) ? self.rt.getCell(id) : null;
+				// Only keyboard focus (focus-visible) shows the halo; a click
+				// also focuses the object, which must not keep it lit
+				var visible = true;
+
+				try
+				{
+					visible = evt.target.matches(':focus-visible');
+				}
+				catch (e)
+				{
+					// ignore (older browsers)
+				}
+
+				self.focusCell = (evt.type == 'focusin' && id != null && visible) ?
+					self.rt.getCell(id) : null;
 				self.apply();
 			};
 			mxEvent.addListener(graph.container, 'focusin', this.focusListener);
@@ -357,6 +468,16 @@
 		}
 
 		this.rects = [];
+
+		for (var i = 0; i < this.filters.length; i++)
+		{
+			if (this.filters[i].parentNode != null)
+			{
+				this.filters[i].parentNode.removeChild(this.filters[i]);
+			}
+		}
+
+		this.filters = [];
 	};
 
 	/**
@@ -403,9 +524,9 @@
 		}
 
 		var cfg = this.getCellConfig(state.style);
-		var filter = (cfg.style != 'outline') ? Halo.filterFor(cfg, pressed) : null;
+		var shapeOutline = cfg.style != 'glow' && cfg.outlineShape == 'shape';
 		var bounds = null;
-		var self = this;
+		var nodes = [];
 
 		(function visit(c)
 		{
@@ -413,28 +534,21 @@
 
 			if (s != null)
 			{
-				// The label glows only for text-only cells (a glow behind the
-				// characters of a label on a shape blurs the text)
+				// The label gets the halo only for text-only cells (a glow
+				// behind the characters of a label on a shape blurs the text)
 				var fill = mxUtils.getValue(s.style, mxConstants.STYLE_FILLCOLOR, 'none');
 				var stroke = mxUtils.getValue(s.style, mxConstants.STYLE_STROKECOLOR, 'none');
 				var textOnly = s.shape == null || (fill == 'none' && stroke == 'none') ||
 					mxUtils.getValue(s.style, mxConstants.STYLE_SHAPE, '') == 'text';
-				var nodes = [(s.shape != null && !textOnly) ? s.shape.node : null,
+				var list = [(s.shape != null && !textOnly) ? s.shape.node : null,
 					(s.text != null && textOnly) ? s.text.node : null];
 
-				for (var i = 0; i < nodes.length; i++)
+				for (var i = 0; i < list.length; i++)
 				{
-					var node = nodes[i];
-
-					if (filter != null && node != null && node.style != null &&
-						node.getAttribute('data-hmi-halo') == null)
+					if (list[i] != null && list[i].style != null &&
+						list[i].getAttribute('data-hmi-halo') == null)
 					{
-						// Keeps an existing CSS filter (e.g. the shape's shadow)
-						node.hmiHaloFilter = node.style.filter || '';
-						node.style.filter = ((node.hmiHaloFilter != '') ?
-							node.hmiHaloFilter + ' ' : '') + filter;
-						node.setAttribute('data-hmi-halo', pressed ? 'pressed' : 'hover');
-						self.nodes.push(node);
+						nodes.push(list[i]);
 					}
 				}
 
@@ -463,10 +577,77 @@
 			}
 		})(cell);
 
-		if (cfg.style != 'glow' && bounds != null)
+		// CSS filter: shape outline first (so the glow does not thicken it),
+		// then the glow
+		var parts = [];
+
+		if (shapeOutline && bounds != null)
+		{
+			var url = this.addShapeOutlineFilter(cfg, pressed, bounds);
+
+			if (url != null)
+			{
+				parts.push(url);
+			}
+		}
+
+		if (cfg.style != 'outline')
+		{
+			parts.push(Halo.filterFor(cfg, pressed));
+		}
+
+		if (parts.length > 0)
+		{
+			var filter = parts.join(' ');
+
+			for (var i = 0; i < nodes.length; i++)
+			{
+				// Keeps an existing CSS filter (e.g. the shape's shadow)
+				var node = nodes[i];
+				node.hmiHaloFilter = node.style.filter || '';
+				node.style.filter = ((node.hmiHaloFilter != '') ?
+					node.hmiHaloFilter + ' ' : '') + filter;
+				node.setAttribute('data-hmi-halo', pressed ? 'pressed' : 'hover');
+				this.nodes.push(node);
+			}
+		}
+
+		if (cfg.style != 'glow' && !shapeOutline && bounds != null)
 		{
 			this.outline(state, bounds, cfg, pressed);
 		}
+	};
+
+	/**
+	 * Adds a shape outline filter to the graph's SVG and returns its CSS
+	 * url() reference, or null.
+	 */
+	Halo.prototype.addShapeOutlineFilter = function(cfg, pressed, bounds)
+	{
+		var view = this.rt.graph.view;
+		var pane = (view.getDrawPane != null) ? view.getDrawPane() : null;
+		var svg = (pane != null) ? pane.ownerSVGElement : null;
+
+		if (svg == null)
+		{
+			return null;
+		}
+
+		var defs = svg.querySelector('defs');
+
+		if (defs == null)
+		{
+			defs = svg.ownerDocument.createElementNS(mxConstants.NS_SVG, 'defs');
+			svg.insertBefore(defs, svg.firstChild);
+		}
+
+		// Shapes are drawn in view coordinates inside the draw pane
+		var filter = Halo.createShapeOutlineFilter(svg.ownerDocument, cfg, pressed,
+			{x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height});
+		defs.appendChild(filter);
+		this.filters.push(filter);
+
+		return 'url(#' + filter.getAttribute('id') + ')';
 	};
 
 	/**
