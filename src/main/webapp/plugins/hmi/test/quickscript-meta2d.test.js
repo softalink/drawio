@@ -158,10 +158,11 @@ test('argument expression errors are compile errors', function()
 	assert.throws(function() { QS.compile('OpenURL("a" +)'); }, function(e) { return e instanceof QS.Error; });
 });
 
-test('refs include argument tags; writes list written tags', function()
+test('refs include argument tags; writes and locals are listed', function()
 {
 	var c = QS.compile('SendMessage("m", A + B)\nStartAnimation(Me)\nX = 1\nSetTagValue(Y, 2)\nDIM L AS INTEGER\nL = 3\nFOR i = 1 TO 2\nZ = i\nNEXT');
-	assert.deepStrictEqual(c.refs.slice().sort(), ['A', 'B']);
+	assert.deepStrictEqual(c.refs.slice().sort(), ['A', 'B', 'i']);
+	assert.deepStrictEqual(c.locals.slice().sort(), ['L', 'i']);
 	assert.deepStrictEqual(c.writes.slice().sort(), ['X', 'Y', 'Z']);
 });
 

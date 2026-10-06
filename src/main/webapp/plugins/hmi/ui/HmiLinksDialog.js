@@ -404,7 +404,7 @@
 			field('onFalse', 'script', 'hmiLnkOnFalse', {def: '', rows: 4, optional: true}),
 			field('whileTrue', 'script', 'hmiLnkWhileTrue', {def: '', rows: 4, optional: true}),
 			field('whileFalse', 'script', 'hmiLnkWhileFalse', {def: '', rows: 4, optional: true}),
-			num('period', 'hmiLnkPeriod', 1000, null, {min: 10})], null, 560);
+			num('period', 'hmiLnkPeriod', 1000, null, {min: 100})], null, 560);
 	};
 
 	/**
@@ -813,9 +813,10 @@
 			addBtn.disabled = (opts.max != null && entries.length >= opts.max);
 		};
 
-		function small(glyph, title, fn)
+		function small(glyph, title, fn, role)
 		{
 			var b = E.button(glyph, fn);
+			b.setAttribute('data-role', role);
 			b.style.cssText = 'margin:0;flex:0 0 28px;width:28px;min-width:0;padding:0;height:24px;';
 			b.setAttribute('title', title);
 
@@ -862,17 +863,17 @@
 			actions.appendChild(small('▲', mxResources.get('moveUp') || 'Up', function()
 			{
 				move(entry, -1);
-			}));
+			}, 'up'));
 			actions.appendChild(small('▼', mxResources.get('moveDown') || 'Down', function()
 			{
 				move(entry, 1);
-			}));
+			}, 'down'));
 			actions.appendChild(small('✕', mxResources.get('delete'), function()
 			{
 				entries.splice(entries.indexOf(entry), 1);
 				card.parentNode.removeChild(card);
 				sync();
-			}));
+			}, 'delete'));
 			card.appendChild(actions);
 			entries.push(entry);
 			list.appendChild(card);
@@ -3142,7 +3143,7 @@
 			}
 		}, null, mxResources.get('ok'), null, removeAll, false, null, false);
 
-		ui.showDialog(dlg.container, 740, null, true, true, function()
+		ui.showDialog(dlg.container, 880, null, true, true, function()
 		{
 			if (!(ui.format != null && ui.format.hmiTabActive))
 			{

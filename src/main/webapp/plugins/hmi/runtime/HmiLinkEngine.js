@@ -2376,9 +2376,9 @@
 			{
 				return rt.tags.getValue(tag);
 			},
-			show: function(name)
+			show: function(name, opts)
 			{
-				self.showWindow(name, null);
+				self.showWindow(name, null, opts != null && opts.replace);
 			},
 			showAt: function(name, x, y, anchor)
 			{
@@ -2609,7 +2609,7 @@
 		};
 	};
 
-	LinkEngine.prototype.showWindow = function(name, pos)
+	LinkEngine.prototype.showWindow = function(name, pos, replace)
 	{
 		var rt = this.rt;
 		var ui = rt.ui;
@@ -2623,7 +2623,7 @@
 		}
 
 		var wcfg = LinkEngine.getWindowConfig(ui, page);
-		var type = wcfg.type || 'replace';
+		var type = replace ? 'replace' : (wcfg.type || 'replace');
 
 		if (type == 'replace')
 		{
