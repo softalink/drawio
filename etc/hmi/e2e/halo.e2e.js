@@ -1,5 +1,5 @@
-// Hover halo (runtime/HmiHalo.js, ui/HmiHaloDialog.js): the page settings
-// dialog with presets, per-object overrides in the HMI tab, and the glow,
+// Hover halo (runtime/HmiHalo.js, ui/HmiHaloDialog.js): the Hover Halo tab
+// of Screen Settings with presets, per-object style overrides, and the glow,
 // outline and off styles at runtime with real mouse input.
 // Run: node --test --test-concurrency=1 etc/hmi/e2e/halo.e2e.js
 var test = require('node:test');
@@ -131,7 +131,7 @@ test('halo dialog: presets, advanced settings, off and undo', async function()
 	await editor.close();
 });
 
-test('halo per object (HMI tab) and runtime styles', async function()
+test('halo per object and runtime styles', async function()
 {
 	var editor = await openDemo();
 
@@ -148,26 +148,13 @@ test('halo per object (HMI tab) and runtime styles', async function()
 		graph.setSelectionCell(graph.model.getCell('itd-push-direct'));
 	});
 
-	// The HMI tab section writes the per-object style keys
-	await editor.waitForTimeout(300);
+	// The per-object halo (style keys of the Animation Links hover halo link)
 	await editor.evaluate(function()
 	{
-		var tab = Array.prototype.filter.call(document.querySelectorAll('.geFormatTitle'), function(e)
-		{
-			return e.textContent == 'HMI';
-		})[0];
-		tab.click();
-	});
-	await editor.waitForSelector('.geHmiHaloSelect', {state: 'attached'});
-	await editor.evaluate(function()
-	{
-		var select = document.querySelector('.geHmiHaloSelect');
-		select.value = 'glow';
-		select.dispatchEvent(new Event('change'));
-		var input = select.closest('.geFormatSection, div').parentNode.querySelector('.geHmiColorWrap input') ||
-			document.querySelector('.geFormatContainer .geHmiColorWrap input');
-		input.value = '#E53935';
-		input.dispatchEvent(new Event('change'));
+		var graph = Hmi.ui.editor.graph;
+		var cell = graph.model.getCell('itd-push-direct');
+		graph.setCellStyles('hmiHaloStyle', 'glow', [cell]);
+		graph.setCellStyles('hmiHaloColor', '#E53935', [cell]);
 	});
 	await editor.evaluate(function()
 	{

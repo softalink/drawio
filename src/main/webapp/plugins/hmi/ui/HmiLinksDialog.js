@@ -445,10 +445,11 @@
 			['disable', 'hmiLnkDisable'], ['tooltip', 'hmiLnkTooltip'],
 			['opacity', 'hmiLnkOpacity']]},
 		{title: 'hmiLnkStatesProps', items: [['states', 'hmiLnkMultiState'],
-			['properties', 'hmiLnkProperties'], ['widgetData', 'hmiLnkWidgetData']]},
+			['properties', 'hmiLnkProperties'], ['widgetData', 'hmiLnkWidgetData'],
+			['bindings', 'hmiLnkBindings']]},
 		{band: 'hmiLnkAnimationLinks'},
 		{title: 'hmiLnkAnimationGroup', items: [['animation', 'hmiLnkAnimation'],
-			['flow', 'hmiLnkFlow'], ['media', 'hmiLnkMedia']]},
+			['flow', 'hmiLnkFlow'], ['media', 'hmiLnkMedia'], ['keyframes', 'hmiLnkKeyframes']]},
 		{band: 'hmiLnkTouchLinks'},
 		{title: 'hmiLnkUserInputs', items: [['inputDiscrete', 'hmiLnkDiscrete'],
 			['inputAnalog', 'hmiLnkAnalog'], ['inputString', 'hmiLnkString'],
@@ -460,8 +461,11 @@
 			['hideWindow', 'hmiLnkHideWindow'], ['pushValue', 'hmiLnkAnalogStringValue']]},
 		{title: 'hmiLnkActions', items: [['openUrl', 'hmiLnkOpenUrl'],
 			['sendMessage', 'hmiLnkSendMessage'], ['control', 'hmiLnkControl'],
-			['touchOptions', 'hmiLnkTouchOptions']]},
+			['touchOptions', 'hmiLnkTouchOptions'], ['events', 'hmiLnkEvents'],
+			['security', 'hmiLnkSecurity'], ['hoverHalo', 'hmiLnkHoverHalo']]},
 		{band: 'hmiLnkScriptsBand'},
+		{title: 'hmiLnkTriggersGroup', items: [['triggers', 'hmiLnkTriggers'],
+			['stateMachines', 'hmiLnkStateMachines']]},
 		{title: 'hmiLnkObjectScripts', items: [['dataChange', 'hmiLnkDataChange'],
 			['condition', 'hmiLnkCondition']]}
 	];
@@ -2798,7 +2802,7 @@
 	 * Returns one human-readable line per configured link, e.g.
 	 * "Fill Color: Analog (TankLevel, 4 break points)".
 	 */
-	LinksDialog.summary = function(links)
+	function summaryEntries(links)
 	{
 		var out = [];
 
@@ -2999,10 +3003,1382 @@
 				continue;
 			}
 
-			out.push(label + (detail !== '' ? ' (' + detail + ')' : ''));
+			out.push({id: (colorLabels[type] != null) ? type + ':' + (l.kind || 'discrete') : type,
+				text: label + (detail !== '' ? ' (' + detail + ')' : '')});
 		}
 
 		return out;
+	};
+
+	LinksDialog.summary = function(links)
+	{
+		return summaryEntries(links).map(function(e)
+		{
+			return e.text;
+		});
+	};
+
+	/**
+	 * Tab, position and tab order of every link id (by GROUPS).
+	 */
+	var layoutCache = null;
+
+	function layout()
+	{
+		if (layoutCache == null)
+		{
+			layoutCache = {tab: {}, pos: {}, tabs: []};
+			var tabId = null;
+			var n = 0;
+
+			GROUPS.forEach(function(g)
+			{
+				if (g.band != null)
+				{
+					tabId = TAB_OF_BAND[g.band][0];
+					layoutCache.tabs.push(tabId);
+
+					return;
+				}
+
+				var ids = (g.color != null) ? COLOR_KINDS.map(function(k)
+				{
+					return g.color + ':' + k[0];
+				}) : g.items.map(function(it)
+				{
+					return it[0];
+				});
+				ids.forEach(function(id)
+				{
+					layoutCache.tab[id] = tabId;
+					layoutCache.pos[id] = n++;
+				});
+			});
+		}
+
+		return layoutCache;
+	};
+
+	/**
+	 * One entry {id, tab, text} for every link configured on the cell
+	 * (hmiLinks and the storages of INTOUCH_LINKS.md §12.1), in the order
+	 * of the tabs and groups of the Animation Links dialog.
+	 */
+	LinksDialog.objectSummary = function(cell)
+	{
+		var lay = layout();
+		var out = [];
+
+		if (cell == null)
+		{
+			return out;
+		}
+
+		summaryEntries(Hmi.Model.getCellConfig(cell).links).forEach(function(e)
+		{
+			out.push({id: e.id, tab: lay.tab[e.id] || 'display', text: e.text});
+		});
+		var store = readStore(cell);
+
+		STORE_IDS.forEach(function(id)
+		{
+			if (storeOn(store, id))
+			{
+				out.push({id: id, tab: lay.tab[id], text: storeSummary(store, id)});
+			}
+		});
+
+		return out.map(function(e, i)
+		{
+			return {e: e, i: i};
+		}).sort(function(a, b)
+		{
+			var pa = (lay.pos[a.e.id] != null) ? lay.pos[a.e.id] : 1e6;
+			var pb = (lay.pos[b.e.id] != null) ? lay.pos[b.e.id] : 1e6;
+
+			return (pa != pb) ? pa - pb : a.i - b.i;
+		}).map(function(x)
+		{
+			return x.e;
+		});
+	};
+
+	// ---------------------------------------------------------------
+	// Links that live outside hmiLinks (INTOUCH_LINKS.md §12.1)
+	// ---------------------------------------------------------------
+
+	var STORE_IDS = ['bindings', 'keyframes', 'events', 'security', 'hoverHalo', 'triggers',
+		'stateMachines'];
+
+	var STORE_LABEL = {bindings: 'hmiLnkBindings', keyframes: 'hmiLnkKeyframes',
+		events: 'hmiLnkEvents', security: 'hmiLnkSecurity', hoverHalo: 'hmiLnkHoverHalo',
+		triggers: 'hmiLnkTriggers', stateMachines: 'hmiLnkStateMachines'};
+
+	// Storage group of a link: the links triggers and stateMachines share hmiTriggers
+	var STORE_GROUP = {bindings: 'bindings', keyframes: 'animations', events: 'events',
+		security: 'security', hoverHalo: 'hoverHalo', triggers: 'triggers',
+		stateMachines: 'triggers'};
+
+	var HALO_STYLES = [['default', 'hmiHaloPageDefault'], ['glow', 'hmiHaloGlow'],
+		['outline', 'hmiHaloOutline'], ['glowOutline', 'hmiHaloGlowOutline'],
+		['off', 'hmiHaloPreset_off']];
+
+	var HALO_OUTLINES = [['default', 'hmiHaloPageDefault'], ['rect', 'hmiHaloOutlineRect'],
+		['shape', 'hmiHaloOutlineShape']];
+
+	var EVENT_TYPES = ['click', 'dblclick', 'mousedown', 'mouseup', 'enter', 'leave',
+		'contextmenu', 'longpress', 'change', 'valueChange', 'message', 'pageOpen', 'pageClose'];
+
+	var OPERATORS = ['==', '!=', '>', '<', '>=', '<=', 'range', '!range', 'in', '!in',
+		'changed', 'isBad', 'true'];
+
+	var NO_VALUE_OPS = ['changed', 'isBad', 'true'];
+
+	var ANIM_PRESETS_STORE = ['blink', 'pulse', 'spin', 'shake', 'colorCycle', 'fadeInOut'];
+
+	var EASINGS = ['linear', 'ease-in', 'ease-out', 'ease-in-out'];
+
+	function isStore(id)
+	{
+		return STORE_LABEL[id] != null;
+	};
+
+	function isMachine(t)
+	{
+		return t != null && Array.isArray(t.states);
+	};
+
+	function cellAttr(cell, name)
+	{
+		var v = (cell != null) ? cell.value : null;
+
+		return (v != null && typeof v === 'object' && v.getAttribute != null) ?
+			v.getAttribute(name) : null;
+	};
+
+	function styleValue(cell, key)
+	{
+		var parts = (cell != null && cell.style != null) ? String(cell.style).split(';') : [];
+
+		for (var i = 0; i < parts.length; i++)
+		{
+			var p = parts[i].indexOf('=');
+
+			if (p > 0 && parts[i].substring(0, p) == key)
+			{
+				return parts[i].substring(p + 1);
+			}
+		}
+
+		return null;
+	};
+
+	function haloStyleIds()
+	{
+		return HALO_STYLES.map(function(s)
+		{
+			return s[0];
+		});
+	};
+
+	/**
+	 * Reads the storages of the links of §12.1 from the cell.
+	 */
+	function readStore(cell)
+	{
+		var cfg = Hmi.Model.getCellConfig(cell);
+		var style = (styleValue(cell, 'hmiHalo') == '0') ? 'off' : styleValue(cell, 'hmiHaloStyle');
+		var outline = styleValue(cell, 'hmiHaloOutline');
+
+		return {bindings: clone(cfg.bindings) || [], animations: clone(cfg.animations) || [],
+			events: clone(cfg.events) || [], triggers: clone(cfg.triggers) || [],
+			roles: (cfg.roles || []).slice(),
+			rolesMode: (cellAttr(cell, 'hmiRolesMode') == 'disable') ? 'disable' : '',
+			halo: {style: (haloStyleIds().indexOf(style) >= 0) ? style : 'default',
+				outline: (outline == 'rect' || outline == 'shape') ? outline : 'default',
+				color: styleValue(cell, 'hmiHaloColor') || ''}};
+	};
+
+	function storeOn(store, id)
+	{
+		switch (id)
+		{
+			case 'bindings':
+				return store.bindings.length > 0;
+
+			case 'keyframes':
+				return store.animations.length > 0;
+
+			case 'events':
+				return store.events.length > 0;
+
+			case 'security':
+				return store.roles.length > 0 || store.rolesMode == 'disable';
+
+			case 'hoverHalo':
+				return store.halo.style != 'default' || store.halo.outline != 'default' ||
+					store.halo.color !== '';
+
+			case 'triggers':
+				return store.triggers.some(function(t)
+				{
+					return !isMachine(t);
+				});
+
+			case 'stateMachines':
+				return store.triggers.some(isMachine);
+		}
+
+		return false;
+	};
+
+	function clearStore(store, id)
+	{
+		switch (id)
+		{
+			case 'bindings':
+				store.bindings = [];
+				break;
+
+			case 'keyframes':
+				store.animations = [];
+				break;
+
+			case 'events':
+				store.events = [];
+				break;
+
+			case 'security':
+				store.roles = [];
+				store.rolesMode = '';
+				break;
+
+			case 'hoverHalo':
+				store.halo = {style: 'default', outline: 'default', color: ''};
+				break;
+
+			case 'triggers':
+				store.triggers = store.triggers.filter(isMachine);
+				break;
+
+			case 'stateMachines':
+				store.triggers = store.triggers.filter(function(t)
+				{
+					return !isMachine(t);
+				});
+				break;
+		}
+	};
+
+	/**
+	 * Writes the storage groups in the dirty map (inside the caller's
+	 * model update).
+	 */
+	function writeStore(graph, cells, store, dirty)
+	{
+		var M = Hmi.Model;
+
+		if (dirty.bindings)
+		{
+			M.setCellConfig(graph, cells, 'bindings', store.bindings);
+		}
+
+		if (dirty.animations)
+		{
+			M.setCellConfig(graph, cells, 'animations', store.animations);
+		}
+
+		if (dirty.events)
+		{
+			M.setCellConfig(graph, cells, 'events', store.events);
+		}
+
+		if (dirty.triggers)
+		{
+			M.setCellConfig(graph, cells, 'triggers', store.triggers);
+		}
+
+		if (dirty.security)
+		{
+			M.setCellConfig(graph, cells, 'roles', store.roles);
+
+			for (var i = 0; i < cells.length; i++)
+			{
+				graph.setAttributeForCell(cells[i], 'hmiRolesMode',
+					(store.rolesMode == 'disable' && store.roles.length > 0) ? 'disable' : null);
+			}
+		}
+
+		if (dirty.hoverHalo)
+		{
+			var h = store.halo;
+			graph.setCellStyles('hmiHalo', (h.style == 'off') ? '0' : null, cells);
+			graph.setCellStyles('hmiHaloStyle', (h.style == 'off' || h.style == 'default') ?
+				null : h.style, cells);
+			graph.setCellStyles('hmiHaloOutline', (h.outline == 'default') ? null : h.outline, cells);
+			graph.setCellStyles('hmiHaloColor', (h.color !== '') ? h.color : null, cells);
+		}
+	};
+
+	// ---------------------------------------------------------------
+	// One-line texts of the items
+	// ---------------------------------------------------------------
+
+	function actionsText(list)
+	{
+		return (list || []).map(function(a)
+		{
+			return a.type;
+		}).join(', ');
+	};
+
+	function conditionText(c)
+	{
+		var right = (c.valueTag != null && c.valueTag !== '') ? c.valueTag :
+			((c.value != null && NO_VALUE_OPS.indexOf(c.operator) < 0) ? String(c.value) : '');
+
+		return (c.tag || c.expr || '?') + ' ' + (c.operator || '==') + (right !== '' ? ' ' + right : '');
+	};
+
+	function conditionsText(list, type)
+	{
+		return (list || []).map(conditionText).join(type == 'or' ? ' OR ' : ' AND ');
+	};
+
+	function bindingText(b)
+	{
+		return (b.tag || b.expr || '?') + ' → ' + (b.target || '?') +
+			((b.transform != null && b.transform.kind != null) ? ' (' + b.transform.kind + ')' : '');
+	};
+
+	function animationText(a)
+	{
+		var kind = (a.preset != null && a.preset !== '') ? a.preset :
+			((a.frames || []).length + ' ' + T('hmiLnkFrames'));
+
+		return (a.name || '?') + ' (' + kind + (a.autoPlay ? ', ' + T('hmiAutoPlay') : '') + ')';
+	};
+
+	function eventText(e)
+	{
+		return (e.on || '?') + (e.on == 'message' && e.message ? ' "' + e.message + '"' : '') +
+			' → ' + (actionsText(e.actions) || '-');
+	};
+
+	function triggerText(t)
+	{
+		var when = conditionsText(t.conditions, t.conditionType);
+
+		return (t.name ? t.name + ': ' : '') + (when !== '' ? when : T('hmiLnkAlways')) +
+			' → ' + (actionsText(t.actions) || '-') +
+			((t.elseActions || []).length > 0 ? ' / ' + actionsText(t.elseActions) : '');
+	};
+
+	function machineText(t)
+	{
+		return (t.name ? t.name + ': ' : '') + (t.states || []).map(function(s)
+		{
+			return s.name;
+		}).join(' → ');
+	};
+
+	var STORE_ITEM_TEXT = {bindings: bindingText, keyframes: animationText, events: eventText,
+		triggers: triggerText, stateMachines: machineText};
+
+	function storeItems(store, id)
+	{
+		switch (id)
+		{
+			case 'bindings':
+				return store.bindings;
+
+			case 'keyframes':
+				return store.animations;
+
+			case 'events':
+				return store.events;
+
+			case 'triggers':
+				return store.triggers.filter(function(t)
+				{
+					return !isMachine(t);
+				});
+
+			case 'stateMachines':
+				return store.triggers.filter(isMachine);
+		}
+
+		return [];
+	};
+
+	/**
+	 * Detail of the summary line of a link: "3: Level → style:fillColor, …".
+	 */
+	function storeDetail(store, id)
+	{
+		if (id == 'security')
+		{
+			return shorten(store.roles.join('/'), 28) + (store.roles.length > 0 ? ', ' : '') +
+				T(store.rolesMode == 'disable' ? 'hmiLnkSecDisable' : 'hmiLnkSecHide');
+		}
+
+		if (id == 'hoverHalo')
+		{
+			var h = store.halo;
+			var parts = [];
+
+			for (var i = 0; i < HALO_STYLES.length; i++)
+			{
+				if (HALO_STYLES[i][0] == h.style)
+				{
+					parts.push(T(HALO_STYLES[i][1]));
+				}
+			}
+
+			if (h.outline != 'default')
+			{
+				parts.push(T(h.outline == 'rect' ? 'hmiHaloOutlineRect' : 'hmiHaloOutlineShape'));
+			}
+
+			if (h.color !== '')
+			{
+				parts.push(h.color);
+			}
+
+			return parts.join(', ');
+		}
+
+		var items = storeItems(store, id);
+
+		return items.length + ': ' + shorten(items.map(STORE_ITEM_TEXT[id]).join('; '), 52);
+	};
+
+	function storeSummary(store, id)
+	{
+		return T(STORE_LABEL[id]) + ' (' + storeDetail(store, id) + ')';
+	};
+
+	// ---------------------------------------------------------------
+	// Item editors of the list links
+	// ---------------------------------------------------------------
+
+	function schemaError(kind, value)
+	{
+		if (Hmi.Schema == null || Hmi.Schema.validate == null)
+		{
+			return null;
+		}
+
+		var errs = Hmi.Schema.validate(kind, [value]);
+
+		return (errs != null && errs.length > 0) ? errs.join('; ') : null;
+	};
+
+	function fkeys2(id, key)
+	{
+		return ['field.' + id + '.' + key, 'field.' + key];
+	};
+
+	/**
+	 * Card of one condition: tag or expression, operator, value or value tag.
+	 */
+	function conditionCard(ui, id)
+	{
+		return function(content, item)
+		{
+			var E = Hmi.Editors;
+			item = item || {};
+			var useExpr = item.expr != null && item.expr !== '';
+			var r1 = E.inlineFields(content);
+			var tag = E.tagPicker(ui, useExpr ? '' : (item.tag || ''));
+			mark(tag.input, 'condTag');
+			E.inlineField(r1, T('hmiTag') + ':', tag, fkeys2(id, 'conditions.tag'));
+			var expression = E.textInput(item.expr || '', 'tag("a")>0');
+			mark(expression, 'condExpr');
+			E.inlineField(r1, T('hmiExpr') + ':', expression, fkeys2(id, 'conditions.expr'));
+			var r2 = E.inlineFields(content);
+			r2.style.marginTop = '6px';
+			var op = E.select(OPERATORS, item.operator || '==');
+			mark(op, 'condOperator');
+			E.inlineField(r2, T('hmiOperator') + ':', op, fkeys2(id, 'conditions.operator'));
+			var value = E.textInput((item.value != null) ? (Array.isArray(item.value) ?
+				item.value.join(',') : item.value) : '');
+			mark(value, 'condValue');
+			var valueField = E.inlineField(r2, T('hmiValue') + ':', value,
+				fkeys2(id, 'conditions.value'));
+			var valueTag = E.tagPicker(ui, item.valueTag || '');
+			mark(valueTag.input, 'condValueTag');
+			var valueTagField = E.inlineField(r2, T('hmiLnkValueTag') + ':', valueTag,
+				fkeys2(id, 'conditions.valueTag'));
+
+			function sync()
+			{
+				var none = NO_VALUE_OPS.indexOf(op.value) >= 0;
+				valueField.style.display = none ? 'none' : '';
+				valueTagField.style.display = none ? 'none' : '';
+			};
+
+			mxEvent.addListener(op, 'change', sync);
+			sync();
+
+			return {get: function()
+			{
+				var c = clone(item);
+				['tag', 'expr', 'operator', 'value', 'valueTag'].forEach(function(k)
+				{
+					delete c[k];
+				});
+
+				if (trim(expression.value) !== '')
+				{
+					c.expr = trim(expression.value);
+				}
+				else if (trim(tag.getValue()) !== '')
+				{
+					c.tag = trim(tag.getValue());
+				}
+
+				c.operator = op.value;
+
+				if (NO_VALUE_OPS.indexOf(op.value) < 0)
+				{
+					if (trim(valueTag.getValue()) !== '')
+					{
+						c.valueTag = trim(valueTag.getValue());
+					}
+					else if (trim(value.value) !== '')
+					{
+						c.value = textValue(value.value);
+					}
+				}
+
+				return c;
+			}, validate: function()
+			{
+				if (trim(expression.value) === '' && trim(tag.getValue()) === '' && op.value != 'true')
+				{
+					return T('hmiTag') + ' / ' + T('hmiExpr') + ': ' + T('hmiLnkRequired');
+				}
+
+				if (trim(expression.value) !== '' && Hmi.Expr != null && Hmi.Expr.compile != null)
+				{
+					try
+					{
+						Hmi.Expr.compile(trim(expression.value));
+					}
+					catch (e)
+					{
+						return T('hmiExpr') + ': ' + (e.message || String(e));
+					}
+				}
+
+				return null;
+			}};
+		};
+	};
+
+	function conditionsList(ui, section, id, items)
+	{
+		return listEditor(Hmi.Editors, section, {label: 'hmiConditions', role: 'condition',
+			addKey: 'addCondition', addLabel: 'hmiLnkAddCondition', items: items || [],
+			helpKeys: fkeys2(id, 'conditions'), tall: true,
+			blank: function()
+			{
+				return {tag: '', operator: '=='};
+			}, build: conditionCard(ui, id)});
+	};
+
+	/**
+	 * Heading + the stacked action list editor (every action type).
+	 */
+	function actionsBlock(ui, section, labelKey, helpKeys, actions)
+	{
+		var h = document.createElement('div');
+		h.className = 'geDialogHint geHmiSubHead';
+		mxUtils.write(h, T(labelKey));
+		addHelp(h, helpKeys);
+		section.appendChild(h);
+		var editor = Hmi.FormatPanel.buildActionsListEditor(ui, actions || []);
+		editor.setAttribute('data-role', 'actions');
+		section.appendChild(editor);
+
+		return editor;
+	};
+
+	function andOr(value)
+	{
+		return Hmi.Editors.select([{value: 'and', label: T('hmiLnkAnd')},
+			{value: 'or', label: T('hmiLnkOr')}], value || 'and');
+	};
+
+	function numField(row, label, value, key, id)
+	{
+		var input = Hmi.Editors.numberInput(value);
+		input.setAttribute('min', '0');
+		mark(input, key);
+		Hmi.Editors.inlineField(row, T(label) + ':', input, fkeys2(id, key));
+
+		return input;
+	};
+
+	function numberOrNull(input)
+	{
+		var v = parseFloat(input.value);
+
+		return isNaN(v) ? null : v;
+	};
+
+	function blendKeys(target, source, managed)
+	{
+		for (var k in source)
+		{
+			if (managed.indexOf(k) < 0 && target[k] === undefined)
+			{
+				target[k] = clone(source[k]);
+			}
+		}
+
+		return target;
+	};
+
+	function buildSimpleTrigger(ui, value)
+	{
+		var E = Hmi.Editors;
+		value = value || {};
+		var container = document.createElement('div');
+		container.className = 'geHmiItemForm';
+		var nameRow = E.row(container, T('hmiName') + ':', fkeys2('triggers', 'name'));
+		var name = E.textInput(value.name || '');
+		mark(name, 'name');
+		nameRow.appendChild(name);
+		var typeRow = E.row(container, T('hmiConditionType') + ':', fkeys2('triggers', 'conditionType'));
+		var type = andOr(value.conditionType);
+		mark(type, 'conditionType');
+		typeRow.appendChild(type);
+		var conds = conditionsList(ui, container, 'triggers', value.conditions);
+		var actions = actionsBlock(ui, container, 'hmiActions', fkeys2('triggers', 'actions'),
+			value.actions);
+		var elses = actionsBlock(ui, container, 'hmiElseActions', fkeys2('triggers', 'elseActions'),
+			value.elseActions);
+		var timing = E.inlineFields(container);
+		timing.style.marginTop = '10px';
+		var deadband = numField(timing, 'hmiLnkDeadband', value.deadband, 'deadband', 'triggers');
+		var onDelay = numField(timing, 'hmiLnkOnDelay', value.onDelay, 'onDelay', 'triggers');
+		var offDelay = numField(timing, 'hmiLnkOffDelay', value.offDelay, 'offDelay', 'triggers');
+
+		container.getValue = function()
+		{
+			var t = {};
+
+			if (trim(name.value) !== '')
+			{
+				t.name = trim(name.value);
+			}
+
+			t.conditions = conds.get();
+			t.conditionType = type.value;
+			t.actions = actions.getValue();
+
+			if (elses.getValue().length > 0)
+			{
+				t.elseActions = elses.getValue();
+			}
+
+			[['deadband', deadband], ['onDelay', onDelay], ['offDelay', offDelay]].forEach(function(p)
+			{
+				var n = numberOrNull(p[1]);
+
+				if (n != null && n > 0)
+				{
+					t[p[0]] = n;
+				}
+			});
+
+			return blendKeys(t, value, ['name', 'conditions', 'conditionType', 'actions',
+				'elseActions', 'deadband', 'onDelay', 'offDelay']);
+		};
+
+		container.validate = function()
+		{
+			var err = conds.validate();
+
+			if (err == null && actions.getValue().length == 0 && elses.getValue().length == 0)
+			{
+				err = T('hmiActions') + ': ' + T('hmiLnkNeedAction');
+			}
+
+			['deadband', 'onDelay', 'offDelay'].forEach(function(k)
+			{
+				var n = numberOrNull({deadband: deadband, onDelay: onDelay, offDelay: offDelay}[k]);
+
+				if (err == null && n != null && n < 0)
+				{
+					err = T('hmiLnkDeadband') + ': ' + T('hmiLnkNotNegative');
+				}
+			});
+
+			return err || schemaError('triggers', container.getValue());
+		};
+
+		return container;
+	};
+
+	function buildStateMachine(ui, value)
+	{
+		var E = Hmi.Editors;
+		value = value || {};
+		var container = document.createElement('div');
+		container.className = 'geHmiItemForm';
+		var nameRow = E.row(container, T('hmiName') + ':', fkeys2('stateMachines', 'name'));
+		var name = E.textInput(value.name || '');
+		mark(name, 'name');
+		nameRow.appendChild(name);
+
+		var states = listEditor(E, container, {label: 'hmiLnkSmStates', role: 'state',
+			addKey: 'addState', addLabel: 'hmiLnkAddState', items: value.states || [],
+			helpKeys: fkeys2('stateMachines', 'states'), tall: true, emptyKey: 'hmiLnkNeedState',
+			blank: function()
+			{
+				return {name: '', conditions: [], conditionType: 'and', actions: []};
+			}, build: function(content, item)
+			{
+				var r = E.inlineFields(content);
+				var sname = E.textInput(item.name || '');
+				mark(sname, 'stateName');
+				E.inlineField(r, T('hmiName') + ':', sname, fkeys2('stateMachines', 'states.name'));
+				var stype = andOr(item.conditionType);
+				mark(stype, 'conditionType');
+				E.inlineField(r, T('hmiConditionType') + ':', stype,
+					fkeys2('stateMachines', 'states.conditionType'));
+				var inner = document.createElement('div');
+				content.appendChild(inner);
+				var conds = conditionsList(ui, inner, 'stateMachines', item.conditions);
+				var acts = actionsBlock(ui, inner, 'hmiActions',
+					fkeys2('stateMachines', 'states.actions'), item.actions);
+
+				return {get: function()
+				{
+					return blendKeys({name: trim(sname.value), conditions: conds.get(),
+						conditionType: stype.value, actions: acts.getValue()}, item,
+						['name', 'conditions', 'conditionType', 'actions']);
+				}, validate: function()
+				{
+					if (trim(sname.value) === '')
+					{
+						return T('hmiName') + ': ' + T('hmiLnkRequired');
+					}
+
+					return conds.validate();
+				}};
+			}});
+
+		container.getValue = function()
+		{
+			var t = {};
+
+			if (trim(name.value) !== '')
+			{
+				t.name = trim(name.value);
+			}
+
+			t.states = states.get();
+
+			return blendKeys(t, value, ['name', 'states']);
+		};
+
+		container.validate = function()
+		{
+			return states.validate() || schemaError('triggers', container.getValue());
+		};
+
+		return container;
+	};
+
+	function buildEventHandler(ui, value)
+	{
+		var E = Hmi.Editors;
+		value = value || {};
+		var container = document.createElement('div');
+		container.className = 'geHmiItemForm';
+		var r1 = E.inlineFields(container);
+		var on = E.select(EVENT_TYPES, value.on || 'click');
+		mark(on, 'on');
+		E.inlineField(r1, T('hmiOn') + ':', on, fkeys2('events', 'on'));
+		var message = E.textInput(value.message || '');
+		mark(message, 'message');
+		var messageField = E.inlineField(r1, T('hmiMessageName') + ':', message,
+			fkeys2('events', 'message'));
+		var r2 = E.inlineFields(container);
+		r2.style.marginTop = '6px';
+		var type = andOr(value.conditionType);
+		mark(type, 'conditionType');
+		E.inlineField(r2, T('hmiConditionType') + ':', type, fkeys2('events', 'conditionType'));
+		var delay = numField(r2, 'hmiLnkDelay', value.delay, 'delay', 'events');
+		var r3 = E.inlineFields(container);
+		r3.style.marginTop = '6px';
+		var confirm = E.checkbox(T('hmiConfirm'), !!value.confirm, fkeys2('events', 'confirm'));
+		mark(confirm.input, 'confirm');
+		r3.appendChild(confirm);
+		var stop = E.checkbox(T('hmiLnkStopOnError'), !!value.stopOnError, fkeys2('events', 'stopOnError'));
+		mark(stop.input, 'stopOnError');
+		r3.appendChild(stop);
+
+		function sync()
+		{
+			messageField.style.display = (on.value == 'message') ? '' : 'none';
+		};
+
+		mxEvent.addListener(on, 'change', sync);
+		sync();
+		var conds = conditionsList(ui, container, 'events', value.conditions);
+		var actions = actionsBlock(ui, container, 'hmiActions', fkeys2('events', 'actions'),
+			value.actions);
+
+		container.getValue = function()
+		{
+			var e = {on: on.value};
+
+			if (on.value == 'message')
+			{
+				e.message = trim(message.value);
+			}
+
+			var list = conds.get();
+
+			if (list.length > 0)
+			{
+				e.conditions = list;
+				e.conditionType = type.value;
+			}
+
+			e.actions = actions.getValue();
+
+			if (confirm.input.checked)
+			{
+				e.confirm = (value.confirm != null && typeof value.confirm === 'object') ?
+					value.confirm : true;
+			}
+
+			var d = numberOrNull(delay);
+
+			if (d != null && d > 0)
+			{
+				e.delay = d;
+			}
+
+			if (stop.input.checked)
+			{
+				e.stopOnError = true;
+			}
+
+			return blendKeys(e, value, ['on', 'message', 'conditions', 'conditionType', 'actions',
+				'confirm', 'delay', 'stopOnError']);
+		};
+
+		container.validate = function()
+		{
+			if (on.value == 'message' && trim(message.value) === '')
+			{
+				return T('hmiMessageName') + ': ' + T('hmiLnkRequired');
+			}
+
+			if (actions.getValue().length == 0)
+			{
+				return T('hmiActions') + ': ' + T('hmiLnkNeedAction');
+			}
+
+			return conds.validate() || schemaError('events', container.getValue());
+		};
+
+		return container;
+	};
+
+	var FRAME_NUMBERS = [['rotation', 'hmiLnkFrameRotation'], ['opacity', 'hmiLnkFrameOpacity'],
+		['scale', 'hmiLnkFrameScale'], ['dx', 'hmiLnkFrameDx'], ['dy', 'hmiLnkFrameDy'],
+		['hmiLevel', 'hmiLnkFrameLevel']];
+
+	var FRAME_COLORS = [['fillColor', 'hmiLnkFrameFill'], ['strokeColor', 'hmiLnkFrameStroke'],
+		['fontColor', 'hmiLnkFrameFont']];
+
+	function frameCard(ui)
+	{
+		return function(content, item)
+		{
+			var E = Hmi.Editors;
+			item = item || {};
+			var props = item.props || {};
+			var r1 = E.inlineFields(content);
+			var duration = numField(r1, 'hmiDuration', item.duration, 'frameDuration', 'keyframes');
+			var visible = E.select([{value: '', label: T('hmiLnkKeep')},
+				{value: 'true', label: T('hmiLnkVisible')}, {value: 'false', label: T('hmiLnkHidden')}],
+				(props.visible === true) ? 'true' : ((props.visible === false) ? 'false' : ''));
+			mark(visible, 'frameVisible');
+			E.inlineField(r1, T('hmiLnkVisibility') + ':', visible, fkeys2('keyframes', 'frames.visible'));
+			var inputs = {};
+			var r2 = E.inlineFields(content);
+			r2.style.marginTop = '6px';
+			var r3 = E.inlineFields(content);
+			r3.style.marginTop = '6px';
+			FRAME_NUMBERS.forEach(function(f, i)
+			{
+				var input = E.numberInput(props[f[0]]);
+				mark(input, 'frame_' + f[0]);
+				E.inlineField(i < 3 ? r2 : r3, T(f[1]) + ':', input, fkeys2('keyframes', 'frames.' + f[0]));
+				inputs[f[0]] = input;
+			});
+			var r4 = E.inlineFields(content);
+			r4.style.marginTop = '6px';
+			var colors = {};
+			FRAME_COLORS.forEach(function(f)
+			{
+				var c = E.colorInput(ui, props[f[0]] || '');
+				E.inlineField(r4, T(f[1]) + ':', c, fkeys2('keyframes', 'frames.' + f[0]));
+				colors[f[0]] = c;
+			});
+
+			return {get: function()
+			{
+				var p = clone(props);
+				var frame = clone(item);
+				FRAME_NUMBERS.forEach(function(f)
+				{
+					var n = numberOrNull(inputs[f[0]]);
+
+					if (n != null)
+					{
+						p[f[0]] = n;
+					}
+					else
+					{
+						delete p[f[0]];
+					}
+				});
+				FRAME_COLORS.forEach(function(f)
+				{
+					if (colors[f[0]].getValue() !== '')
+					{
+						p[f[0]] = colors[f[0]].getValue();
+					}
+					else
+					{
+						delete p[f[0]];
+					}
+				});
+
+				if (visible.value !== '')
+				{
+					p.visible = (visible.value == 'true');
+				}
+				else
+				{
+					delete p.visible;
+				}
+
+				frame.duration = numberOrNull(duration) != null ? numberOrNull(duration) : 500;
+				frame.props = p;
+
+				return frame;
+			}, validate: function()
+			{
+				var d = numberOrNull(duration);
+
+				return (d != null && d < 0) ? T('hmiDuration') + ': ' + T('hmiLnkNotNegative') : null;
+			}};
+		};
+	};
+
+	function buildKeyframes(ui, value)
+	{
+		var E = Hmi.Editors;
+		value = value || {};
+		var params = value.params || {};
+		var container = document.createElement('div');
+		container.className = 'geHmiItemForm';
+		var r1 = E.inlineFields(container);
+		var name = E.textInput(value.name || '');
+		mark(name, 'name');
+		E.inlineField(r1, T('hmiName') + ':', name, fkeys2('keyframes', 'name'));
+		var preset = E.select([{value: '', label: T('hmiLnkFramesOnly')}].concat(ANIM_PRESETS_STORE.map(
+			function(p)
+			{
+				return {value: p, label: T('hmiLnkAnim_' + p)};
+			})), value.preset || '');
+		mark(preset, 'preset');
+		E.inlineField(r1, T('hmiPreset') + ':', preset, fkeys2('keyframes', 'preset'));
+		var r2 = E.inlineFields(container);
+		r2.style.marginTop = '6px';
+		var duration = numField(r2, 'hmiDuration', (value.duration != null) ? value.duration : 1000,
+			'duration', 'keyframes');
+		var easing = E.select(EASINGS.map(function(e)
+		{
+			return {value: e, label: T('hmiLnkEase_' + e.replace(/-/g, '_'))};
+		}), value.easing || 'linear');
+		mark(easing, 'easing');
+		E.inlineField(r2, T('hmiLnkEasing') + ':', easing, fkeys2('keyframes', 'easing'));
+		var cycles = numField(r2, 'hmiLnkCycles', value.cycles, 'cycles', 'keyframes');
+		cycles.setAttribute('placeholder', T('hmiLnkInfinite'));
+		var r3 = E.inlineFields(container);
+		r3.style.marginTop = '6px';
+		var autoPlay = E.checkbox(T('hmiAutoPlay'), !!value.autoPlay, fkeys2('keyframes', 'autoPlay'));
+		mark(autoPlay.input, 'autoPlay');
+		r3.appendChild(autoPlay);
+		var keepState = E.checkbox(T('hmiLnkKeepState'), !!value.keepState, fkeys2('keyframes', 'keepState'));
+		mark(keepState.input, 'keepState');
+		r3.appendChild(keepState);
+		var r4 = E.inlineFields(container);
+		r4.style.marginTop = '6px';
+		var rpm = numField(r4, 'hmiRpm', params.rpm, 'rpm', 'keyframes');
+		var rpmTag = E.tagPicker(ui, params.rpmTag || '');
+		mark(rpmTag.input, 'rpmTag');
+		var rpmTagField = E.inlineField(r4, T('hmiRpmTag') + ':', rpmTag, fkeys2('keyframes', 'rpmTag'));
+		var colorsInput = E.textInput((params.colors || []).join(','), '#FF0000,#00C000');
+		mark(colorsInput, 'colors');
+		var colorsField = E.inlineField(r4, T('hmiLnkColors') + ':', colorsInput,
+			fkeys2('keyframes', 'colors'));
+
+		function sync()
+		{
+			rpm.parentNode.style.display = rpmTagField.style.display = (preset.value == 'spin') ? '' : 'none';
+			colorsField.style.display = (preset.value == 'colorCycle') ? '' : 'none';
+			r4.style.display = (preset.value == 'spin' || preset.value == 'colorCycle') ? '' : 'none';
+		};
+
+		mxEvent.addListener(preset, 'change', sync);
+		sync();
+		var r5 = E.row(container, T('hmiLnkNextAnimation') + ':', fkeys2('keyframes', 'next'));
+		var nextName = E.textInput((value.next || {}).name || '');
+		mark(nextName, 'nextName');
+		r5.appendChild(nextName);
+		var nextTarget = E.targetSpecEditor(ui, (value.next || {}).target);
+		container.appendChild(nextTarget);
+		var frames = listEditor(E, container, {label: 'hmiLnkFrames', role: 'frame',
+			addKey: 'addFrame', addLabel: 'hmiLnkAddFrame', items: value.frames || [],
+			helpKeys: fkeys2('keyframes', 'frames'), tall: true,
+			blank: function()
+			{
+				return {duration: 500, props: {}};
+			}, build: frameCard(ui)});
+
+		container.getValue = function()
+		{
+			var a = {name: trim(name.value) || preset.value};
+
+			if (preset.value !== '')
+			{
+				a.preset = preset.value;
+			}
+
+			var p = clone(params);
+			['rpm', 'rpmTag', 'colors'].forEach(function(k)
+			{
+				delete p[k];
+			});
+
+			if (preset.value == 'spin')
+			{
+				if (numberOrNull(rpm) != null)
+				{
+					p.rpm = numberOrNull(rpm);
+				}
+
+				if (trim(rpmTag.getValue()) !== '')
+				{
+					p.rpmTag = trim(rpmTag.getValue());
+				}
+			}
+
+			if (preset.value == 'colorCycle' && trim(colorsInput.value) !== '')
+			{
+				p.colors = colorsInput.value.split(',').map(trim).filter(function(c)
+				{
+					return c !== '';
+				});
+			}
+
+			a.params = p;
+			a.autoPlay = autoPlay.input.checked;
+			a.duration = (numberOrNull(duration) != null) ? numberOrNull(duration) : 1000;
+			a.easing = easing.value;
+
+			if (numberOrNull(cycles) != null)
+			{
+				a.cycles = Math.max(0, Math.round(numberOrNull(cycles)));
+			}
+
+			if (keepState.input.checked)
+			{
+				a.keepState = true;
+			}
+
+			if (trim(nextName.value) !== '')
+			{
+				a.next = {target: nextTarget.getValue(), name: trim(nextName.value)};
+			}
+
+			var list = frames.get();
+
+			if (list.length > 0)
+			{
+				a.frames = list;
+			}
+
+			return blendKeys(a, value, ['name', 'preset', 'params', 'autoPlay', 'duration', 'easing',
+				'cycles', 'keepState', 'next', 'frames']);
+		};
+
+		container.validate = function()
+		{
+			if (trim(name.value) === '' && preset.value === '')
+			{
+				return T('hmiName') + ': ' + T('hmiLnkRequired');
+			}
+
+			if (preset.value === '' && frames.get().length == 0)
+			{
+				return T('hmiPreset') + ' / ' + T('hmiLnkFrames') + ': ' + T('hmiLnkRequired');
+			}
+
+			return frames.validate() || schemaError('animations', container.getValue());
+		};
+
+		return container;
+	};
+
+	function buildBindingItem(ui, value)
+	{
+		var el = Hmi.FormatPanel.buildBindingEditor(ui, value);
+		el.className = 'geHmiItemForm';
+		el.validate = function()
+		{
+			return schemaError('bindings', el.getValue());
+		};
+
+		return el;
+	};
+
+	/**
+	 * Definition of the list links: where the items live, how a row reads and
+	 * which item editor opens.
+	 */
+	var LIST_LINKS = {
+		bindings: {heading: 'hmiBindings', kind: 'bindings', width: 560, build: buildBindingItem,
+			blank: function()
+			{
+				return {tag: '', target: 'style:fillColor'};
+			}},
+		keyframes: {heading: 'hmiAnimations', kind: 'animations', width: 640, build: buildKeyframes,
+			blank: function()
+			{
+				return {name: '', preset: 'blink', params: {}, duration: 1000, autoPlay: false};
+			}},
+		events: {heading: 'hmiEvents', kind: 'events', width: 680, build: buildEventHandler,
+			blank: function()
+			{
+				return {on: 'click', actions: []};
+			}},
+		triggers: {heading: 'hmiLnkTriggers', kind: 'triggers', width: 700, build: buildSimpleTrigger,
+			blank: function()
+			{
+				return {name: '', conditions: [], conditionType: 'and', actions: []};
+			}},
+		stateMachines: {heading: 'hmiLnkStateMachines', kind: 'triggers', width: 740,
+			build: buildStateMachine, blank: function()
+			{
+				return {name: '', states: []};
+			}}
+	};
+
+	function setItems(store, id, items)
+	{
+		switch (id)
+		{
+			case 'bindings':
+				store.bindings = items;
+				break;
+
+			case 'keyframes':
+				store.animations = items;
+				break;
+
+			case 'events':
+				store.events = items;
+				break;
+
+			case 'triggers':
+				store.triggers = items.concat(store.triggers.filter(isMachine));
+				break;
+
+			case 'stateMachines':
+				store.triggers = store.triggers.filter(function(t)
+				{
+					return !isMachine(t);
+				}).concat(items);
+				break;
+		}
+	};
+
+	/**
+	 * Body of the settings dialog of a list link.
+	 */
+	function buildListConfig(ui, id, store, dlgRef)
+	{
+		var E = Hmi.Editors;
+		var def = LIST_LINKS[id];
+		var items = clone(storeItems(store, id));
+		var section = document.createElement('div');
+		section.className = 'geDialogSection';
+		E.head(section, T(def.heading), fkeys2(id, 'items'));
+		var listDiv = document.createElement('div');
+		listDiv.setAttribute('data-role', 'list');
+		section.appendChild(listDiv);
+
+		function render()
+		{
+			E.renderItemList({ui: ui, container: listDiv, items: items, kind: def.kind,
+				helpKey: fkeys2(id, 'item'), itemLabel: STORE_ITEM_TEXT[id], buildEditor: def.build,
+				newItem: def.blank, width: def.width, dialogId: 'item-' + id,
+				emptyText: T('hmiNoItems'), addTitle: T('hmiAddItem'), editTitle: T('edit'),
+				onChange: function(list)
+				{
+					items = list;
+					render();
+					E.fitDialog(section);
+				}});
+		};
+
+		render();
+
+		return {el: section, get: function()
+		{
+			return items;
+		}};
+	};
+
+	// ---------------------------------------------------------------
+	// Security and hover halo
+	// ---------------------------------------------------------------
+
+	function buildSecurityConfig(ui, store)
+	{
+		var E = Hmi.Editors;
+		var section = document.createElement('div');
+		section.className = 'geDialogSection';
+		var r1 = E.row(section, T('hmiLnkRoles') + ':', fkeys2('security', 'roles'));
+		var roles = E.textInput(store.roles.join(', '), 'op, eng');
+		mark(roles, 'roles');
+		r1.appendChild(roles);
+		var r2 = E.row(section, T('hmiLnkSecMode') + ':', fkeys2('security', 'mode'));
+		var mode = E.select([{value: 'hide', label: T('hmiLnkSecHide')},
+			{value: 'disable', label: T('hmiLnkSecDisable')}], store.rolesMode == 'disable' ? 'disable' : 'hide');
+		mark(mode, 'mode');
+		r2.appendChild(mode);
+		var hint = document.createElement('div');
+		hint.className = 'geDialogHint';
+		mxUtils.write(hint, T('hmiLnkSecHint'));
+		section.appendChild(hint);
+
+		return {el: section, apply: function(target)
+		{
+			target.roles = roles.value.split(',').map(trim).filter(function(r)
+			{
+				return r !== '';
+			});
+			target.rolesMode = (mode.value == 'disable') ? 'disable' : '';
+		}};
+	};
+
+	function buildHaloConfig(ui, store)
+	{
+		var E = Hmi.Editors;
+		var section = document.createElement('div');
+		section.className = 'geDialogSection';
+		var r1 = E.row(section, T('hmiHaloStyle') + ':', ['field.hoverHalo.style', 'halo.object.style']);
+		var style = E.select(HALO_STYLES.map(function(s)
+		{
+			return {value: s[0], label: T(s[1])};
+		}), store.halo.style);
+		mark(style, 'style');
+		r1.appendChild(style);
+		var r2 = E.row(section, T('hmiHaloOutlineFollows') + ':',
+			['field.hoverHalo.outline', 'halo.object.outlineShape']);
+		var outline = E.select(HALO_OUTLINES.map(function(s)
+		{
+			return {value: s[0], label: T(s[1])};
+		}), store.halo.outline);
+		mark(outline, 'outline');
+		r2.appendChild(outline);
+		var r3 = E.row(section, T('color') + ':', ['field.hoverHalo.color', 'halo.object.color']);
+		var color = E.colorInput(ui, store.halo.color);
+		mark(color.input, 'color');
+		color.input.setAttribute('placeholder', T('hmiHaloPageDefault'));
+		r3.appendChild(color);
+
+		return {el: section, apply: function(target)
+		{
+			target.halo = {style: style.value, outline: outline.value, color: color.getValue()};
+		}};
+	};
+
+	/**
+	 * Opens the settings dialog of one of the links of §12.1. The edits go
+	 * to the in-memory store (not to the cell) when OK is pressed:
+	 * onSave(), onCancel().
+	 */
+	LinksDialog.configureStore = function(ui, id, store, onSave, onCancel)
+	{
+		var div = document.createElement('div');
+		div.setAttribute('data-dialog', 'link-' + id);
+		var hd = document.createElement('h3');
+		mxUtils.write(hd, T(STORE_LABEL[id]));
+		addHelp(hd, 'link.' + id);
+		div.appendChild(hd);
+		var body;
+
+		if (LIST_LINKS[id] != null)
+		{
+			body = buildListConfig(ui, id, store);
+		}
+		else if (id == 'security')
+		{
+			body = buildSecurityConfig(ui, store);
+		}
+		else
+		{
+			body = buildHaloConfig(ui, store);
+		}
+
+		div.appendChild(body.el);
+		var saved = false;
+		var dlg = new CustomDialog(ui, div, function()
+		{
+			if (body.get != null)
+			{
+				setItems(store, id, body.get());
+			}
+			else
+			{
+				body.apply(store);
+			}
+
+			saved = true;
+			onSave();
+		}, function()
+		{
+			if (onCancel != null)
+			{
+				onCancel();
+			}
+		}, mxResources.get('ok'), null, null, false, null, true);
+		ui.showDialog(dlg.container, (LIST_LINKS[id] != null) ? 520 : 420, null, true, true, function()
+		{
+			if (!saved && onCancel != null)
+			{
+				onCancel();
+			}
+		});
+		Hmi.Editors.autoFit(div);
+
+		return dlg;
 	};
 
 	// ---------------------------------------------------------------
@@ -3032,10 +4408,13 @@
 
 	/**
 	 * Shows the "Animation Links" dialog for the given cells (default: the
-	 * selection). Links apply to all given cells.
+	 * selection). Links apply to all given cells. opts.tab selects a tab
+	 * (display, animation, touch, scripts), opts.link a link id: the dialog
+	 * opens on its tab and opens its settings dialog (INTOUCH_LINKS.md §12.2).
 	 */
-	LinksDialog.show = function(ui, cells)
+	LinksDialog.show = function(ui, cells, opts)
 	{
+		opts = opts || {};
 		var graph = ui.editor.graph;
 		Hmi.Editors.installStyle();
 
@@ -3054,6 +4433,8 @@
 		}
 
 		var links = clone(Hmi.Model.getCellConfig(cells[0]).links) || {};
+		var store = readStore(cells[0]);
+		var dirty = {};
 		var pendingWindows = [];
 
 		var div = document.createElement('div');
@@ -3074,6 +4455,11 @@
 
 		function isOn(id)
 		{
+			if (isStore(id))
+			{
+				return storeOn(store, id);
+			}
+
 			var p = id.split(':');
 
 			return links[p[0]] != null && (p.length == 1 || links[p[0]].kind == p[1]);
@@ -3087,13 +4473,14 @@
 				rows[id].cb.checked = on;
 				rows[id].row.className = 'geDialogCheckRow geHmiLinkRow' + (on ? '' : ' geHmiOff');
 				var p = id.split(':');
-				var s = on ? LinksDialog.summary((function()
+				var s = !on ? '' : (isStore(id) ? storeSummary(store, id) :
+					LinksDialog.summary((function()
 				{
 					var o = {};
 					o[p[0]] = links[p[0]];
 
 					return o;
-				})())[0] : '';
+				})())[0]);
 				rows[id].row.setAttribute('title', s || rows[id].label);
 			}
 
@@ -3141,6 +4528,22 @@
 
 		function openConfig(id, cancelUncheck)
 		{
+			if (isStore(id))
+			{
+				var snapshot = JSON.stringify(store);
+				LinksDialog.configureStore(ui, id, store, function()
+				{
+					// A settings dialog that changed nothing leaves the cells alone
+					dirty[STORE_GROUP[id]] = dirty[STORE_GROUP[id]] || (JSON.stringify(store) != snapshot);
+					refreshRows();
+				}, function()
+				{
+					refreshRows();
+				});
+
+				return;
+			}
+
 			var p = id.split(':');
 			var existing = isOn(id) ? clone(links[p[0]]) : LinksDialog.defaultsOf(id);
 			LinksDialog.configure(ui, id, existing, function(value, extras)
@@ -3196,6 +4599,12 @@
 				if (cb.checked)
 				{
 					openConfig(id, true);
+				}
+				else if (isStore(id))
+				{
+					clearStore(store, id);
+					dirty[STORE_GROUP[id]] = true;
+					refreshRows();
 				}
 				else
 				{
@@ -3327,6 +4736,20 @@
 			}
 		}
 
+		if (opts.tab != null || opts.link != null)
+		{
+			var want = (opts.link != null) ? layout().tab[opts.link] : opts.tab;
+
+			for (var tw = 0; tw < tabs.length; tw++)
+			{
+				if (tabs[tw].id == want)
+				{
+					initial = tabs[tw];
+					first = null;
+				}
+			}
+		}
+
 		if (first != null)
 		{
 			var keep = false;
@@ -3346,6 +4769,13 @@
 		var removeAll = Hmi.Editors.button(T('hmiLnkRemoveAll'), function()
 		{
 			links = {};
+
+			STORE_IDS.forEach(function(id)
+			{
+				clearStore(store, id);
+				dirty[STORE_GROUP[id]] = true;
+			});
+
 			refreshRows();
 		});
 		removeAll.style.cssText = 'float:left;margin-left:0;';
@@ -3359,6 +4789,7 @@
 			try
 			{
 				Hmi.Model.setCellConfig(graph, cells, 'links', out);
+				writeStore(graph, cells, store, dirty);
 
 				for (var i = 0; i < pendingWindows.length; i++)
 				{
@@ -3404,6 +4835,11 @@
 
 		panels.style.minHeight = tallest + 'px';
 		Hmi.Editors.fitDialog(div);
+
+		if (opts.link != null && rows[opts.link] != null)
+		{
+			openConfig(opts.link);
+		}
 
 		return dlg;
 	};

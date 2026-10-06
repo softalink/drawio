@@ -1031,6 +1031,11 @@
 		var ui = opts.ui;
 		var div = document.createElement('div');
 
+		if (opts.dialogId != null)
+		{
+			div.setAttribute('data-dialog', opts.dialogId);
+		}
+
 		var hd = document.createElement('h3');
 		mxUtils.write(hd, opts.title);
 		Editors.help(hd, opts.helpKey);
@@ -1097,13 +1102,21 @@
 			}
 			else
 			{
+				var invalid = (editorEl.validate != null) ? editorEl.validate() : null;
+
+				if (invalid != null)
+				{
+					return invalid;
+				}
+
 				value = editorEl.getValue != null ? editorEl.getValue() : opts.value;
 			}
 
 			opts.onSave(value);
 		}, null, mxResources.get('ok'), null, null, null, null, null, null, null);
 
-		ui.showDialog(dlg.container, 420, null, true, true);
+		ui.showDialog(dlg.container, opts.width || 420, null, true, true);
+		Editors.autoFit(div);
 	};
 
 	/**
@@ -1131,6 +1144,7 @@
 			{
 				var row = document.createElement('div');
 				row.className = 'geHmiItemRow';
+				row.setAttribute('data-role', 'item');
 				row.style.cssText = 'display:flex;align-items:center;gap:4px;' +
 					'padding:3px 0;border-bottom:1px solid var(--border-color, #e0e0e0);';
 
@@ -1144,9 +1158,10 @@
 				});
 				row.appendChild(label);
 
-				function iconBtn(title, glyph, fn)
+				function iconBtn(title, glyph, fn, role)
 				{
 					var btn = document.createElement('a');
+					btn.setAttribute('data-role', role);
 					btn.className = 'geButton';
 					btn.style.cssText = 'cursor:pointer;padding:0 4px;';
 					btn.setAttribute('title', title);
@@ -1165,7 +1180,7 @@
 						items[index - 1] = items[index];
 						items[index] = t;
 						opts.onChange(items);
-					});
+					}, 'up');
 				}
 
 				if (index < items.length - 1)
@@ -1176,19 +1191,19 @@
 						items[index + 1] = items[index];
 						items[index] = t;
 						opts.onChange(items);
-					});
+					}, 'down');
 				}
 
 				iconBtn(mxResources.get('edit'), '✎', function()
 				{
 					edit(index);
-				});
+				}, 'edit');
 
 				iconBtn(mxResources.get('delete'), '✕', function()
 				{
 					items.splice(index, 1);
 					opts.onChange(items);
-				});
+				}, 'delete');
 
 				container.appendChild(row);
 
@@ -1198,6 +1213,8 @@
 						ui: opts.ui,
 						title: opts.editTitle || mxResources.get('edit'),
 						helpKey: opts.helpKey,
+						width: opts.width,
+						dialogId: opts.dialogId,
 						kind: opts.kind,
 						value: items[idx],
 						buildEditor: opts.buildEditor,
@@ -1217,6 +1234,8 @@
 				ui: opts.ui,
 				title: opts.addTitle || mxResources.get('hmiAddItem'),
 				helpKey: opts.helpKey,
+				width: opts.width,
+				dialogId: opts.dialogId,
 				kind: opts.kind,
 				value: opts.newItem ? opts.newItem() : {},
 				buildEditor: opts.buildEditor,
@@ -1228,6 +1247,7 @@
 			});
 		});
 		addBtn.style.marginTop = '6px';
+		addBtn.setAttribute('data-role', 'add');
 		container.appendChild(addBtn);
 	};
 
@@ -1268,6 +1288,12 @@
 			'.geHmiMasonry>.geDialogSection{display:block;box-sizing:border-box;width:100%;' +
 				'break-inside:avoid;margin:0 0 10px 0;}' +
 			'.geHmiLegend{margin-left:12px;}' +
+			'.geHmiCard .geDialogInlineField select,.geHmiItemForm .geDialogInlineField select' +
+				'{flex:1;min-width:0;max-width:100%;}' +
+			'.geHmiItemForm>.geDialogFormRow,.geHmiItemForm>.geDialogInlineFields,' +
+				'.geHmiItemForm>.geDialogCheckRow{margin-top:6px;}' +
+			'.geHmiItemForm>:first-child{margin-top:0;}' +
+			'.geHmiItemForm .geHmiTagWrap input{min-width:80px;}' +
 			'.geHmiSectionHead{line-height:normal;}' +
 			'.geDialogFormLabel.geHmiHelpLabel{min-width:121px;}' +
 			'.geHmiBtnWrap{position:relative;width:fit-content;max-width:100%;}' +
@@ -1332,6 +1358,30 @@
 		{
 			dlg.style.height = '';
 			dlg.style.height = (dlg.firstElementChild.scrollHeight + 48) + 'px';
+		}
+	};
+
+	/**
+	 * Keeps the enclosing dialog as high as the content of el while the
+	 * content grows or shrinks (list editors that add rows).
+	 */
+	Editors.autoFit = function(el)
+	{
+		if (typeof ResizeObserver !== 'undefined' && el != null)
+		{
+			var pending = false;
+			new ResizeObserver(function()
+			{
+				if (!pending)
+				{
+					pending = true;
+					window.setTimeout(function()
+					{
+						pending = false;
+						Editors.fitDialog(el);
+					}, 0);
+				}
+			}).observe(el);
 		}
 	};
 

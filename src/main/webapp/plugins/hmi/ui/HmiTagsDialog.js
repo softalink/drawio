@@ -197,48 +197,23 @@
 	// Main dialog
 	// ---------------------------------------------------------------
 
-	TagsDialog.show = function(ui)
+	/**
+	 * Renders the tag catalogue (toolbar, import/export, table) into the
+	 * container. The tags are edited in state.cfg.tags (the working copy of
+	 * the Screen Settings dialog); state.changed() is called after every
+	 * change. Returns {commit, dispose}.
+	 */
+	TagsDialog.render = function(ui, container, state)
 	{
-		var graph = ui.editor.graph;
-		var cfg = Hmi.Model.getDocConfig(graph);
+		var cfg = state.cfg;
+		var div = container;
 
-		var div = document.createElement('div');
-		var hd = document.createElement('h3');
-		mxUtils.write(hd, mxResources.get('hmiTags'));
-		Hmi.Editors.help(hd, 'tags.dialog');
-		div.appendChild(hd);
-
-		// Doc settings
-		var settings = document.createElement('div');
-		settings.className = 'geDialogSection';
-		div.appendChild(settings);
-
-		var r1 = Hmi.Editors.inlineFields(settings);
-		var simSelect = Hmi.Editors.select(['off', 'on', 'only'], cfg.sim || 'off');
-		Hmi.Editors.inlineField(r1, mxResources.get('hmiSimMode') + ':', simSelect, 'tags.sim');
-		var scriptsSelect = Hmi.Editors.select(['inherit', 'off'], cfg.scripts || 'inherit');
-		Hmi.Editors.inlineField(r1, mxResources.get('hmiScripts') + ':', scriptsSelect, 'tags.scripts');
-
-		var r2 = Hmi.Editors.inlineFields(settings);
-		var fitSelect = Hmi.Editors.select(['none', 'page', 'width', 'stretch'],
-			cfg.runtime.fit || 'page');
-		Hmi.Editors.inlineField(r2, mxResources.get('hmiFit') + ':', fitSelect, 'tags.fit');
-		var navSelect = Hmi.Editors.select(['tabs', 'none'], cfg.runtime.nav || 'tabs');
-		Hmi.Editors.inlineField(r2, mxResources.get('hmiNav') + ':', navSelect, 'tags.nav');
-
-		var r3 = Hmi.Editors.inlineFields(settings);
-		var maxRate = Hmi.Editors.numberInput(cfg.runtime.maxRate || 30);
-		Hmi.Editors.inlineField(r3, mxResources.get('hmiMaxRate') + ' (Hz):', maxRate, 'tags.maxRate');
-		var quality = Hmi.Editors.select(['outline', 'none'], cfg.runtime.quality || 'outline');
-		Hmi.Editors.inlineField(r3, mxResources.get('hmiQuality') + ':', quality, 'tags.quality');
-
-		var r4 = Hmi.Editors.inlineFields(settings);
-		var panZoom = Hmi.Editors.checkbox(mxResources.get('hmiPanZoom'), cfg.runtime.panZoom !== false, 'tags.panZoom');
-		r4.appendChild(panZoom);
-		var w = Hmi.Editors.numberInput(cfg.runtime.width || '');
-		Hmi.Editors.inlineField(r4, mxResources.get('width') + ':', w, 'tags.width');
-		var h = Hmi.Editors.numberInput(cfg.runtime.height || '');
-		Hmi.Editors.inlineField(r4, mxResources.get('height') + ':', h, 'tags.height');
+		var hint = document.createElement('div');
+		hint.className = 'geDialogHint';
+		hint.style.marginBottom = '6px';
+		mxUtils.write(hint, mxResources.get('hmiScrTagsHint'));
+		Hmi.Editors.help(hint, 'tags.dialog');
+		div.appendChild(hint);
 
 		// Toolbar: add / import / export
 		var toolbar = document.createElement('div');
@@ -313,7 +288,7 @@
 		div.appendChild(listHead);
 
 		var tableWrap = document.createElement('div');
-		tableWrap.style.cssText = 'max-height:280px;overflow-y:auto;margin-top:4px;';
+		tableWrap.style.cssText = 'max-height:320px;overflow-y:auto;margin-top:4px;';
 		div.appendChild(tableWrap);
 
 		var table = document.createElement('table');
@@ -344,6 +319,7 @@
 				{
 					var tag = cfg.tags[index];
 					var tr = document.createElement('tr');
+					tr.setAttribute('data-tag', tag.name);
 
 					function td(text)
 					{
@@ -366,7 +342,7 @@
 					td(tag.access);
 
 					var delTd = document.createElement('td');
-					delTd.style.padding = '3px 6px';
+					delTd.style.cssText = 'padding:3px 6px;border-bottom:1px solid var(--border-color, #eee);';
 					var delBtn = Hmi.Editors.button(mxResources.get('delete'), function()
 					{
 						cfg.tags.splice(index, 1);
@@ -378,6 +354,8 @@
 					table.appendChild(tr);
 				})(i);
 			}
+
+			state.changed();
 		};
 
 		var editTag = function(index)
@@ -400,36 +378,18 @@
 
 		render();
 
-		var errorsDiv = document.createElement('div');
-		errorsDiv.className = 'geDialogHint';
-		errorsDiv.style.color = '#C62828';
-		div.appendChild(errorsDiv);
-
-		var dlg = new CustomDialog(ui, div, function()
+		return {commit: function()
 		{
-			cfg.sim = simSelect.value;
-			cfg.scripts = scriptsSelect.value;
-			cfg.runtime.fit = fitSelect.value;
-			cfg.runtime.nav = navSelect.value;
-			cfg.runtime.maxRate = parseInt(maxRate.value, 10) || 30;
-			cfg.runtime.quality = quality.value;
-			cfg.runtime.panZoom = panZoom.input.checked;
-			cfg.runtime.width = w.value ? parseInt(w.value, 10) : undefined;
-			cfg.runtime.height = h.value ? parseInt(h.value, 10) : undefined;
+			return [];
+		}, dispose: function() {}};
+	};
 
-			var errors = Hmi.Schema.validate('doc', cfg);
-
-			if (errors.length > 0)
-			{
-				errorsDiv.textContent = errors.join('; ');
-
-				return;
-			}
-
-			ui.hideDialog();
-			Hmi.Model.setDocConfig(graph, cfg);
-		}, null, mxResources.get('ok'), null, null, null, null, true);
-		ui.showDialog(dlg.container, 620, null, true, true);
+	/**
+	 * Opens the Screen Settings dialog on the Tags tab.
+	 */
+	TagsDialog.show = function(ui)
+	{
+		return Hmi.ScreenSettings.show(ui, {tab: 'tags'});
 	};
 
 	// ---------------------------------------------------------------

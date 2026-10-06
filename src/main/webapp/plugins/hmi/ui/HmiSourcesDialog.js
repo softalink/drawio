@@ -24,26 +24,38 @@
 	// Main list dialog
 	// ---------------------------------------------------------------
 
-	SourcesDialog.show = function(ui)
+	/**
+	 * Renders the list of the data sources into the container. The sources
+	 * are edited in state.cfg.sources (the working copy of the Screen
+	 * Settings dialog); state.changed() is called after every change.
+	 * Returns {commit, dispose}.
+	 */
+	SourcesDialog.render = function(ui, container, state)
 	{
-		var graph = ui.editor.graph;
-		var cfg = Hmi.Model.getDocConfig(graph);
+		var cfg = state.cfg;
+		var E = Hmi.Editors;
 
-		var div = document.createElement('div');
-		var hd = document.createElement('h3');
-		mxUtils.write(hd, mxResources.get('hmiSources'));
-		Hmi.Editors.help(hd, 'sources.dialog');
-		div.appendChild(hd);
+		var hint = document.createElement('div');
+		hint.className = 'geDialogHint';
+		hint.style.marginBottom = '6px';
+		mxUtils.write(hint, mxResources.get('hmiScrSourcesHint'));
+		E.help(hint, 'sources.dialog');
+		container.appendChild(hint);
+
+		var section = document.createElement('div');
+		section.className = 'geDialogSection';
+		section.setAttribute('data-role', 'sources-list');
+		container.appendChild(section);
 
 		var listHead = document.createElement('div');
 		listHead.className = 'geDialogHint';
 		var listCount = document.createElement('span');
 		listHead.appendChild(listCount);
-		Hmi.Editors.help(listHead, 'sources.list');
-		div.appendChild(listHead);
+		E.help(listHead, 'sources.list');
+		section.appendChild(listHead);
 
 		var listDiv = document.createElement('div');
-		div.appendChild(listDiv);
+		section.appendChild(listDiv);
 
 		var render = function()
 		{
@@ -57,6 +69,23 @@
 				mxUtils.write(empty, mxResources.get('hmiNoSources'));
 				listDiv.appendChild(empty);
 			}
+			else
+			{
+				var head = document.createElement('div');
+				head.className = 'geDialogCheckRow geHmiColHead';
+				head.style.justifyContent = 'space-between';
+				var c1 = document.createElement('span');
+				c1.style.cssText = 'width:64px;flex:0 0 64px;';
+				mxUtils.write(c1, mxResources.get('hmiScrColEnabled'));
+				E.help(c1, 'sources.col.enabled');
+				head.appendChild(c1);
+				var c2 = document.createElement('span');
+				c2.style.cssText = 'flex:1;';
+				mxUtils.write(c2, mxResources.get('hmiScrColSource'));
+				E.help(c2, 'sources.col.source');
+				head.appendChild(c2);
+				listDiv.appendChild(head);
+			}
 
 			for (var i = 0; i < cfg.sources.length; i++)
 			{
@@ -66,6 +95,7 @@
 					var row = document.createElement('div');
 					row.className = 'geDialogCheckRow';
 					row.style.justifyContent = 'space-between';
+					row.setAttribute('data-source', src.id);
 
 					var enabled = document.createElement('input');
 					enabled.setAttribute('type', 'checkbox');
@@ -79,7 +109,10 @@
 					{
 						src.enabled = enabled.checked;
 					});
-					row.appendChild(enabled);
+					var enabledCell = document.createElement('span');
+					enabledCell.style.cssText = 'width:64px;flex:0 0 64px;';
+					enabledCell.appendChild(enabled);
+					row.appendChild(enabledCell);
 
 					var label = document.createElement('span');
 					label.style.cssText = 'flex:1;cursor:pointer;';
@@ -91,14 +124,14 @@
 					});
 					row.appendChild(label);
 
-					var testBtn = Hmi.Editors.button(mxResources.get('hmiTestConnection'), function()
+					var testBtn = E.button(mxResources.get('hmiTestConnection'), function()
 					{
 						SourcesDialog.testConnection(ui, src);
 					});
 					testBtn.style.marginLeft = '4px';
 					row.appendChild(testBtn);
 
-					var delBtn = Hmi.Editors.button(mxResources.get('delete'), function()
+					var delBtn = E.button(mxResources.get('delete'), function()
 					{
 						cfg.sources.splice(index, 1);
 						render();
@@ -109,9 +142,9 @@
 					listDiv.appendChild(row);
 				})(i);
 			}
-		};
 
-		render();
+			state.changed();
+		};
 
 		var editSource = function(index)
 		{
@@ -122,7 +155,7 @@
 			});
 		};
 
-		var addBtn = Hmi.Editors.button(mxResources.get('hmiAddSource'), function()
+		var addBtn = E.button(mxResources.get('hmiAddSource'), function()
 		{
 			SourcesDialog.showEditor(ui, {id: newId('src'), type: 'mqtt', enabled: true}, function(src)
 			{
@@ -131,16 +164,26 @@
 			});
 		});
 		addBtn.style.marginTop = '6px';
+		addBtn.setAttribute('data-role', 'add-source');
 		var addRow = document.createElement('div');
 		addRow.appendChild(addBtn);
-		Hmi.Editors.help(addRow, 'sources.add');
-		div.appendChild(addRow);
+		E.help(addRow, 'sources.add');
+		section.appendChild(addRow);
 
-		var dlg = new CustomDialog(ui, div, function()
+		render();
+
+		return {commit: function()
 		{
-			Hmi.Model.setDocConfig(graph, cfg);
-		}, null, mxResources.get('ok'));
-		ui.showDialog(dlg.container, 520, null, true, true);
+			return [];
+		}, dispose: function() {}};
+	};
+
+	/**
+	 * Opens the Screen Settings dialog on the Data Sources tab.
+	 */
+	SourcesDialog.show = function(ui)
+	{
+		return Hmi.ScreenSettings.show(ui, {tab: 'sources'});
 	};
 
 	// ---------------------------------------------------------------

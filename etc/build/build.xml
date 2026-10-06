@@ -684,6 +684,7 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="ui/HmiResources.js" />
 				<file name="ui/HmiEditors.js" />
 				<file name="ui/HmiHelpTexts.js" />
+				<file name="ui/HmiHelpTextsScreen.js" />
 				<file name="ui/HmiHelp.js" />
 				<file name="ui/HmiSourcesDialog.js" />
 				<file name="ui/HmiTagsDialog.js" />
@@ -697,6 +698,7 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="ui/HmiLinksDialog.js" />
 				<file name="ui/HmiSubstituteTags.js" />
 				<file name="ui/HmiHaloDialog.js" />
+				<file name="ui/HmiScreenSettings.js" />
 				<file name="ui/HmiPlugin.js" />
 				<!-- HMI: files end -->
 			</sources>

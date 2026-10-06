@@ -427,7 +427,7 @@ test('Animation Links dialog configures every extension link and round-trips', a
 	var out = await fillAll(page);
 
 	assert.deepStrictEqual(page.hmiErrors, []);
-	assert.strictEqual(out.rows, 50);
+	assert.strictEqual(out.rows, 57);
 	assert.deepStrictEqual(out.bands, ['Display', 'Animation', 'Touch', 'Scripts']);
 	assert.ok(['States and Properties', 'Animation', 'Actions', 'Object Scripts'].every(function(t)
 	{
@@ -435,13 +435,13 @@ test('Animation Links dialog configures every extension link and round-trips', a
 	}), JSON.stringify(out.titles));
 	assert.ok(out.groups.Miscellaneous.some(function(r) { return /^opacity=Opacity/.test(r); }));
 	assert.deepStrictEqual(out.groups['States and Properties'].map(function(r) { return r.split('=')[0]; }),
-		['states', 'properties', 'widgetData']);
+		['states', 'properties', 'widgetData', 'bindings']);
 	assert.deepStrictEqual(out.groups.Animation.map(function(r) { return r.split('=')[0]; }),
-		['animation', 'flow', 'media']);
+		['animation', 'flow', 'media', 'keyframes']);
 	assert.ok(out.groups['User Inputs'].some(function(r) { return /^inputChoice=Choice/.test(r); }));
 	assert.ok(out.groups['Touch Pushbuttons'].some(function(r) { return /^pushValue=Analog\/String Value/.test(r); }));
 	assert.deepStrictEqual(out.groups.Actions.map(function(r) { return r.split('=')[0]; }),
-		['openUrl', 'sendMessage', 'control', 'touchOptions']);
+		['openUrl', 'sendMessage', 'control', 'touchOptions', 'events', 'security', 'hoverHalo']);
 	assert.deepStrictEqual(out.groups['Object Scripts'].map(function(r) { return r.split('=')[0]; }),
 		['dataChange', 'condition']);
 

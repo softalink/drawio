@@ -281,7 +281,7 @@ async function seed(page)
 // Data Sources
 // ---------------------------------------------------------------
 
-test('quick help: Data Sources dialog, source editor for each protocol, test connection', async function()
+test('quick help: Data Sources tab, source editor for each protocol, test connection', async function()
 {
 	var page = await openPage();
 	await seed(page);
@@ -289,7 +289,7 @@ test('quick help: Data Sources dialog, source editor for each protocol, test con
 	{
 		Hmi.SourcesDialog.show(Hmi.ui);
 	});
-	await page.waitForSelector('.geDialog h3');
+	await page.waitForSelector('.geDialog [data-help="sources.dialog"]');
 	var keys = await audit(page, null, 3);
 	assert.ok(keys.indexOf('sources.dialog') >= 0 && keys.indexOf('sources.list') >= 0 &&
 		keys.indexOf('sources.add') >= 0, keys.join(' '));
@@ -338,8 +338,8 @@ test('quick help: Data Sources dialog, source editor for each protocol, test con
 	{
 		await page.evaluate(function(i)
 		{
-			var rows = Hmi.ui.dialog.container.querySelectorAll('.geDialogCheckRow span');
-			rows[i].click();
+			var rows = Hmi.ui.dialog.container.querySelectorAll('[data-source]');
+			rows[i].children[1].click();
 		}, index);
 		await page.waitForSelector('.geDialog [data-help="source.dialog"]');
 		var type = await page.evaluate(function()
@@ -422,8 +422,8 @@ test('quick help: Data Sources dialog, source editor for each protocol, test con
 	// Switching the type in the editor changes the URL help and the fields
 	await page.evaluate(function()
 	{
-		var rows = Hmi.ui.dialog.container.querySelectorAll('.geDialogCheckRow span');
-		rows[0].click();
+		var rows = Hmi.ui.dialog.container.querySelectorAll('[data-source]');
+		rows[0].children[1].click();
 	});
 	await page.waitForSelector('.geDialog [data-help="source.dialog"]');
 
@@ -501,7 +501,7 @@ test('quick help: Data Sources dialog, source editor for each protocol, test con
 // Tags
 // ---------------------------------------------------------------
 
-test('quick help: Tags dialog and tag editor with every simulation kind and the alarm section', async function()
+test('quick help: Tags and Runtime tabs and tag editor with every simulation kind and the alarm section', async function()
 {
 	var page = await openPage();
 	await seed(page);
@@ -517,10 +517,11 @@ test('quick help: Tags dialog and tag editor with every simulation kind and the 
 	{
 		assert.ok(keys.indexOf(k) >= 0, 'missing ' + k);
 	});
-	await checkHeights(page);
 	await shot(page, 'tags', 'tags.sim');
 
-	// The icon next to the checkbox does not toggle it
+	// The icon next to the checkbox does not toggle it (Runtime tab)
+	await page.click('.geDialog [data-tab="runtime"]');
+	await checkHeights(page);
 	var pz = await page.evaluate(function()
 	{
 		return document.querySelector('[data-help="tags.panZoom"]').parentNode.querySelector('input').checked;
@@ -534,6 +535,7 @@ test('quick help: Tags dialog and tag editor with every simulation kind and the 
 	await page.keyboard.press('Escape');
 
 	// The header icon of a column does not open the editor
+	await page.click('.geDialog [data-tab="tags"]');
 	await page.click('.geDialog [data-help="tags.col.type"]');
 	assert.strictEqual((await popover(page)).key, 'tags.col.type');
 	assert.strictEqual(await page.$('.geDialog [data-dialog="tag-editor"]'), null);
@@ -918,30 +920,30 @@ function hmiPanel()
 	return 'Hmi.ui.format.container.lastChild';
 }
 
-test('quick help: HMI tab of the document and of an object, with the item editors', async function()
+test('quick help: HMI tab of the page and of an object, with the item editors', async function()
 {
 	var page = await openPage();
 	var ids = await seed(page);
 
-	// Nothing selected: the document summary
+	// Nothing selected: the page summary and the buttons
 	await showHmiTab(page);
 	var keys = await audit(page, hmiPanel(), 9);
-	['hmiTab.document', 'hmiTab.summary', 'hmiTab.sources', 'hmiTab.tags', 'hmiTab.tagBrowser',
-		'hmiTab.substitute', 'hmiTab.defineMissing', 'hmiTab.haloPage', 'hmiTab.docTriggers',
-		'hmiTab.livePreview'].forEach(function(k)
+	['hmiTab.document', 'hmiTab.summary', 'hmiTab.screenSettings', 'hmiTab.tagBrowser',
+		'hmiTab.substitute', 'hmiTab.defineMissing', 'hmiTab.validate', 'hmiTab.livePreview',
+		'hmiTab.runScreen'].forEach(function(k)
 	{
 		assert.ok(keys.indexOf(k) >= 0, 'missing ' + k);
 	});
-	await shot(page, 'hmitab-document', 'hmiTab.tags');
+	await shot(page, 'hmitab-document', 'hmiTab.screenSettings');
 
 	// An icon on a button does not run the button, the button keeps its size
 	var sizes = await page.evaluate(function()
 	{
 		var panel = Hmi.ui.format.container.lastChild;
-		var btn = panel.querySelector('[data-help="hmiTab.sources"]').parentNode.querySelector('button');
+		var btn = panel.querySelector('[data-help="hmiTab.screenSettings"]').parentNode.querySelector('button');
 		var r = btn.getBoundingClientRect();
 		var wrap = btn.parentNode.getBoundingClientRect();
-		var icon = panel.querySelector('[data-help="hmiTab.sources"]').getBoundingClientRect();
+		var icon = panel.querySelector('[data-help="hmiTab.screenSettings"]').getBoundingClientRect();
 
 		return {btn: r.height, wrap: wrap.height, inside: icon.left >= r.left && icon.right <= r.right &&
 			icon.top >= r.top && icon.bottom <= r.bottom, panelWidth: panel.getBoundingClientRect().width,
@@ -949,106 +951,46 @@ test('quick help: HMI tab of the document and of an object, with the item editor
 	});
 	assert.ok(sizes.inside, JSON.stringify(sizes));
 	assert.strictEqual(sizes.btn, sizes.wrap);
-	await page.click('[data-help="hmiTab.sources"]');
-	assert.strictEqual((await popover(page)).key, 'hmiTab.sources');
-	assert.strictEqual(await page.$('.geDialog'), null, 'the Sources dialog did not open');
+	await page.click('[data-help="hmiTab.screenSettings"]');
+	assert.strictEqual((await popover(page)).key, 'hmiTab.screenSettings');
+	assert.strictEqual(await page.$('.geDialog'), null, 'Screen Settings did not open');
 	await page.keyboard.press('Escape');
 
-	// The title of a collapsible section does not collapse it
-	var collapsed = await page.evaluate(function()
-	{
-		var icon = Hmi.ui.format.container.lastChild.querySelector('[data-help="hmiTab.docTriggers"]');
-
-		return icon.parentNode.classList.contains('geExpanded');
-	});
-	await page.click('[data-help="hmiTab.docTriggers"]');
-	assert.strictEqual(await page.evaluate(function()
-	{
-		var icon = Hmi.ui.format.container.lastChild.querySelector('[data-help="hmiTab.docTriggers"]');
-
-		return icon.parentNode.classList.contains('geExpanded');
-	}), collapsed);
-	await page.keyboard.press('Escape');
-
-	// An object: sections, buttons and quick add
+	// An object: the summary of the links and the buttons
 	await showHmiTab(page, ids.cell);
-	keys = await audit(page, hmiPanel(), 20);
-	['hmiTab.object', 'hmiTab.links', 'hmiTab.linksButton', 'hmiTab.substitute', 'hmiTab.quickAdd',
-		'quick.level', 'quick.value', 'quick.label', 'quick.color', 'quick.visible', 'quick.preset',
-		'quick.animation', 'hmiTab.bindings', 'hmiTab.events', 'hmiTab.triggers', 'hmiTab.animations',
-		'hmiTab.roles', 'hmiTab.halo', 'halo.object.style', 'halo.object.outlineShape', 'halo.object.color',
-		'halo.pageButton'].forEach(function(k)
+	keys = await audit(page, hmiPanel(), 3);
+	['hmiTab.object', 'hmiTab.links', 'hmiTab.linksButton', 'hmiTab.tagBrowser'].forEach(function(k)
 	{
 		assert.ok(keys.indexOf(k) >= 0, 'missing ' + k);
 	});
-	assert.ok(keys.indexOf('hmiTab.flow') < 0, 'a vertex has no flow section');
-
-	// The rows of the collapsed halo section have no height: expand it
-	await page.evaluate(function()
-	{
-		var title = Hmi.ui.format.container.lastChild.querySelector('[data-help="hmiTab.halo"]').parentNode;
-
-		if (!title.classList.contains('geExpanded'))
-		{
-			title.click();
-		}
-	});
-	await page.waitForTimeout(300);
-	await showHmiTab(page, ids.cell);
-	await audit(page, hmiPanel(), 20);
-	await checkHeights(page, hmiPanel());
-	await shot(page, 'hmitab-object', 'hmiTab.quickAdd');
-
-	// The quick add button, the select and their icons
-	var geometry = await page.evaluate(function()
-	{
-		var panel = Hmi.ui.format.container.lastChild;
-		var sel = panel.querySelector('[data-help="quick.preset"]');
-		var s = sel.parentNode.querySelector('select').getBoundingClientRect();
-		var i = sel.getBoundingClientRect();
-
-		return {inside: i.left >= s.left && i.right <= s.right, icon: i.right, arrow: s.right};
-	});
-	assert.ok(geometry.inside, JSON.stringify(geometry));
-	await page.click('[data-help="quick.animation"]');
-	assert.strictEqual((await popover(page)).key, 'quick.animation');
-	assert.strictEqual(await page.evaluate(function()
-	{
-		return Hmi.Model.getCellConfig(Hmi.ui.editor.graph.model.getCell('pump')).animations.length;
-	}), 1, 'the icon did not add an animation');
+	assert.ok(keys.indexOf('hmiTab.quickAdd') < 0 && keys.indexOf('hmiTab.bindings') < 0 &&
+		keys.indexOf('hmiTab.halo') < 0, 'the old sections are gone');
+	await shot(page, 'hmitab-object', 'hmiTab.links');
+	await page.click('[data-help="hmiTab.linksButton"]');
+	assert.strictEqual((await popover(page)).key, 'hmiTab.linksButton');
+	assert.strictEqual(await page.$('.geDialog'), null, 'Animation Links did not open');
 	await page.keyboard.press('Escape');
 
-	// An edge also has the flow section
+	// An edge has the same summary
 	await showHmiTab(page, ids.edge);
-	keys = await audit(page, hmiPanel(), 20);
-	assert.ok(keys.indexOf('hmiTab.flow') >= 0 && keys.indexOf('hmiTab.flowQuick') >= 0 &&
-		keys.indexOf('flow.type') >= 0, keys.join(' '));
-	await shot(page, 'hmitab-edge', 'flow.type');
+	await audit(page, hmiPanel(), 3);
 	await showHmiTab(page, ids.cell);
 
-	// Item editors opened with the add button of each section
-	var sections = {bindings: 'binding.dialog', events: 'event.dialog', triggers: 'trigger.dialog',
-		animations: 'animation.dialog'};
+	// Item editors of the Animation Links dialog (opened here directly)
+	var sections = {bindings: ['binding.dialog', 'buildBindingEditor', {tag: '', target: 'label'}],
+		events: ['event.dialog', 'buildEventEditor', {on: 'click', actions: []}],
+		triggers: ['trigger.dialog', 'buildTriggerEditor', {name: '', conditions: [], conditionType: 'and',
+			actions: []}],
+		animations: ['animation.dialog', 'buildAnimationEditor', {name: 'anim', preset: 'blink', params: {}}]};
 
 	for (var key of Object.keys(sections))
 	{
-		await page.evaluate(function(key)
+		await page.evaluate(function(args)
 		{
-			var section = Array.prototype.filter.call(Hmi.ui.format.container.lastChild
-				.querySelectorAll('.geFormatSection'), function(s)
-			{
-				return s.firstChild.querySelector('[data-help="hmiTab.' + key + '"]') != null;
-			})[0];
-			var buttons = section.querySelectorAll('button');
-			buttons[buttons.length - 1].click();
-		}, key);
-		await page.waitForSelector('.geDialog [data-help="' + sections[key] + '"]').catch(async function(e)
-		{
-			throw new Error(key + ': ' + await page.evaluate(function()
-			{
-				return (Hmi.ui.dialog != null) ? Hmi.ui.dialog.container.textContent.substring(0, 80) : 'no dialog';
-			}));
-		});
+			Hmi.Editors.showItemDialog({ui: Hmi.ui, title: args.key, helpKey: args.sec[0], kind: args.key,
+				value: args.sec[2], buildEditor: Hmi.FormatPanel[args.sec[1]], onSave: function() {}});
+		}, {key: key, sec: sections[key]});
+		await page.waitForSelector('.geDialog [data-help="' + sections[key][0] + '"]');
 		var ek = await audit(page, null, 3);
 		await checkHeights(page);
 		await shot(page, 'item-' + key, ek[ek.length - 1]);
@@ -1058,12 +1000,9 @@ test('quick help: HMI tab of the document and of an object, with the item editor
 	// Edit the existing items too
 	await page.evaluate(function()
 	{
-		var section = Array.prototype.filter.call(Hmi.ui.format.container.lastChild
-			.querySelectorAll('.geFormatSection'), function(s)
-		{
-			return s.firstChild.querySelector('[data-help="hmiTab.bindings"]') != null;
-		})[0];
-		section.querySelector('.geHmiItemRow span').click();
+		Hmi.Editors.showItemDialog({ui: Hmi.ui, title: 'Binding', helpKey: 'binding.dialog', kind: 'bindings',
+			value: Hmi.Model.getCellConfig(Hmi.ui.editor.graph.model.getCell('pump')).bindings[0],
+			buildEditor: Hmi.FormatPanel.buildBindingEditor, onSave: function() {}});
 	});
 	await page.waitForSelector('.geDialog [data-help="binding.dialog"]');
 	var bk = await audit(page, null, 8);
@@ -1085,7 +1024,16 @@ test('quick help: HMI tab of the document and of an object, with the item editor
 	await page.keyboard.press('Escape');
 
 	// The JSON toggle keeps its function next to its icon
+	console.log('DBG', await page.evaluate(function()
+	{
+		var i = document.querySelector('.geDialog [data-help="item.json"]');
+		var r = i.getBoundingClientRect();
+		var e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+
+		return [document.querySelectorAll('.geDialog').length, r.left, r.top, e == i, e && e.className, e && e.outerHTML.substring(0, 80)];
+	}));
 	await page.click('.geDialog [data-help="item.json"]');
+	await page.waitForSelector('.geHmiHelpPop');
 	assert.strictEqual((await popover(page)).key, 'item.json');
 	assert.strictEqual(await page.$('.geDialog textarea'), null, 'the icon does not show the JSON');
 	await page.keyboard.press('Escape');
@@ -1343,9 +1291,9 @@ test('quick help: popover behaviour in the new dialogs (Escape, one at a time, k
 	await seed(page);
 	await page.evaluate(function()
 	{
-		Hmi.TagsDialog.show(Hmi.ui);
+		Hmi.ScreenSettings.show(Hmi.ui, {tab: 'runtime'});
 	});
-	await page.waitForSelector('.geDialog [data-help="tags.dialog"]');
+	await page.waitForSelector('.geDialog [data-help="tags.sim"]');
 
 	// Only one popover is open at a time
 	await page.click('.geDialog [data-help="tags.sim"]');
@@ -1358,13 +1306,13 @@ test('quick help: popover behaviour in the new dialogs (Escape, one at a time, k
 	// Escape closes the popover first, the dialog stays; a second Escape reaches the dialog
 	await page.keyboard.press('Escape');
 	assert.strictEqual(await popover(page), null);
-	assert.ok(await page.$('.geDialog [data-help="tags.dialog"]'));
+	assert.ok(await page.$('.geDialog [data-help="screen.dialog"]'));
 
 	// Enter on a focused icon opens the popover and does not confirm the dialog
 	await page.focus('.geDialog [data-help="tags.maxRate"]');
 	await page.keyboard.press('Enter');
 	assert.strictEqual((await popover(page)).key, 'tags.maxRate');
-	assert.ok(await page.$('.geDialog [data-help="tags.dialog"]'), 'Enter does not close the dialog');
+	assert.ok(await page.$('.geDialog [data-help="screen.dialog"]'), 'Enter does not close the dialog');
 	await page.keyboard.press('Escape');
 
 	// A click on the field next to an icon still works (the icon is not in the way)
@@ -1395,7 +1343,7 @@ test('quick help: every key of the new dialogs has a text of its own', async fun
 	var page = await openPage();
 	var result = await page.evaluate(function()
 	{
-		var prefixes = /^(sources|source|credentials|tags|tag|tagBrowser|substitute|define|validator|diag|alarmList|hmiTab|quick|flow|binding|event|trigger|animation|condition|transform|action|target|item)\./;
+		var prefixes = /^(screen|runtime|window|sources|source|credentials|tags|tag|tagBrowser|substitute|define|validator|diag|alarmList|hmiTab|quick|flow|binding|event|trigger|animation|condition|transform|action|target|item)\./;
 		var keys = Object.keys(Hmi.HelpTexts).filter(function(k)
 		{
 			return prefixes.test(k);

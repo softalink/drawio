@@ -3,9 +3,15 @@
  * js/grapheditor/Format.js Format.prototype.immediateRefresh). The tab is
  * appended after the existing tabs are built, without touching Format.js.
  *
- * Selection empty: document config summary + Sources/Tags/Live Preview.
- * Cell(s) selected: collapsible sections for Bindings, Events, Triggers,
- * Animations and Roles, each editable via Hmi.Editors. Edits go through
+ * Nothing selected: page summary (sources, tags, objects with links, page
+ * triggers) and the buttons of the page features (Screen Settings, Tag
+ * Browser, Substitute Tags, Define Missing Tags, Validate, Live Preview, Run
+ * Screen). Objects selected: the configured links of the object (a click
+ * opens the Animation Links dialog on that link) and the Animation Links and
+ * Tag Browser buttons (INTOUCH_LINKS.md §12.4).
+ *
+ * The item editors (binding, event, trigger, animation) stay here: the
+ * Animation Links dialog reuses them. Edits of an object go through
  * Hmi.Model.setCellConfig (undoable model edits, see ARCHITECTURE.md §4).
  */
 (function()
@@ -14,10 +20,6 @@
 	var Hmi = root.Hmi = root.Hmi || {};
 
 	var FormatPanel = {};
-
-	// Help keys of the title of the item dialogs of the list sections
-	var HELP_DIALOGS = {bindings: 'binding.dialog', events: 'event.dialog',
-		triggers: 'trigger.dialog', animations: 'animation.dialog'};
 
 	// ---------------------------------------------------------------
 	// {name} template substitution for multi-cell quick-add (HMI-BND-9)
@@ -137,9 +139,93 @@
 		}
 	};
 
+	/**
+	 * Style of the clickable summary lines (light/dark via the theme
+	 * variables of grapheditor.css).
+	 */
+	function installStyle()
+	{
+		Hmi.Editors.installStyle();
+
+		if (document.getElementById('geHmiTabStyle') != null)
+		{
+			return;
+		}
+
+		var style = document.createElement('style');
+		style.id = 'geHmiTabStyle';
+		style.textContent =
+			'.geHmiSumLine{display:flex;align-items:baseline;gap:6px;cursor:pointer;border-radius:4px;' +
+				'padding:2px 4px;margin:0 -4px;}' +
+			'.geHmiSumLine:hover,.geHmiSumLine:focus-visible{' +
+				'background:light-dark(var(--soft-hover-color),var(--dark-soft-hover-color));outline:none;}' +
+			'.geHmiSumLine .geHmiSumVal{margin-left:auto;font-variant-numeric:tabular-nums;}' +
+			'div.geHmiSummary>.geHmiSumLine{display:flex;overflow:hidden;white-space:nowrap;}' +
+			'.geHmiSumLine .geHmiSumText{overflow:hidden;text-overflow:ellipsis;}';
+		document.head.appendChild(style);
+	};
+
+	/**
+	 * Adds a full-width button with the help icon to the panel.
+	 */
+	HmiFormatPanel.prototype.addButton = function(div, label, helpKey, role, fn)
+	{
+		var btn = mxUtils.button(label, fn);
+		btn.className = 'geFullWidthElement';
+		btn.style.display = 'block';
+		btn.style.marginTop = '4px';
+		btn.setAttribute('data-role', role);
+		div.appendChild(Hmi.Editors.helpButton(btn, helpKey));
+
+		return btn;
+	};
+
+	/**
+	 * Adds a clickable line (keyboard operable) to the summary list.
+	 */
+	function addLine(list, text, title, fn, valueText)
+	{
+		var line = document.createElement('div');
+		line.className = 'geHmiSumLine';
+		line.setAttribute('role', 'button');
+		line.setAttribute('tabindex', '0');
+		line.setAttribute('title', title || text);
+		var t = document.createElement('span');
+		t.className = 'geHmiSumText';
+		mxUtils.write(t, text);
+		line.appendChild(t);
+
+		if (valueText != null)
+		{
+			var v = document.createElement('span');
+			v.className = 'geHmiSumVal';
+			mxUtils.write(v, valueText);
+			line.appendChild(v);
+		}
+
+		mxEvent.addListener(line, 'click', fn);
+		mxEvent.addListener(line, 'keydown', function(evt)
+		{
+			if (evt.key == 'Enter' || evt.key == ' ')
+			{
+				mxEvent.consume(evt);
+				fn();
+			}
+		});
+		list.appendChild(line);
+
+		return line;
+	};
+
+	/**
+	 * Nothing selected: summary of the page and the buttons of the page
+	 * level features (INTOUCH_LINKS.md §12.4).
+	 */
 	HmiFormatPanel.prototype.renderDocSummary = function()
 	{
 		var ui = this.editorUi;
+		var graph = ui.editor.graph;
+		installStyle();
 		var div = this.createPanel();
 		var docTitle = this.createTitle(mxResources.get('hmi'));
 		Hmi.Editors.help(docTitle, 'hmiTab.document');
@@ -156,633 +242,206 @@
 			cfg = {sources: [], tags: []};
 		}
 
+		// Objects of the page that have links or other HMI settings
+		var objects = 0;
+		var cells = graph.model.cells;
+
+		for (var id in cells)
+		{
+			var cell = cells[id];
+
+			if (cell != graph.model.getRoot() && !graph.model.isLayer(cell) &&
+				(graph.model.isVertex(cell) || graph.model.isEdge(cell)))
+			{
+				objects += ((Hmi.LinksDialog != null && Hmi.LinksDialog.objectSummary != null) ?
+					Hmi.LinksDialog.objectSummary(cell).length > 0 : Hmi.Model.hasCellConfig(cell)) ? 1 : 0;
+			}
+		}
+
+		var triggers = (Hmi.Model.getDocConfig(graph).triggers || []).length;
+		Hmi.Editors.head(div, mxResources.get('hmiScrSummary'), 'hmiTab.summary').style.marginBottom = '2px';
 		var summary = document.createElement('div');
-		summary.className = 'geDialogHint';
-		summary.style.padding = '0 0 8px 0';
-		mxUtils.write(summary, mxResources.get('hmiSources') + ': ' + cfg.sources.length +
-			'  ·  ' + mxResources.get('hmiTags') + ': ' + cfg.tags.length);
-		Hmi.Editors.help(summary, 'hmiTab.summary');
+		summary.className = 'geHmiSummary';
+		summary.setAttribute('data-role', 'page-summary');
+
+		var open = function(tab)
+		{
+			return function()
+			{
+				Hmi.ScreenSettings.show(ui, {tab: tab});
+			};
+		};
+
+		var rows = [['sources', mxResources.get('hmiSources'), cfg.sources.length],
+			['tags', mxResources.get('hmiTags'), cfg.tags.length],
+			[null, mxResources.get('hmiScrObjectsWithLinks'), objects],
+			['pageTriggers', mxResources.get('hmiDocTriggers'), triggers]];
+
+		for (var i = 0; i < rows.length; i++)
+		{
+			var line = addLine(summary, rows[i][1], null, (rows[i][0] != null) ?
+				open(rows[i][0]) : function() {}, String(rows[i][2]));
+			line.setAttribute('data-summary', rows[i][0] || 'objects');
+
+			if (rows[i][0] == null)
+			{
+				line.style.cursor = 'default';
+				line.removeAttribute('role');
+				line.removeAttribute('tabindex');
+			}
+		}
+
 		div.appendChild(summary);
 
-		var btn1 = mxUtils.button(mxResources.get('hmiSources') + '...', function()
+		this.addButton(div, mxResources.get('hmiScreenSettings') + '...', 'hmiTab.screenSettings',
+			'screen-settings', function()
 		{
-			if (Hmi.SourcesDialog != null)
-			{
-				Hmi.SourcesDialog.show(ui);
-			}
-		});
-		btn1.className = 'geFullWidthElement';
-		btn1.style.display = 'block';
-		div.appendChild(Hmi.Editors.helpButton(btn1, 'hmiTab.sources'));
+			Hmi.ScreenSettings.show(ui);
+		}).style.marginTop = '0';
 
-		var btn2 = mxUtils.button(mxResources.get('hmiTags') + '...', function()
-		{
-			if (Hmi.TagsDialog != null)
-			{
-				Hmi.TagsDialog.show(ui);
-			}
-		});
-		btn2.className = 'geFullWidthElement';
-		btn2.style.display = 'block';
-		btn2.style.marginTop = '4px';
-		div.appendChild(Hmi.Editors.helpButton(btn2, 'hmiTab.tags'));
-
-		var btn3 = mxUtils.button(mxResources.get('hmiTagBrowser') + '...', function()
+		this.addButton(div, mxResources.get('hmiTagBrowser') + '...', 'hmiTab.tagBrowser',
+			'tag-browser', function()
 		{
 			if (Hmi.TagBrowser != null)
 			{
 				Hmi.TagBrowser.show(ui);
 			}
 		});
-		btn3.className = 'geFullWidthElement';
-		btn3.style.display = 'block';
-		btn3.style.marginTop = '4px';
-		div.appendChild(Hmi.Editors.helpButton(btn3, 'hmiTab.tagBrowser'));
 
-		var btnSub = mxUtils.button(mxResources.get('hmiSubstituteTags') + '...', function()
+		var sub = this.addButton(div, mxResources.get('hmiSubstituteTags') + '...', 'hmiTab.substitute',
+			'substitute-tags', function()
 		{
 			if (Hmi.SubstituteTags != null)
 			{
 				Hmi.SubstituteTags.show(ui, []);
 			}
 		});
-		btnSub.className = 'geFullWidthElement';
-		btnSub.style.display = 'block';
-		btnSub.style.marginTop = '4px';
-		btnSub.setAttribute('title', mxResources.get('hmiSubstituteHintPage').replace('{1}', ''));
-		div.appendChild(Hmi.Editors.helpButton(btnSub, 'hmiTab.substitute'));
+		sub.setAttribute('title', mxResources.get('hmiSubstituteHintPage').replace('{1}', ''));
 
-		var btnDef = mxUtils.button(mxResources.get('hmiDefineMissingTags') + '...', function()
+		this.addButton(div, mxResources.get('hmiDefineMissingTags') + '...', 'hmiTab.defineMissing',
+			'define-missing', function()
 		{
 			if (Hmi.SubstituteTags != null)
 			{
 				Hmi.SubstituteTags.defineMissing(ui);
 			}
 		});
-		btnDef.className = 'geFullWidthElement';
-		btnDef.style.display = 'block';
-		btnDef.style.marginTop = '4px';
-		div.appendChild(Hmi.Editors.helpButton(btnDef, 'hmiTab.defineMissing'));
 
-		var btnHalo = mxUtils.button(mxResources.get('hmiHoverHalo') + '...', function()
+		this.addButton(div, mxResources.get('hmiValidate') + '...', 'hmiTab.validate',
+			'validate', function()
 		{
-			if (Hmi.HaloDialog != null)
+			if (Hmi.Validator != null)
 			{
-				Hmi.HaloDialog.show(ui);
+				Hmi.Validator.show(ui);
 			}
 		});
-		btnHalo.className = 'geFullWidthElement';
-		btnHalo.style.display = 'block';
-		btnHalo.style.marginTop = '4px';
-		div.appendChild(Hmi.Editors.helpButton(btnHalo, 'hmiTab.haloPage'));
-
-		this.addDocTriggersSection(div);
 
 		var previewAction = ui.actions.get('hmiLivePreview');
 
 		if (previewAction != null)
 		{
-			var btn4 = mxUtils.button(mxResources.get('hmiLivePreview'), function()
+			this.addButton(div, mxResources.get('hmiLivePreview'), 'hmiTab.livePreview',
+				'live-preview', function()
 			{
 				previewAction.funct();
+			}).style.marginTop = '10px';
+		}
+
+		var runAction = ui.actions.get('hmiRun');
+
+		if (runAction != null)
+		{
+			this.addButton(div, mxResources.get('hmiRun'), 'hmiTab.runScreen', 'run-screen', function()
+			{
+				runAction.funct();
 			});
-			btn4.className = 'geFullWidthElement';
-			btn4.style.display = 'block';
-			btn4.style.marginTop = '10px';
-			div.appendChild(Hmi.Editors.helpButton(btn4, 'hmiTab.livePreview'));
 		}
 
 		this.container.appendChild(div);
 	};
 
 	/**
-	 * Document-level triggers of the current page (HMI-TRG-4).
+	 * Objects selected: the configured links of the first object (one line
+	 * each, a click opens the Animation Links dialog on that link) and the
+	 * buttons Animation Links and Tag Browser.
 	 */
-	HmiFormatPanel.prototype.addDocTriggersSection = function(div)
-	{
-		var ui = this.editorUi;
-		var graph = ui.editor.graph;
-		var section = this.createCollapsibleSection(mxResources.get('hmiDocTriggers'), true);
-		Hmi.Editors.titleHelp(section, 'hmiTab.docTriggers');
-		section.wrapper.style.marginTop = '8px';
-		div.appendChild(section.wrapper);
-		var listDiv = document.createElement('div');
-		section.contentDiv.appendChild(listDiv);
-		var items = (Hmi.Model.getDocConfig(graph).triggers || []).slice();
-
-		var renderList = function()
-		{
-			Hmi.Editors.renderItemList({
-				ui: ui, container: listDiv, items: items, kind: 'triggers',
-				helpKey: 'trigger.dialog',
-				itemLabel: function(t)
-				{
-					return t.name || mxResources.get('hmiTriggers');
-				},
-				buildEditor: function(ui2, value)
-				{
-					return FormatPanel.buildTriggerEditor(ui2, value);
-				},
-				newItem: function()
-				{
-					return {name: '', conditions: [], conditionType: 'and', actions: []};
-				},
-				emptyText: mxResources.get('hmiNoItems'),
-				addTitle: mxResources.get('hmiAddItem'), editTitle: mxResources.get('edit'),
-				onChange: function(newItems)
-				{
-					var cfg = Hmi.Model.getDocConfig(graph);
-					cfg.triggers = newItems;
-					Hmi.Model.setDocConfig(graph, cfg);
-					items = newItems;
-					renderList();
-				}
-			});
-		};
-
-		renderList();
-	};
-
 	HmiFormatPanel.prototype.renderCellConfig = function(cells)
 	{
 		var ui = this.editorUi;
-		var graph = ui.editor.graph;
-		var cell = cells[0];
+		installStyle();
 		var div = this.createPanel();
 		var cellTitle = this.createTitle(mxResources.get('hmi') +
 			(cells.length > 1 ? ' (' + cells.length + ')' : ''));
 		Hmi.Editors.help(cellTitle, 'hmiTab.object');
 		div.appendChild(cellTitle);
 
-		this.container.appendChild(div);
-
-		this.addLinksSection(div, cells);
-		this.addQuickAdd(div, cells);
-		this.addListSection(div, cells, 'bindings', mxResources.get('hmiBindings'),
-			function(b)
-			{
-				return (b.tag || b.expr || '?') + ' → ' + (b.target || '');
-			},
-			function(ui2, value)
-			{
-				return FormatPanel.buildBindingEditor(ui2, value);
-			}, function()
-			{
-				return {tag: '', target: 'label'};
-			});
-
-		this.addListSection(div, cells, 'events', mxResources.get('hmiEvents'),
-			function(e)
-			{
-				return e.on + ' (' + (e.actions || []).length + ' ' +
-					mxResources.get('hmiActions') + ')';
-			},
-			function(ui2, value)
-			{
-				return FormatPanel.buildEventEditor(ui2, value);
-			}, function()
-			{
-				return {on: 'click', actions: []};
-			});
-
-		this.addListSection(div, cells, 'triggers', mxResources.get('hmiTriggers'),
-			function(t)
-			{
-				return t.name || mxResources.get('hmiTriggers');
-			},
-			function(ui2, value)
-			{
-				return FormatPanel.buildTriggerEditor(ui2, value);
-			}, function()
-			{
-				return {name: '', conditions: [], conditionType: 'and', actions: []};
-			});
-
-		this.addListSection(div, cells, 'animations', mxResources.get('hmiAnimations'),
-			function(a)
-			{
-				return (a.name || '?') + (a.preset ? ' (' + a.preset + ')' : '');
-			},
-			function(ui2, value)
-			{
-				return FormatPanel.buildAnimationEditor(ui2, value);
-			}, function()
-			{
-				return {name: 'anim', preset: 'blink', params: {}};
-			});
-
-		this.addRolesSection(div, cells);
-		this.addHaloSection(div, cells);
-
-		if (cell.getEdge != null || graph.model.isEdge(cell))
-		{
-			this.addFlowSection(div, cells);
-		}
-	};
-
-	/**
-	 * Animation Links (INTOUCH_LINKS.md §10): summary of the configured
-	 * links of the first selected cell and the button that opens the
-	 * Animation Links dialog for all selected cells.
-	 */
-	HmiFormatPanel.prototype.addLinksSection = function(div, cells)
-	{
-		var ui = this.editorUi;
-
-		if (Hmi.LinksDialog == null)
-		{
-			return;
-		}
-
-		Hmi.Editors.installStyle();
-		var section = this.createCollapsibleSection(mxResources.get('hmiAnimationLinks'), false);
-		Hmi.Editors.titleHelp(section, 'hmiTab.links');
-		div.appendChild(section.wrapper);
-		var content = section.contentDiv;
-		content.style.padding = '6px 0';
-		var lines = Hmi.LinksDialog.summary(Hmi.Model.getCellConfig(cells[0]).links);
+		Hmi.Editors.head(div, mxResources.get('hmiScrLinks'), 'hmiTab.links').style.marginBottom = '2px';
 		var list = document.createElement('div');
 		list.className = 'geHmiSummary';
 		list.setAttribute('data-role', 'links-summary');
+		var entries = [];
 
-		if (lines.length == 0)
+		if (Hmi.LinksDialog != null)
+		{
+			if (Hmi.LinksDialog.objectSummary != null)
+			{
+				entries = Hmi.LinksDialog.objectSummary(cells[0]);
+			}
+			else
+			{
+				entries = Hmi.LinksDialog.summary(Hmi.Model.getCellConfig(cells[0]).links).map(function(t)
+				{
+					return {id: null, text: t};
+				});
+			}
+		}
+
+		if (entries.length == 0)
 		{
 			var none = document.createElement('div');
 			none.className = 'geDialogHint';
-			mxUtils.write(none, mxResources.get('hmiLnkNoLinks'));
+			none.setAttribute('data-role', 'no-links');
+			mxUtils.write(none, mxResources.get('hmiScrNoLinks'));
 			list.appendChild(none);
 		}
 
-		for (var i = 0; i < lines.length; i++)
+		for (var i = 0; i < entries.length; i++)
 		{
-			var line = document.createElement('div');
-			line.setAttribute('title', lines[i]);
-			mxUtils.write(line, lines[i]);
-			list.appendChild(line);
-		}
-
-		content.appendChild(list);
-
-		var btn = mxUtils.button(mxResources.get('hmiAnimationLinks') + '...', function()
-		{
-			Hmi.LinksDialog.show(ui, cells);
-		});
-		btn.className = 'geFullWidthElement';
-		btn.style.display = 'block';
-		btn.setAttribute('data-role', 'links-button');
-		content.appendChild(Hmi.Editors.helpButton(btn, 'hmiTab.linksButton'));
-
-		if (Hmi.SubstituteTags != null)
-		{
-			var btn2 = mxUtils.button(mxResources.get('hmiSubstituteTags') + '...', function()
+			(function(entry)
 			{
-				Hmi.SubstituteTags.show(ui, cells);
-			});
-			btn2.className = 'geFullWidthElement';
-			btn2.style.display = 'block';
-			btn2.style.marginTop = '4px';
-			content.appendChild(Hmi.Editors.helpButton(btn2, 'hmiTab.substitute'));
-		}
-	};
-
-	/**
-	 * Quick-add buttons for common bindings/animations (HMI-BND, spec item 2).
-	 */
-	HmiFormatPanel.prototype.addQuickAdd = function(div, cells)
-	{
-		var ui = this.editorUi;
-		var graph = ui.editor.graph;
-		var section = this.createCollapsibleSection(mxResources.get('hmiQuickAdd'), false);
-		Hmi.Editors.titleHelp(section, 'hmiTab.quickAdd');
-		div.appendChild(section.wrapper);
-		var content = section.contentDiv;
-		content.style.padding = '6px 0';
-
-		function addBinding(binding)
-		{
-			for (var i = 0; i < cells.length; i++)
-			{
-				var cfg = Hmi.Model.getCellConfig(cells[i]);
-				cfg.bindings.push(binding);
-				FormatPanel.applyToCells(graph, [cells[i]], 'bindings', cfg.bindings);
-			}
-		};
-
-		function quickBtn(label, fn, helpKey)
-		{
-			var btn = mxUtils.button(label, fn);
-			btn.className = 'geFullWidthElement';
-			btn.style.display = 'block';
-			btn.style.marginBottom = '2px';
-			content.appendChild(Hmi.Editors.helpButton(btn, helpKey));
-		};
-
-		quickBtn(mxResources.get('hmiQuickLevel'), function()
-		{
-			addBinding({tag: 'Tag{id}', target: 'style:hmiLevel'});
-		}, 'quick.level');
-
-		quickBtn(mxResources.get('hmiQuickValue'), function()
-		{
-			addBinding({tag: 'Tag{id}', target: 'prop:value'});
-		}, 'quick.value');
-
-		quickBtn(mxResources.get('hmiQuickLabel'), function()
-		{
-			addBinding({tag: 'Tag{id}', target: 'label'});
-		}, 'quick.label');
-
-		quickBtn(mxResources.get('hmiQuickColor'), function()
-		{
-			addBinding({tag: 'Tag{id}', target: 'style:fillColor', transform:
-				{kind: 'map', entries: [{operator: '==', value: 1, output: '#4CAF50'}],
-				'default': '#B0BEC5'}});
-		}, 'quick.color');
-
-		quickBtn(mxResources.get('hmiQuickVisible'), function()
-		{
-			addBinding({tag: 'Tag{id}', target: 'visible'});
-		}, 'quick.visible');
-
-		var presetSelect = Hmi.Editors.select([
-			{value: 'blink', label: 'Blink'},
-			{value: 'spin', label: 'Spin'},
-			{value: 'pulse', label: 'Pulse'},
-			{value: 'shake', label: 'Shake'},
-			{value: 'fadeInOut', label: 'Fade in/out'},
-			{value: 'colorCycle', label: 'Color cycle'}
-		], 'blink');
-		presetSelect.style.display = 'block';
-		presetSelect.style.position = 'static';
-		presetSelect.style.width = '212px';
-		presetSelect.style.marginTop = '4px';
-		var presetWrap = Hmi.Editors.helpButton(presetSelect, 'quick.preset');
-		var presetIcon = presetWrap.querySelector('.geHmiHelp');
-
-		if (presetIcon != null)
-		{
-			// Left of the arrow of the select
-			presetIcon.style.right = '30px';
-		}
-
-		content.appendChild(presetWrap);
-
-		quickBtn(mxResources.get('hmiQuickAnimation'), function()
-		{
-			var preset = presetSelect.value;
-			var params = {};
-
-			if (preset == 'spin')
-			{
-				params.rpm = 10;
-			}
-
-			for (var i = 0; i < cells.length; i++)
-			{
-				var cfg = Hmi.Model.getCellConfig(cells[i]);
-				cfg.animations.push({name: preset, preset: preset, params: params,
-					autoPlay: true, duration: 1000});
-				FormatPanel.applyToCells(graph, [cells[i]], 'animations', cfg.animations);
-			}
-		}, 'quick.animation');
-	};
-
-	/**
-	 * Edge-only: Flow ← tag quick binding and flow type select (model style,
-	 * via graph.setCellStyles — an undoable editor-time edit).
-	 */
-	HmiFormatPanel.prototype.addFlowSection = function(div, cells)
-	{
-		var ui = this.editorUi;
-		var graph = ui.editor.graph;
-		var section = this.createCollapsibleSection(mxResources.get('hmiFlow'), true);
-		Hmi.Editors.titleHelp(section, 'hmiTab.flow');
-		div.appendChild(section.wrapper);
-		var content = section.contentDiv;
-		content.style.padding = '6px 0';
-
-		var btn = mxUtils.button(mxResources.get('hmiQuickFlow'), function()
-		{
-			for (var i = 0; i < cells.length; i++)
-			{
-				var cfg = Hmi.Model.getCellConfig(cells[i]);
-				cfg.bindings.push({tag: 'Tag{id}', target: 'style:flowAnimation'});
-				FormatPanel.applyToCells(graph, [cells[i]], 'bindings', cfg.bindings);
-			}
-
-			graph.setCellStyles('flowAnimation', '1', cells);
-		});
-		btn.className = 'geFullWidthElement';
-		content.appendChild(Hmi.Editors.helpButton(btn, 'hmiTab.flowQuick'));
-
-		var typeRow = Hmi.Editors.row(content, mxResources.get('hmiFlowType') + ':', 'flow.type');
-		var style = graph.getCurrentCellStyle(cells[0]) || {};
-		var typeSelect = Hmi.Editors.select(['dash', 'dots', 'beads', 'arrows', 'liquid'],
-			style.flowAnimationType || 'dash');
-		typeSelect.style.position = 'static';
-		typeSelect.style.marginLeft = '6px';
-		typeRow.appendChild(typeSelect);
-
-		mxEvent.addListener(typeSelect, 'change', function()
-		{
-			graph.setCellStyles('flowAnimationType', typeSelect.value, cells);
-		});
-	};
-
-	/**
-	 * A collapsible section listing one config key's items.
-	 */
-	HmiFormatPanel.prototype.addListSection = function(div, cells, key, title,
-		itemLabel, buildEditor, newItem)
-	{
-		var ui = this.editorUi;
-		var graph = ui.editor.graph;
-		var section = this.createCollapsibleSection(title, key != 'bindings');
-		Hmi.Editors.titleHelp(section, 'hmiTab.' + key);
-		div.appendChild(section.wrapper);
-		var listDiv = document.createElement('div');
-		section.contentDiv.appendChild(listDiv);
-
-		var cfg = Hmi.Model.getCellConfig(cells[0]);
-		var items = (cfg[key] || []).slice();
-
-		var renderList = function()
-		{
-			Hmi.Editors.renderItemList({
-				ui: ui, container: listDiv, items: items, kind: key,
-				helpKey: HELP_DIALOGS[key], itemLabel: itemLabel, buildEditor: buildEditor, newItem: newItem,
-				emptyText: mxResources.get('hmiNoItems'),
-				addTitle: mxResources.get('hmiAddItem'), editTitle: mxResources.get('edit'),
-				onChange: function(newItems)
+				var line = addLine(list, entry.text, null, function()
 				{
-					FormatPanel.applyToCells(graph, cells, key, newItems);
-					items = newItems;
-					renderList();
+					Hmi.LinksDialog.show(ui, cells, (entry.id != null) ? {link: entry.id} : null);
+				});
+
+				if (entry.id != null)
+				{
+					line.setAttribute('data-link', entry.id);
 				}
-			});
-		};
-
-		renderList();
-	};
-
-	HmiFormatPanel.prototype.addRolesSection = function(div, cells)
-	{
-		var ui = this.editorUi;
-		var graph = ui.editor.graph;
-		var section = this.createCollapsibleSection(mxResources.get('hmiRoles'), true);
-		Hmi.Editors.titleHelp(section, 'hmiTab.roles');
-		div.appendChild(section.wrapper);
-		var cfg = Hmi.Model.getCellConfig(cells[0]);
-		var input = Hmi.Editors.textInput((cfg.roles || []).join(','), 'op,eng');
-		var row = document.createElement('div');
-		row.style.padding = '6px 0';
-		row.appendChild(input);
-		section.contentDiv.appendChild(row);
-
-		mxEvent.addListener(input, 'change', function()
-		{
-			var roles = input.value.split(',').map(function(s)
-			{
-				return s.replace(/^\s+|\s+$/g, '');
-			}).filter(function(s)
-			{
-				return s.length > 0;
-			});
-			FormatPanel.applyToCells(graph, cells, 'roles', roles);
-		});
-	};
-
-	/**
-	 * Hover halo of the selected objects (style keys hmiHalo, hmiHaloStyle
-	 * and hmiHaloColor, see runtime/HmiHalo.js). Page default uses the
-	 * page's Hover Halo settings.
-	 */
-	HmiFormatPanel.prototype.addHaloSection = function(div, cells)
-	{
-		var ui = this.editorUi;
-		var graph = ui.editor.graph;
-		var section = this.createCollapsibleSection(mxResources.get('hmiHoverHalo'), true);
-		Hmi.Editors.titleHelp(section, 'hmiTab.halo');
-		div.appendChild(section.wrapper);
-		var content = section.contentDiv;
-		content.style.padding = '6px 0';
-		var style = graph.getCurrentCellStyle(cells[0]) || {};
-
-		function haloHelp(row, key)
-		{
-			if (Hmi.Help != null)
-			{
-				Hmi.Help.attach(row.querySelector('.geDialogFormLabel'), key);
-			}
-		};
-
-		var current = (mxUtils.getValue(style, 'hmiHalo', '1') == '0') ? 'off' :
-			mxUtils.getValue(style, 'hmiHaloStyle', 'default');
-		var options = [['default', 'hmiHaloPageDefault'], ['glow', 'hmiHaloGlow'],
-			['outline', 'hmiHaloOutline'], ['glowOutline', 'hmiHaloGlowOutline'], ['off', 'hmiHaloPreset_off']];
-		var select = document.createElement('select');
-		select.className = 'geHmiHaloSelect';
-
-		for (var i = 0; i < options.length; i++)
-		{
-			var opt = document.createElement('option');
-			opt.value = options[i][0];
-			mxUtils.write(opt, mxResources.get(options[i][1]));
-			select.appendChild(opt);
+			})(entries[i]);
 		}
 
-		select.value = current;
-		select.style.position = 'static';
-		select.style.marginLeft = '6px';
-		var row = Hmi.Editors.row(content, mxResources.get('hmiHaloStyle') + ':');
-		haloHelp(row, 'halo.object.style');
-		row.appendChild(select);
+		div.appendChild(list);
 
-		var outline = document.createElement('select');
-		outline.className = 'geHmiHaloOutlineSelect';
-		var outlines = [['default', 'hmiHaloPageDefault'], ['rect', 'hmiHaloOutlineRect'],
-			['shape', 'hmiHaloOutlineShape']];
-
-		for (var i = 0; i < outlines.length; i++)
+		if (Hmi.LinksDialog != null)
 		{
-			var o = document.createElement('option');
-			o.value = outlines[i][0];
-			mxUtils.write(o, mxResources.get(outlines[i][1]));
-			outline.appendChild(o);
+			this.addButton(div, mxResources.get('hmiAnimationLinks') + '...', 'hmiTab.linksButton',
+				'links-button', function()
+			{
+				Hmi.LinksDialog.show(ui, cells);
+			}).style.marginTop = '0';
 		}
 
-		outline.value = mxUtils.getValue(style, 'hmiHaloOutline', 'default');
-		outline.style.position = 'static';
-		outline.style.marginLeft = '6px';
-		var outlineRow = Hmi.Editors.row(content, mxResources.get('hmiHaloOutlineFollows') + ':');
-		haloHelp(outlineRow, 'halo.object.outlineShape');
-		outlineRow.appendChild(outline);
-
-		var color = Hmi.Editors.colorInput(ui, mxUtils.getValue(style, 'hmiHaloColor', ''));
-		color.input.setAttribute('placeholder', mxResources.get('hmiHaloPageDefault'));
-		var colorRow = Hmi.Editors.row(content, mxResources.get('color') + ':');
-		haloHelp(colorRow, 'halo.object.color');
-		colorRow.appendChild(color);
-
-		var apply = function()
+		this.addButton(div, mxResources.get('hmiTagBrowser') + '...', 'hmiTab.tagBrowser',
+			'tag-browser', function()
 		{
-			var value = select.value;
-			var c = color.getValue();
-			graph.getModel().beginUpdate();
-
-			try
+			if (Hmi.TagBrowser != null)
 			{
-				graph.setCellStyles('hmiHalo', (value == 'off') ? '0' : null, cells);
-				graph.setCellStyles('hmiHaloStyle', (value == 'off' || value == 'default') ?
-					null : value, cells);
-				graph.setCellStyles('hmiHaloColor', (c != null && c !== '') ? c : null, cells);
-				graph.setCellStyles('hmiHaloOutline', (outline.value == 'default') ? null :
-					outline.value, cells);
-			}
-			finally
-			{
-				graph.getModel().endUpdate();
-			}
-		};
-
-		mxEvent.addListener(select, 'change', apply);
-		mxEvent.addListener(outline, 'change', apply);
-		mxEvent.addListener(color.input, 'change', apply);
-
-		// The colour picker sets the value without a change event
-		var swatch = color.querySelector('.geHmiSwatch');
-
-		if (swatch != null)
-		{
-			mxEvent.addListener(swatch, 'click', function()
-			{
-				var before = color.getValue();
-				var wait = setInterval(function()
-				{
-					if (document.querySelector('.geDialog') == null)
-					{
-						clearInterval(wait);
-
-						if (color.getValue() != before)
-						{
-							apply();
-						}
-					}
-				}, 200);
-			});
-		}
-
-		var btn = mxUtils.button(mxResources.get('hmiHaloPageSettings') + '...', function()
-		{
-			if (Hmi.HaloDialog != null)
-			{
-				Hmi.HaloDialog.show(ui);
+				Hmi.TagBrowser.show(ui);
 			}
 		});
-		btn.className = 'geFullWidthElement';
-		btn.style.display = 'block';
-		btn.style.marginTop = '6px';
-		content.appendChild(Hmi.Editors.helpButton(btn, 'halo.pageButton'));
+
+		this.container.appendChild(div);
 	};
 
 	// ---------------------------------------------------------------
@@ -984,6 +643,14 @@
 		var condType = Hmi.Editors.select(['and', 'or'], value.conditionType || 'and');
 		condTypeRow.appendChild(condType);
 
+		var timing = Hmi.Editors.inlineFields(container);
+		var deadband = Hmi.Editors.numberInput(value.deadband || '');
+		Hmi.Editors.inlineField(timing, mxResources.get('hmiScrDeadband') + ':', deadband, 'trigger.deadband');
+		var onDelay = Hmi.Editors.numberInput(value.onDelay || '');
+		Hmi.Editors.inlineField(timing, mxResources.get('hmiScrOnDelay') + ' (ms):', onDelay, 'trigger.onDelay');
+		var offDelay = Hmi.Editors.numberInput(value.offDelay || '');
+		Hmi.Editors.inlineField(timing, mxResources.get('hmiScrOffDelay') + ' (ms):', offDelay, 'trigger.offDelay');
+
 		var condLbl = document.createElement('div');
 		condLbl.className = 'geDialogHint';
 		mxUtils.write(condLbl, mxResources.get('hmiConditions') + ':');
@@ -1044,9 +711,30 @@
 
 		container.getValue = function()
 		{
-			return {name: nameInput.value, conditionType: condType.value,
-				conditions: conditions, actions: actionsEditor.getValue(),
-				elseActions: elseEditor.getValue()};
+			// Settings that have no field here stay as they are
+			var out = JSON.parse(JSON.stringify(value));
+			delete out.deadband;
+			delete out.onDelay;
+			delete out.offDelay;
+			out.name = nameInput.value;
+			out.conditionType = condType.value;
+			out.conditions = conditions;
+			out.actions = actionsEditor.getValue();
+			out.elseActions = elseEditor.getValue();
+
+			// Timing: only the settings that are used are stored
+			var timings = {deadband: deadband, onDelay: onDelay, offDelay: offDelay};
+
+			for (var key in timings)
+			{
+				if (timings[key].value !== '' && !isNaN(Number(timings[key].value)) &&
+					Number(timings[key].value) > 0)
+				{
+					out[key] = Number(timings[key].value);
+				}
+			}
+
+			return out;
 		};
 
 		return container;

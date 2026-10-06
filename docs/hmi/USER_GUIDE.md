@@ -51,9 +51,9 @@ Once enabled, a new **Extras → HMI / SCADA** submenu appears (see §3), and se
 ## 3. Quick start (5 minutes)
 
 1. **Start a screen.** *File → New*, then pick one of the four **HMI / SCADA** templates (search `hmi` or `scada` in the New dialog — Water Treatment Plant, Tank Farm, Motor Control Center, Building HVAC; see §11 templates catalogue) or start from a blank page and drag a **Tank** shape onto the canvas from the **HMI / Displays** sidebar palette (*More Shapes → HMI / SCADA*, or search `tank`).
-2. **Add a simulated tag.** *Extras → HMI / SCADA → Tags…* → **Add Tag**. Give it a name (e.g. `Tank1.Level`), type `number`, and under **Simulation** pick kind `sine`, min `10`, max `90`, period `20000` (ms). Click OK, then OK to close the dialog.
-3. **Bind the tank to the tag.** Select the tank shape. In the Format panel's **HMI** tab, either:
-   - use the **Quick Add** section's *Level* button (fills in a placeholder tag name you then edit to `Tank1.Level`), or
+2. **Add a simulated tag.** *Extras → HMI / SCADA → Screen Settings…* → **Tags** tab → **Add Tag**. Give it a name (e.g. `Tank1.Level`), type `number`, and under **Simulation** pick kind `sine`, min `10`, max `90`, period `20000` (ms). Click OK in the tag editor, then OK to close Screen Settings.
+3. **Bind the tank to the tag.** Select the tank shape. Either:
+   - click **Animation Links…** in the Format panel's **HMI** tab, tick *Percent Fill* (Display tab) or add a binding (*Bindings*, same tab) and enter `Tank1.Level`, or
    - open the **Tag Browser** (*Extras → HMI / SCADA → Tag Browser…*) and drag `Tank1.Level` onto the tank — dropping onto a tank/cylinder shape auto-creates a `style:hmiLevel` binding.
 4. **Preview it.** Choose *Extras → HMI / SCADA → Live Preview*. The tank should start filling and draining on a 20-second sine wave. Toggle **Interactive** in the same menu if you also want click/event handlers to fire while still editing.
 5. **Run it.** Choose *Extras → HMI / SCADA → Run Screen* to open the locked operator view (`hmi-run.html`) in a new tab or window. It has no editing and no sidebar: just the running screen, page navigation and a status bar (§13).
@@ -78,7 +78,7 @@ Once enabled, a new **Extras → HMI / SCADA** submenu appears (see §3), and se
 
 ## 5. Data sources
 
-Manage sources in *Extras → HMI / SCADA → Data Sources…*. Each source has a name, protocol type, an enabled flag, a scope (`file` — connects once regardless of page; or `page` — connects/disconnects with the page that references it), and an optional tag-name **prefix** (e.g. `plant1/`) prepended to every tag it produces.
+Manage sources in *Extras → HMI / SCADA → Screen Settings…*, **Data Sources** tab (*Data Sources…* opens it directly). Each source has a name, protocol type, an enabled flag, a scope (`file` — connects once regardless of page; or `page` — connects/disconnects with the page that references it), and an optional tag-name **prefix** (e.g. `plant1/`) prepended to every tag it produces.
 
 Connections open **only** in runtime mode or while Live Preview is on; they close when you leave that mode, close the file, or unload the page. Untrusted files never auto-connect just from being opened.
 
@@ -130,7 +130,7 @@ Sources reconnect automatically with exponential backoff (starting at 1 s, cappe
 
 ## 6. Tags
 
-Manage the tag catalogue in *Extras → HMI / SCADA → Tags…*. This dialog also holds document-wide runtime settings (simulation mode, script policy, fit mode, navigation, max update rate, quality indication style, pan/zoom, and a design resolution).
+Manage the tag catalogue in *Extras → HMI / SCADA → Screen Settings…*, **Tags** tab (*Tags…* opens it directly). The document-wide runtime settings (simulation mode, script policy, fit mode, navigation, max update rate, quality indication style, pan/zoom, a design resolution, the theme and the blink half-periods) are on the **Runtime** tab. One **OK** saves all tabs as a single undoable edit; **Cancel** discards them.
 
 ### Catalogue fields
 
@@ -165,7 +165,7 @@ Tags used in bindings but not declared in the catalogue still work — their typ
 | `constant` | `values[0]` | Fixed value |
 | `script` | `code` | Custom generator, subject to script policy |
 
-Simulation is document-wide, in *Tags…* → **Simulation mode**: `off`, `on` (simulated tags run alongside real sources), or `only` (no real connections — used automatically by Live Preview when nothing else is reachable, and set via `hmi-sim=only` in a runtime URL).
+Simulation is document-wide, in *Screen Settings…* → **Runtime** → **Simulation mode**: `off`, `on` (simulated tags run alongside real sources), or `only` (no real connections — used automatically by Live Preview when nothing else is reachable, and set via `hmi-sim=only` in a runtime URL).
 
 ### Write targets, screen variables, derived tags
 
@@ -186,7 +186,7 @@ Built-in **system tags** (read-only, bindable like any tag):
 
 ### CSV / JSON import-export
 
-*Tags…* → **Import CSV / Export CSV / Import JSON / Export JSON**. CSV columns (in order): `name,type,unit,min,max,decimals,access,initial,staleMs,simKind,simMin,simMax,simPeriod`. JSON import/export is the raw `TagDef[]` array (all fields, including `write`/`alarms`/`expr`).
+*Screen Settings…* → **Tags** → **Import CSV / Export CSV / Import JSON / Export JSON**. CSV columns (in order): `name,type,unit,min,max,decimals,access,initial,staleMs,simKind,simMin,simMax,simPeriod`. JSON import/export is the raw `TagDef[]` array (all fields, including `write`/`alarms`/`expr`).
 
 ### Tag Browser
 
@@ -234,7 +234,7 @@ Inside a label or tooltip of a cell with `placeholders="1"`, `%tag:<name>%` (opt
 
 ### Multi-selection and group targets
 
-- **Quick Add** (Format panel → HMI tab, cells selected) inserts a binding template using `Tag{id}` — `{id}` (and any other `{attrName}`) is substituted per cell from that cell's own id/attributes when applied to a multi-selection, so the same click wires up several similar shapes at once.
+- A binding template using `Tag{id}` — `{id}` (and any other `{attrName}`) is substituted per cell from that cell's own id/attributes when applied to a multi-selection (**Animation Links…** with several objects selected), so the same dialog wires up several similar shapes at once.
 - **Group-level bindings**: a binding may carry `targetCells: {cells: [ids], tags: [cellTags], path: 'i/j'}` to apply its value to descendant cells of a group/container — by id, by draw.io cell tag among descendants, or by a relative child-index path.
 - **Parameterised tags**: a tag name may itself contain `%attr%` placeholders resolved from the cell's (or an ancestor's) attributes, so one reusable symbol (e.g. a "Pump" group) can be instantiated per device just by setting an attribute.
 
@@ -256,7 +256,7 @@ When a bound tag's quality is `bad` or `stale`, the cell shows the document's co
 
 ## 8. Events & actions
 
-Add event handlers from the Format panel's HMI tab, **Events** section. Each handler:
+Add event handlers in the **Animation Links** dialog (**Touch → Actions → Event Handlers**; select the object and click **Animation Links…** in the HMI tab). Each handler:
 
 ```json
 {"on": "click", "conditions": [], "conditionType": "and", "actions": [...], "confirm": true, "delay": 0, "stopOnError": false}
@@ -313,7 +313,7 @@ Existing draw.io `data:action/json` custom links keep working in runtime mode an
 
 ## 9. Triggers & state machines
 
-Triggers evaluate whenever a tag they reference changes, and run actions on state transitions — never on every update. Add them from the Format panel's HMI tab (**Triggers** section) or, for page-wide logic, in the **Page Triggers** section of the HMI tab shown when nothing is selected.
+Triggers evaluate whenever a tag they reference changes, and run actions on state transitions — never on every update. Add them in the **Animation Links** dialog (**Scripts → Triggers → Simple Triggers**) or, for page-wide logic, on the **Page Triggers** tab of **Screen Settings…** (conditions with and/or, actions, else actions, deadband and on/off delays).
 
 ### Simple trigger
 
@@ -495,7 +495,7 @@ Both runtimes are locked views: no editing, no selection handles, no sidebar or 
 
 In a running screen, an interactive object is highlighted when the mouse is over it. Interactive objects are those with a touch link, a click/press/hover event, or a control widget such as a button or switch. The highlight gets stronger while the mouse button is held down. The object focused with Tab is highlighted the same way. Disabled and hidden objects, and objects that only display data, are not highlighted.
 
-**Page settings.** Open *Extras → HMI / SCADA → Hover Halo…*, or use **Hover Halo…** in the HMI tab when nothing is selected. The dialog has a live preview on a light and a dark background; point at or click the samples to see the hover and pressed looks.
+**Page settings.** Open *Extras → HMI / SCADA → Screen Settings…* and choose the **Hover Halo** tab (*Hover Halo…* opens it directly). The tab has a live preview on a light and a dark background; point at or click the samples to see the hover and pressed looks.
 - **Presets:** Soft glow (the default), Subtle glow, Strong glow, Crisp outline, Shape outline, Dashed outline, Glow and outline, and Off. A preset keeps your colour.
 - **Style:** Glow follows the object's shape. Outline draws a crisp line around the object. Glow and outline draws both.
 - **Outline shape:** Rectangle draws the outline around the object's bounds. Follow the object's shape draws it at a fixed distance from the object's outline, so a round lamp gets a round ring and a rounded button a rounded one.
@@ -503,7 +503,7 @@ In a running screen, an interactive object is highlighted when the mouse is over
 - **Outline and pressed settings:** outline padding (the gap between the object and the outline), corner radius and dashed outline (rectangle only), the stronger halo while pressed (on or off), and a separate pressed colour.
 - **Reset** restores the defaults. The settings are stored in the page's `runtime.hoverHalo` and the change can be undone.
 
-**Per object.** Select objects and open the **Hover Halo** section of the HMI tab. Choose the style (Page default, Glow, Outline, Glow and outline, or Off), the outline shape (Page default, Rectangle, or Follow the object's shape) and optionally a colour (empty means the page colour). These are stored as the styles `hmiHaloStyle`, `hmiHaloOutline`, `hmiHaloColor` and `hmiHalo=0`.
+**Per object.** Select objects, open **Animation Links…** and use the **Hover Halo** link (Touch tab). Choose the style (Page default, Glow, Outline, Glow and outline, or Off), the outline shape (Page default, Rectangle, or Follow the object's shape) and optionally a colour (empty means the page colour). These are stored as the styles `hmiHaloStyle`, `hmiHaloOutline`, `hmiHaloColor` and `hmiHalo=0`.
 
 **For administrators.** `DRAWIO_CONFIG.hmi.hoverHalo` sets the default for every screen; a page's own settings win. It is `false` (off) or an object with any of `preset`, `style` (`glow`, `outline`, `glowOutline`), `outlineShape` (`rect`, `shape`), `color`, `size`, `intensity`, `width`, `padding`, `radius`, `dashed`, `press`, `pressColor` and `pressSize`, for example `{preset: 'crispOutline', color: '#FFB300'}`.
 
@@ -525,7 +525,7 @@ In a running screen, an interactive object is highlighted when the mouse is over
 
 ### Fit modes and ISA-101 theme
 
-`runtime.fit`: `none` (no auto-zoom), `page` (fit the whole page — default), `width` (fit width only), `stretch`. `runtime.width`/`runtime.height` optionally pin a design resolution. The layout re-fits on window resize. `runtime.theme: 'isa101'` applies a neutral grey background (colour reserved for abnormal states, per the ISA-101 high-performance HMI style); `default` leaves draw.io's normal background.
+`runtime.fit`: `none` (no auto-zoom), `page` (fit the whole page — default), `width` (fit width only), `stretch`. `runtime.width`/`runtime.height` optionally pin a design resolution. The layout re-fits on window resize. These settings, and the theme, are on the **Runtime** tab of *Screen Settings…*. `runtime.theme: 'isa101'` applies a neutral grey background (colour reserved for abnormal states, per the ISA-101 high-performance HMI style); `default` leaves draw.io's normal background.
 
 ### Pages & navigation
 
@@ -619,7 +619,7 @@ When draw.io is embedded as a JS application (not just an iframe with postMessag
 |---|---|
 | A source never connects, browser console shows a CSP error | The endpoint isn't in the page's CSP `connect-src` (and, on a hardened deployment, not in `DRAWIO_CONFIG.hmi.allowedEndpoints`). See [HARDENING.md](HARDENING.md) and, for a dev/kiosk one-off, `hmi-connect-src=<host>` in the URL. Remember app.diagrams.net never allows this (§2). |
 | "Endpoint not allowed" style error at connect time | `DRAWIO_CONFIG.hmi.allowedEndpoints` is set and the source's URL doesn't match any prefix/regex entry — add it, or fix the source URL. |
-| Scripts (parser/transform/action) silently don't run | The effective script policy is `off` — check `DRAWIO_CONFIG.hmi.scripts` and the document's own `scripts` setting in *Tags…* (a document can only restrict, never relax, the deployment policy). Validate (§16) flags this. |
+| Scripts (parser/transform/action) silently don't run | The effective script policy is `off` — check `DRAWIO_CONFIG.hmi.scripts` and the document's own `scripts` setting in *Screen Settings…* → **Runtime** (a document can only restrict, never relax, the deployment policy). Validate (§16) flags this. |
 | A value shows `--` or a dashed border with a `?` badge | Quality is `bad` (failed type coercion — check the tag's declared `type`) or `stale` (no update within `staleMs`). Check the source in Diagnostics → Sources. |
 | Runtime feels sluggish under heavy load | The runtime already adapts: **Adaptive rate** lowers the effective update rate (down to 2 Hz) when frames run late or use over ~60% of the frame budget, and recovers gradually — check the current rate in Diagnostics → Rate. You can also lower `runtime.maxRate` (document-wide) or `DRAWIO_CONFIG.hmi.maxRate` (deployment-wide, default 30 Hz), and use `flowAnimation`/animations sparingly on very large screens. |
 | Off-screen animations still seem to cost CPU | Per the SRS, only tab-hidden pausing is guaranteed; strict per-cell viewport culling is a "should", not implemented as a hard guarantee everywhere — keep large numbers of continuously-animated cells (spin/pulse/colorCycle) to what's actually visible on a typical operator screen. |
@@ -646,7 +646,7 @@ The template **InTouch Animation Links** (*File → New → Hmi*) shows each lin
    - Alt+double-click an object.
 2. The dialog has four tabs: **Display**, **Animation**, **Touch** and **Scripts**. Each tab shows how many links are enabled in it, for example **Touch (3)**. The dialog opens on the tab of the first enabled link and remembers the tab you used last. Arrow keys move between the tabs. Tick a link to enable it, then click its **…** button to open its settings. The settings use the field names of the InTouch dialogs.
    - Click the small **i** icon next to a tab, a group, a link or a field to see what it does, with valid values and examples. Press Esc or click elsewhere to close the help.
-   - The other HMI dialogs and forms have the same **i** icons: Data Sources, Tags (with the tag editor, simulation and alarms), Tag Browser, Substitute Tags, Define Missing Tags, Validate, Diagnostics, Hover Halo, and the HMI tab of the format panel with its binding, event, trigger and animation editors.
+   - The other HMI dialogs and forms have the same **i** icons: Screen Settings (every tab: Data Sources, Tags with the tag editor, simulation and alarms, Page Triggers, Runtime, Hover Halo, Window), Tag Browser, Substitute Tags, Define Missing Tags, Validate, Diagnostics, and the HMI tab of the format panel.
 3. Enter expressions in InTouch syntax:
    - Bare tag names: `TankLevel > 75`.
    - Operators: `AND`, `OR`, `NOT`, `MOD`, `<>`.
@@ -678,6 +678,19 @@ Touch links work with the mouse, touch and keyboard:
 - **Key equivalents** (for example Ctrl+D or F2) activate a link from the keyboard. Tab moves between touch objects and Enter activates the focused one.
 - **Disabled and invisible objects** ignore all input.
 
+### Bindings, keyframes, events, security, hover halo and triggers
+
+The same dialog also edits the generic HMI features of the object. They are stored in their own attributes (`hmiBindings`, `hmiAnimations`, `hmiEvents`, `hmiRoles` with `hmiRolesMode`, the styles `hmiHalo*` and `hmiTriggers`), so existing diagrams keep working. A link is on while its storage is not empty; clearing the checkbox empties it.
+
+- **Display, States and Properties, Bindings**: tag or expression to any property, with transform and format.
+- **Animation, Keyframe Animations**: named animations (preset or your own frames, autoplay, cycles, then start).
+- **Touch, Actions, Event Handlers**: actions on click, double-click, enter, leave, long press, message, page open and more, with conditions, confirmation and delay.
+- **Touch, Actions, Security**: roles, and whether users without the role do not see (hide) or cannot use (disable) the object.
+- **Touch, Actions, Hover Halo**: halo style, outline shape and colour of this object.
+- **Scripts, Triggers**: simple triggers (conditions with AND/OR, actions, else actions, deadband, on and off delay) and state machines (ordered states with conditions and actions).
+
+List links show one line per item. Click a line to edit the item, use the arrows to reorder. All changes are written with OK as one undoable edit.
+
 ### Extension links from meta2d
 
 The dialog also has the HMI functions of meta2d that InTouch lacks, in the same layout. `docs/hmi/META2D_INTOUCH_COMPARISON.md` compares the two products.
@@ -698,7 +711,7 @@ The template's **meta2d Extensions** page shows every extension link.
 
 ### Windows
 
-InTouch windows are **pages**. To make a page an overlay or popup window, give its document config a `window` entry:
+InTouch windows are **pages**. To make a page an overlay or popup window, use the **Window** tab of *Screen Settings…* (window type, X, Y, width, height and title), or give its document config a `window` entry:
 
 ```json
 {"window": {"type": "overlay", "x": 860, "y": 120, "width": 360, "height": 260, "title": "Details"}}

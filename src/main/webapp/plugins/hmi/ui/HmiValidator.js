@@ -56,6 +56,7 @@
 		{
 			var c = conditions[i];
 			checkTagRefs(list, cellId, 'condition', c.tag, knownTags);
+			checkTagRefs(list, cellId, 'condition value tag', c.valueTag, knownTags);
 			checkExpr(list, cellId, 'condition expr', c.expr);
 		}
 	};

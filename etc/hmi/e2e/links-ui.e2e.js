@@ -374,7 +374,7 @@ test('Animation Links dialog saves every link type, validates and round-trips', 
 	assert.strictEqual(result.opened, true);
 	assert.ok(result.menuLabels.some(function(l) { return /Animation Links/.test(l); }), JSON.stringify(result.menuLabels));
 	assert.ok(result.menuLabels.some(function(l) { return /Substitute Tags/.test(l); }));
-	assert.strictEqual(result.rowCount, 50);
+	assert.strictEqual(result.rowCount, 57);
 	assert.ok(result.titles.indexOf('Value Display') >= 0 && result.titles.indexOf('Touch Pushbuttons') >= 0);
 	assert.strictEqual(result.textDiscreteStillChecked, false);
 	assert.strictEqual(result.inputDiscreteOk, true);

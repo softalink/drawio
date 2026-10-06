@@ -326,6 +326,7 @@
 		});
 
 		var optional = [
+			['hmiScreenSettings', 'ScreenSettings'],
 			['hmiSources', 'SourcesDialog'],
 			['hmiTags', 'TagsDialog'],
 			['hmiTagBrowser', 'TagBrowser'],
@@ -379,12 +380,22 @@
 		graph.getSelectionModel().addListener(mxEvent.CHANGE, updateSelectionActions);
 		updateSelectionActions();
 
-		// Context menu: Animation Links... and Substitute Tags...
+		// Context menu: Animation Links... and Substitute Tags... for
+		// objects, Screen Settings... for the background
 		var createPopupMenu = ui.menus.createPopupMenu;
 
 		ui.menus.createPopupMenu = function(menu, cell, evt)
 		{
 			createPopupMenu.apply(this, arguments);
+
+			if (graph.isEnabled() && graph.isSelectionEmpty() && Hmi.ScreenSettings != null)
+			{
+				menu.addSeparator();
+				menu.addItem(mxResources.get('hmiScreenSettings') + '...', null, function()
+				{
+					Hmi.ScreenSettings.show(ui);
+				});
+			}
 
 			if (graph.isEnabled() && !graph.isSelectionEmpty() && Hmi.LinksDialog != null)
 			{
@@ -434,7 +445,7 @@
 		ui.menus.put('hmi', new Menu(function(menu, parent)
 		{
 			ui.menus.addMenuItems(menu, ['hmiLivePreview', 'hmiInteractive', 'hmiSimulate',
-				'hmiRun', '-', 'hmiSources', 'hmiTags', 'hmiTagBrowser', '-',
+				'hmiRun', '-', 'hmiScreenSettings', 'hmiSources', 'hmiTags', 'hmiTagBrowser', '-',
 				'hmiAnimationLinks', 'hmiSubstituteTags', 'hmiDefineMissingTags', 'hmiHoverHalo', '-',
 				'hmiDiagnostics', 'hmiValidate'], parent);
 

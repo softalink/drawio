@@ -53,6 +53,7 @@
 		'ui/HmiResources.js',
 		'ui/HmiEditors.js',
 		'ui/HmiHelpTexts.js',
+		'ui/HmiHelpTextsScreen.js',
 		'ui/HmiHelp.js',
 		'ui/HmiSourcesDialog.js',
 		'ui/HmiTagsDialog.js',
@@ -66,6 +67,7 @@
 		'ui/HmiLinksDialog.js',
 		'ui/HmiSubstituteTags.js',
 		'ui/HmiHaloDialog.js',
+		'ui/HmiScreenSettings.js',
 		'ui/HmiPlugin.js'
 	];
 

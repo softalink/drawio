@@ -189,7 +189,7 @@ test('Animation Links dialog: tabs, counts, keyboard and fixed size', async func
 	assert.strictEqual(await page.$('.geDialog [data-dialog="animation-links"] .geDialogHint[title]'), null);
 
 	// Rows of hidden tabs stay in the DOM
-	assert.strictEqual(await page.$$eval('.geDialog [data-link]', function(r) { return r.length; }), 50);
+	assert.strictEqual(await page.$$eval('.geDialog [data-link]', function(r) { return r.length; }), 57);
 
 	// Click
 	await page.click('.geDialog [data-tab="touch"]');
@@ -523,27 +523,12 @@ test('quick help: settings dialogs, list editors and Halo dialog', async functio
 	await page.keyboard.press('Escape');
 	await closeDialogs(page);
 
-	// Per-object section of the HMI tab
-	await page.evaluate(async function()
-	{
-		var graph = Hmi.ui.editor.graph;
-		var cell = graph.insertVertex(graph.getDefaultParent(), null, 'B', 50, 50, 100, 40);
-		graph.setSelectionCell(cell);
-		await new Promise(function(r)
-		{
-			setTimeout(r, 300);
-		});
-		var tab = Array.prototype.filter.call(document.querySelectorAll('.geFormatTitle'), function(e)
-		{
-			return e.textContent == 'HMI';
-		})[0];
-		tab.click();
-		await new Promise(function(r)
-		{
-			setTimeout(r, 300);
-		});
-	});
-	var objectKeys = await page.$$eval('[data-help^="halo.object."]', function(l)
+	// Per-object halo settings: the Hover Halo link of the Animation Links dialog
+	await openDialog(page, null);
+	await page.click('.geDialog [data-tab="touch"]');
+	await page.click('.geDialog [data-link="hoverHalo"] [data-role="configure"]');
+	await page.waitForSelector('.geDialog [data-dialog="link-hoverHalo"]');
+	var objectKeys = await page.$$eval('.geDialog [data-dialog="link-hoverHalo"] [data-help^="halo.object."]', function(l)
 	{
 		return l.map(function(e)
 		{
@@ -553,7 +538,7 @@ test('quick help: settings dialogs, list editors and Halo dialog', async functio
 	assert.deepStrictEqual(objectKeys, ['halo.object.style', 'halo.object.outlineShape', 'halo.object.color']);
 	await page.evaluate(function()
 	{
-		document.querySelector('[data-help="halo.object.outlineShape"]').click();
+		document.querySelector(".geDialog [data-dialog=\"link-hoverHalo\"] [data-help=\"halo.object.outlineShape\"]").click();
 	});
 	assert.strictEqual(await popoverKey(), 'halo.object.outlineShape');
 	assert.deepStrictEqual(page.hmiErrors, []);
@@ -682,8 +667,8 @@ test('quick help: every icon of every dialog has a help text', async function()
 		kinds[kind] = (kinds[kind] || 0) + 1;
 	});
 	assert.strictEqual(kinds.tab, 4);
-	assert.strictEqual(kinds.group, 15);
-	assert.strictEqual(kinds.link, 50);
+	assert.strictEqual(kinds.group, 16);
+	assert.strictEqual(kinds.link, 57);
 	assert.ok(kinds.field > 40 && kinds.heading >= 8 && kinds.halo >= 15, JSON.stringify(kinds));
 	console.log('help keys used by the dialogs: ' + list.length + ' ' + JSON.stringify(kinds));
 	assert.deepStrictEqual(page.hmiErrors, []);

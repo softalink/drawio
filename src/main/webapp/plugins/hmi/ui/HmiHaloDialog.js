@@ -302,25 +302,27 @@
 	};
 
 	/**
-	 * Shows the dialog for the current page.
+	 * Renders the hover halo settings of the page into the container. The
+	 * stored value is state.cfg.runtime.hoverHalo (the working copy of the
+	 * Screen Settings dialog), which commit() updates. Returns {commit,
+	 * dispose}.
 	 */
-	HaloDialog.show = function(ui)
+	HaloDialog.render = function(ui, container, state)
 	{
 		HaloDialog.installStyle();
-		var graph = ui.editor.graph;
-		var cfg = Hmi.Model.getDocConfig(graph);
+		var cfg = state.cfg;
 		cfg.runtime = cfg.runtime || {};
 		var stored = cfg.runtime.hoverHalo;
 		var settings = Hmi.Halo.normalize([stored === false ? {} : stored]);
 		var enabled = stored !== false;
 
 		var div = el('div');
-		var title = el('h3', null, mxResources.get('hmiHoverHalo'));
-		addHelp(title, 'halo.dialog');
-		div.appendChild(title);
+		div.setAttribute('data-role', 'halo-settings');
+		container.appendChild(div);
 
 		var hint = el('div', 'geDialogHint', mxResources.get('hmiHaloHint'));
 		hint.style.marginBottom = '10px';
+		addHelp(hint, 'halo.dialog');
 		div.appendChild(hint);
 
 		// Presets
@@ -542,29 +544,39 @@
 			update();
 		});
 		resetBtn.className = 'geBtn';
+		resetBtn.setAttribute('data-role', 'halo-reset');
+		var resetRow = el('div');
+		resetRow.style.cssText = 'margin-top:8px;';
+		resetRow.appendChild(resetBtn);
+		addHelp(resetRow, 'halo.reset');
+		div.appendChild(resetRow);
 
-		var dlg = new CustomDialog(ui, div, function()
+		return {commit: function()
 		{
-			clearInterval(colorSync);
 			var value = HaloDialog.toConfig(read(), enabledCb.input.checked);
-			var next = Hmi.Model.getDocConfig(graph);
-			next.runtime = next.runtime || {};
 
 			if (value !== false && Object.keys(value).length == 0)
 			{
-				delete next.runtime.hoverHalo;
+				delete cfg.runtime.hoverHalo;
 			}
 			else
 			{
-				next.runtime.hoverHalo = value;
+				cfg.runtime.hoverHalo = value;
 			}
 
-			Hmi.Model.setDocConfig(graph, next);
-		}, function()
+			return [];
+		}, dispose: function()
 		{
 			clearInterval(colorSync);
-		}, mxResources.get('ok'), null, resetBtn, null, null, true);
-		ui.showDialog(dlg.container, 560, null, true, true);
+		}};
+	};
+
+	/**
+	 * Opens the Screen Settings dialog on the Hover Halo tab.
+	 */
+	HaloDialog.show = function(ui)
+	{
+		return Hmi.ScreenSettings.show(ui, {tab: 'hoverHalo'});
 	};
 
 	Hmi.HaloDialog = HaloDialog;

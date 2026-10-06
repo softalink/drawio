@@ -1316,5 +1316,133 @@
 	H('animation.rpmTag', 'RPM tag',
 		'For `spin`: a tag that supplies the speed in RPM, so that the speed follows the value live. It wins over the fixed RPM.');
 
+	// ---------------------------------------------------------------
+	// Links stored outside hmiLinks (bindings, keyframes, events, security,
+	// hover halo, triggers, state machines)
+	// ---------------------------------------------------------------
+
+	H('group.hmiLnkTriggersGroup', 'Triggers',
+		'Triggers run actions when conditions on tags become true or false, without a user action.',
+		'- A simple trigger has conditions, actions and else actions.',
+		'- A state machine has an ordered list of states; the first state whose conditions hold is the current state.');
+
+	H('link.bindings', 'Bindings',
+		'A binding connects a tag or an expression to a property of the object: a style, the label, the tooltip, visibility, an attribute and more.',
+		'- Each binding can scale, map or invert the value and format it.',
+		'- Use the Display links for the usual cases and bindings for everything else.');
+	H('link.keyframes', 'Keyframe animations',
+		'Named animations of the object: a preset such as spin or pulse, or your own keyframes (frames).',
+		'- Start, pause and stop them with actions, or let them play when the page opens.',
+		'- An animation can start another one when it ends.');
+	H('link.events', 'Event handlers',
+		'Runs actions when something happens to the object in a running screen: click, double-click, mouse down or up, enter, leave, long press, a value change, a message or the page opening or closing.',
+		'- Handlers can have conditions, a confirmation and a delay.');
+	H('link.security', 'Security',
+		'Limits the object to users with one of the roles.',
+		'- Hide (default): users without the role do not see the object.',
+		'- Disable: they see it, but cannot use it.',
+		'Touch Options roles only guard the touch links of the object.');
+	H('link.hoverHalo', 'Hover halo',
+		'How this object is highlighted when the mouse is over it or it has the keyboard focus in a running screen. Every setting can follow the page default (Screen Settings, Hover Halo).');
+	H('link.triggers', 'Simple triggers',
+		'A trigger watches conditions. When they become true it runs its actions, when they become false it runs its else actions.',
+		'- Conditions compare a tag or an expression with a value or another tag.',
+		'- Deadband and delays keep the trigger from chattering.');
+	H('link.stateMachines', 'State machines',
+		'A trigger with several named states. The first state whose conditions hold becomes the current state, and its actions run once when it is entered.',
+		'Use it for sequences such as Stopped, Starting, Running and Fault.');
+
+	H('field.conditions', 'Conditions',
+		'The tests of this item. Add one or more; the condition type decides whether all or any of them must hold. With no condition the item is always true.');
+	H('field.conditions.tag', 'Tag', 'The tag to test. ' + BROWSE + ' An expression, if given, wins over the tag.');
+	H('field.conditions.expr', 'Expression',
+		'A calculation to test instead of a single tag, for example `tag("Level") > 50`. It wins over the tag.');
+	H('field.conditions.operator', 'Operator',
+		'How the value is compared:',
+		'- `==`, `!=`, `>`, `<`, `>=`, `<=`: ordinary comparison.',
+		'- `range` / `!range`: inside or outside a range `min,max` (including min, excluding max).',
+		'- `in` / `!in`: in or not in a list such as `1,2,5..8`.',
+		'- `changed`: the tag changed since the last check.',
+		'- `isBad`: the quality of the tag is not good.',
+		'- `true`: always true.');
+	H('field.conditions.value', 'Value',
+		'The constant to compare with. For a range, `min,max`. For `in`, a comma separated list. Ignored when a value tag is given.');
+	H('field.conditions.valueTag', 'Value tag',
+		'Compare with the current value of this tag instead of a constant. ' + BROWSE);
+	H('field.conditionType', 'Condition type',
+		'`AND`: all conditions must hold. `OR`: one condition is enough.');
+	H('field.actions', 'Actions',
+		'What happens, in order. Every action type is available: write a tag, set object properties (including styles such as `hmiLevel`), navigate, start an animation, run a script and more.');
+
+	H('field.bindings.items', 'Bindings', 'The bindings of the object. Click a line to edit it; use the arrows to reorder.');
+	H('field.bindings.item', 'Binding', 'One binding: source (tag or expression), target property, transform and format.');
+
+	H('field.keyframes.items', 'Animations', 'The named animations of the object. Click a line to edit it.');
+	H('field.keyframes.item', 'Keyframe animation', 'One named animation: a preset or your own frames.');
+	H('field.keyframes.name', 'Name',
+		'The name that actions use to start, pause or stop this animation. Default: the name of the preset.');
+	H('field.keyframes.preset', 'Preset',
+		'A ready-made effect, or `frames only` to use just the frames below.');
+	H('field.keyframes.duration', 'Duration', 'The length of one cycle in milliseconds.');
+	H('field.keyframes.easing', 'Easing', 'How the speed changes during a cycle or frame.');
+	H('field.keyframes.cycles', 'Cycles', 'How often the animation repeats. Empty or 0 means forever.');
+	H('field.keyframes.autoPlay', 'Autoplay', 'Starts the animation when the page opens.');
+	H('field.keyframes.keepState', 'Keep end state', 'The object keeps the look of the last frame when the animation ends.');
+	H('field.keyframes.rpm', 'RPM', 'For `spin`: revolutions per minute.');
+	H('field.keyframes.rpmTag', 'RPM tag',
+		'For `spin`: a tag that supplies the speed in RPM. It wins over the fixed RPM. ' + BROWSE);
+	H('field.keyframes.colors', 'Colors', 'For `colorCycle`: the colours that are shown one after the other, comma separated, such as `#FF0000,#00C000`.');
+	H('field.keyframes.next', 'Then start',
+		'The name of an animation that starts when this one ends. Choose the object it belongs to below.');
+	H('field.keyframes.frames', 'Frames',
+		'The keyframes in order. Each frame moves the object to the given look within its duration. Empty fields stay as they are.');
+	H('field.keyframes.frameDuration', 'Frame duration', 'The time in milliseconds to reach this frame.');
+	H('field.keyframes.frames.visible', 'Visibility', 'Shows or hides the object in this frame, or keeps it as it is.');
+	H('field.keyframes.frames.rotation', 'Rotation', 'The rotation of the object in degrees.');
+	H('field.keyframes.frames.opacity', 'Opacity', 'The opacity from 0 (invisible) to 100.');
+	H('field.keyframes.frames.scale', 'Scale', 'The size factor. 1 is the normal size.');
+	H('field.keyframes.frames.dx', 'Move X', 'The horizontal shift in pixels.');
+	H('field.keyframes.frames.dy', 'Move Y', 'The vertical shift in pixels.');
+	H('field.keyframes.frames.hmiLevel', 'Level', 'The fill level in percent for objects that use the `hmiLevel` style.');
+	H('field.keyframes.frames.fillColor', 'Fill', 'The fill colour in this frame.');
+	H('field.keyframes.frames.strokeColor', 'Line', 'The line colour in this frame.');
+	H('field.keyframes.frames.fontColor', 'Text', 'The text colour in this frame.');
+
+	H('field.events.items', 'Event handlers', 'The handlers of the object. Click a line to edit it.');
+	H('field.events.item', 'Event handler', 'One handler: the event, optional conditions and the actions to run.');
+	H('field.events.on', 'Event',
+		'What triggers the handler: a mouse or touch event of the object, a change of its value, a named message, or the opening or closing of the page.');
+	H('field.events.message', 'Message name', 'The name of the message that triggers the handler (event `message`).');
+	H('field.events.conditionType', 'Condition type', 'AND: all conditions must hold. OR: one is enough. Only used with conditions.');
+	H('field.events.delay', 'Delay', 'Waits this many milliseconds before the actions start.');
+	H('field.events.confirm', 'Confirm', 'Asks the operator to confirm before the actions run.');
+	H('field.events.stopOnError', 'Stop on error', 'Stops the remaining actions when one action fails.');
+	H('field.events.actions', 'Actions', 'The actions that run in order when the event happens and the conditions hold.');
+
+	H('field.security.roles', 'Roles',
+		'The roles that may use the object, comma separated, for example `op, eng`. Empty: no restriction.');
+	H('field.security.mode', 'Without the role',
+		'Hide: users without the role do not see the object. Disable: they see it, but cannot use it.');
+
+	H('field.triggers.items', 'Simple triggers', 'The triggers of the object. Click a line to edit it.');
+	H('field.triggers.item', 'Trigger', 'One trigger with conditions, actions and else actions.');
+	H('field.triggers.name', 'Name', 'A name to recognise the trigger in lists and in the validator.');
+	H('field.triggers.conditionType', 'Condition type', '`AND`: all conditions must hold. `OR`: one is enough.');
+	H('field.triggers.actions', 'Actions', 'Run when the conditions become true.');
+	H('field.triggers.elseActions', 'Else actions', 'Run when the conditions become false again.');
+	H('field.triggers.deadband', 'Deadband',
+		'For `>`, `<`, `>=` and `<=`: once true, the trigger only becomes false when the value is this far on the other side of the limit. Avoids chattering.');
+	H('field.triggers.onDelay', 'On delay', 'The conditions must hold this many milliseconds before the trigger becomes true.');
+	H('field.triggers.offDelay', 'Off delay', 'The conditions must be false this many milliseconds before the trigger becomes false.');
+
+	H('field.stateMachines.items', 'State machines', 'The state machines of the object. Click a line to edit it.');
+	H('field.stateMachines.item', 'State machine', 'One state machine with a name and ordered states.');
+	H('field.stateMachines.name', 'Name', 'A name to recognise the state machine.');
+	H('field.stateMachines.states', 'States',
+		'The states in priority order. The first state whose conditions hold is the current state.');
+	H('field.stateMachines.states.name', 'State name', 'The name of the state, for example `Running`.');
+	H('field.stateMachines.states.conditionType', 'Condition type', '`AND`: all conditions of the state must hold. `OR`: one is enough.');
+	H('field.stateMachines.states.actions', 'Actions', 'Run once when the state is entered.');
+
 	Hmi.HelpTexts = T;
 })();
