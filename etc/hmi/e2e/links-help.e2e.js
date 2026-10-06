@@ -365,7 +365,12 @@ test('quick help: popovers of tabs, groups and links', async function()
 
 	// Only one popover is open at a time; Escape closes it and keeps the dialog
 	await page.click('.geDialog [data-help="tab.display"]');
-	await page.click('.geDialog [data-help="group.hmiLnkValueDisplay"]');
+
+	// The open popover covers the next icon, so this one is clicked directly
+	await page.$eval('.geDialog [data-help="group.hmiLnkValueDisplay"]', function(el)
+	{
+		el.click();
+	});
 	pop = await popover();
 	assert.strictEqual(pop.count, 1);
 	assert.strictEqual(pop.key, 'group.hmiLnkValueDisplay');

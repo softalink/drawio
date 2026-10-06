@@ -1024,14 +1024,12 @@ test('quick help: HMI tab of the page and of an object, with the item editors', 
 	await page.keyboard.press('Escape');
 
 	// The JSON toggle keeps its function next to its icon
-	console.log('DBG', await page.evaluate(function()
+	// Scrolled into view first: a scroll while the popover is open closes it
+	await page.evaluate(function()
 	{
-		var i = document.querySelector('.geDialog [data-help="item.json"]');
-		var r = i.getBoundingClientRect();
-		var e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-
-		return [document.querySelectorAll('.geDialog').length, r.left, r.top, e == i, e && e.className, e && e.outerHTML.substring(0, 80)];
-	}));
+		document.querySelector('.geDialog [data-help="item.json"]').scrollIntoView({block: 'center'});
+	});
+	await page.waitForTimeout(200);
 	await page.click('.geDialog [data-help="item.json"]');
 	await page.waitForSelector('.geHmiHelpPop');
 	assert.strictEqual((await popover(page)).key, 'item.json');

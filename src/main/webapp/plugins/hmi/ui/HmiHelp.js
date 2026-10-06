@@ -265,7 +265,19 @@
 		{
 			if (popover != null && evt.target != popover && !popover.contains(evt.target))
 			{
-				Help.close();
+				// Follows the icon while it stays visible (e.g. a scroll caused by
+				// focusing it), closes once it is scrolled out of view
+				var r = (current != null && current.isConnected) ? current.getBoundingClientRect() : null;
+				var vh = document.documentElement.clientHeight || window.innerHeight;
+
+				if (r != null && r.width > 0 && r.bottom > 0 && r.top < vh)
+				{
+					position(current);
+				}
+				else
+				{
+					Help.close();
+				}
 			}
 		}, true);
 
