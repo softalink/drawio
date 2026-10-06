@@ -500,7 +500,7 @@ In a running screen, an interactive object is highlighted when the mouse is over
 - **Style:** Glow follows the object's shape. Outline draws a crisp line around the object. Glow and outline draws both.
 - **Outline shape:** Rectangle draws the outline around the object's bounds. Follow the object's shape draws it at a fixed distance from the object's outline, so a round lamp gets a round ring and a rounded button a rounded one.
 - **Color**, **Glow size** (1–40 px), **Glow intensity** (10–100 %) and **Outline width** (1–8 px).
-- **Advanced:** outline padding (the gap between the object and the outline), corner radius and dashed outline (rectangle only), the stronger halo while pressed (on or off), and a separate pressed colour.
+- **Outline and pressed settings:** outline padding (the gap between the object and the outline), corner radius and dashed outline (rectangle only), the stronger halo while pressed (on or off), and a separate pressed colour.
 - **Reset** restores the defaults. The settings are stored in the page's `runtime.hoverHalo` and the change can be undone.
 
 **Per object.** Select objects and open the **Hover Halo** section of the HMI tab. Choose the style (Page default, Glow, Outline, Glow and outline, or Off), the outline shape (Page default, Rectangle, or Follow the object's shape) and optionally a colour (empty means the page colour). These are stored as the styles `hmiHaloStyle`, `hmiHaloOutline`, `hmiHaloColor` and `hmiHalo=0`.

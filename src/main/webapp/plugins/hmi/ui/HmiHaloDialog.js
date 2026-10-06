@@ -135,6 +135,7 @@
 			'.geHmiHaloPresets .geBtn{margin:0;padding:0 10px;height:28px;}' +
 			'.geHmiHaloPresets .geBtn.geHmiSel{border-color:light-dark(var(--focus-color),var(--dark-focus-color));' +
 				'box-shadow:0 0 0 1px light-dark(var(--focus-color),var(--dark-focus-color)) inset;}' +
+			'.geHmiHaloForm .geDialogFormLabel{min-width:140px;}' +
 			'.geHmiHaloSlider{display:flex;align-items:center;gap:8px;flex:1;min-width:0;}' +
 			'.geHmiHaloSlider input{flex:1;min-width:0;}' +
 			'.geHmiHaloValue{min-width:44px;text-align:right;font-variant-numeric:tabular-nums;}' +
@@ -327,7 +328,7 @@
 		presetSection.appendChild(preview);
 
 		// Basic settings
-		var basic = el('div', 'geDialogSection');
+		var basic = el('div', 'geDialogSection geHmiHaloForm');
 		div.appendChild(basic);
 
 		var enabledCb = Hmi.Editors.checkbox(mxResources.get('hmiHaloEnabled'), enabled);
@@ -368,20 +369,17 @@
 		outlineShape.className = 'geHmiHaloOutlineShape';
 		var outlineShapeRow = formRow(basic, mxResources.get('hmiHaloOutlineFollows'), outlineShape);
 
-		// Advanced settings
-		var advanced = ui.addAdvancedSection(div);
-		var adv = advanced.content;
 		var padding = slider(0, 20, 1, settings.padding, ' px');
-		var paddingRow = formRow(adv, mxResources.get('hmiHaloPadding'), padding);
+		var paddingRow = formRow(basic, mxResources.get('hmiHaloPadding'), padding);
 		var radius = slider(0, 20, 1, settings.radius, ' px');
-		var radiusRow = formRow(adv, mxResources.get('hmiHaloRadius'), radius);
+		var radiusRow = formRow(basic, mxResources.get('hmiHaloRadius'), radius);
 		var dashed = Hmi.Editors.checkbox(mxResources.get('hmiHaloDashed'), settings.dashed);
-		adv.appendChild(dashed);
+		basic.appendChild(dashed);
 		var press = Hmi.Editors.checkbox(mxResources.get('hmiHaloPress'), settings.press !== false);
-		adv.appendChild(press);
+		basic.appendChild(press);
 		var pressColor = Hmi.Editors.colorInput(ui, settings.pressColor || '');
 		pressColor.input.setAttribute('placeholder', mxResources.get('hmiHaloSameColor'));
-		var pressColorRow = formRow(adv, mxResources.get('hmiHaloPressColor'), pressColor);
+		var pressColorRow = formRow(basic, mxResources.get('hmiHaloPressColor'), pressColor);
 
 		var read = function()
 		{
