@@ -400,10 +400,10 @@
 			field('script', 'script', 'hmiLnkScript', {def: '', rows: 8})], null, 560);
 		def('condition', T('hmiLnkCondition'),
 			[expr(),
-			field('onTrue', 'script', 'hmiLnkOnTrue', {def: '', rows: 4, optional: true}),
-			field('onFalse', 'script', 'hmiLnkOnFalse', {def: '', rows: 4, optional: true}),
-			field('whileTrue', 'script', 'hmiLnkWhileTrue', {def: '', rows: 4, optional: true}),
-			field('whileFalse', 'script', 'hmiLnkWhileFalse', {def: '', rows: 4, optional: true}),
+			field('onTrue', 'script', 'hmiLnkOnTrue', {def: '', rows: 3, optional: true}),
+			field('onFalse', 'script', 'hmiLnkOnFalse', {def: '', rows: 3, optional: true}),
+			field('whileTrue', 'script', 'hmiLnkWhileTrue', {def: '', rows: 3, optional: true}),
+			field('whileFalse', 'script', 'hmiLnkWhileFalse', {def: '', rows: 3, optional: true}),
 			num('period', 'hmiLnkPeriod', 1000, null, {min: 100})], null, 560);
 	};
 
@@ -2054,6 +2054,17 @@
 					mark(blink.input, 'stBlink');
 					E.inlineField(r4, null, blink);
 
+					// Align the label columns of the four rows
+					[r1, r2, r3, r4].forEach(function(r)
+					{
+						var l = r.children[0].querySelector('.geDialogFormLabel');
+						l.style.minWidth = '72px';
+					});
+					[r1, r3].forEach(function(r)
+					{
+						r.children[1].querySelector('.geDialogFormLabel').style.minWidth = '56px';
+					});
+
 					return {get: function()
 					{
 						var o = {match: trim(match.value)};
@@ -2998,7 +3009,7 @@
 
 					return o;
 				})())[0] : '';
-				rows[id].row.setAttribute('title', s || '');
+				rows[id].row.setAttribute('title', s || rows[id].label);
 			}
 		};
 
@@ -3048,7 +3059,7 @@
 			row.appendChild(lbl);
 			row.appendChild(btn);
 			section.appendChild(row);
-			rows[id] = {row: row, cb: cb};
+			rows[id] = {row: row, cb: cb, label: T(labelKey)};
 
 			mxEvent.addListener(cb, 'change', function()
 			{
@@ -3078,6 +3089,7 @@
 				div.appendChild(band);
 				grid = document.createElement('div');
 				grid.className = 'geHmiLinkGrid';
+				grid.style.gridTemplateColumns = 'repeat(auto-fill,minmax(200px,1fr))';
 				div.appendChild(grid);
 
 				return;
@@ -3143,7 +3155,7 @@
 			}
 		}, null, mxResources.get('ok'), null, removeAll, false, null, false);
 
-		ui.showDialog(dlg.container, 880, null, true, true, function()
+		ui.showDialog(dlg.container, 1000, null, true, true, function()
 		{
 			if (!(ui.format != null && ui.format.hmiTabActive))
 			{
