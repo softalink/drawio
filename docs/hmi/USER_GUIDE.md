@@ -313,9 +313,14 @@ Existing draw.io `data:action/json` custom links keep working in runtime mode an
 
 ## 9. Triggers & state machines
 
-Triggers evaluate whenever a tag they reference changes, and run actions on state transitions — never on every update. Add them in the **Animation Links** dialog (**Scripts → Triggers → Simple Triggers**) or, for page-wide logic, on the **Page Triggers** tab of **Screen Settings…**. That tab has two buttons. **Add** creates a trigger: conditions with and/or, actions, else actions, deadband and on/off delays. **Add State Machine** creates a state machine: named states, each with its own conditions and actions. Both use the same forms as the Animation Links dialog. In conditions, a boolean tag matches `true`/`false`, `1`/`0`, `on`/`off` or `yes`/`no`.
+Triggers evaluate whenever a tag they reference changes, and run actions on state transitions — never on every update. They come in two scopes, with the same forms:
 
-### Simple trigger
+- **Object triggers and object state machines** are in the **Animation Links** dialog (**Scripts → Triggers → Object Triggers / Object State Machines**). They belong to the object: they are copied, pasted and deleted with it, and actions without a target act on the object itself. Use them for logic that travels with a symbol, such as a reusable pump.
+- **Page triggers and page state machines** are on the **Page Triggers** tab of **Screen Settings…**. They belong to the page and do not depend on any object. Use them for page-wide logic, such as opening a window on an alarm. **Add Page Trigger** creates a trigger: conditions with and/or, actions, else actions, deadband and on/off delays. **Add Page State Machine** creates a state machine: named states, each with its own conditions and actions.
+
+In conditions, a boolean tag matches `true`/`false`, `1`/`0`, `on`/`off` or `yes`/`no`.
+
+### Trigger
 
 ```json
 {

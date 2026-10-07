@@ -1098,8 +1098,9 @@
 	H('hmiTab.livePreview', 'Live Preview',
 		'Runs the screen in the editor: sources connect and values flow. Press it again to stop. Interactive Preview in the HMI menu also lets clicks run events.');
 	H('hmiTab.docTriggers', 'Page Triggers',
-		'Triggers that belong to the page, not to an object. They run page-wide logic, such as opening a window on an alarm.',
-		'A trigger runs its actions when its conditions become true and its else actions when they become false.');
+		'Triggers and state machines that belong to the page, not to an object. They run page-wide logic, such as opening a window on an alarm.',
+		'A trigger runs its actions when its conditions become true and its else actions when they become false.',
+		'Scope: these belong to the page and do not depend on any object. Deleting or copying objects leaves them alone. For logic that should travel with an object, such as a reusable pump symbol, use Animation Links → Scripts → Object Triggers or Object State Machines.');
 
 	H('hmiTab.object', 'HMI settings of the object',
 		'The links, bindings, events, triggers, animations and roles of the selected objects. With several objects selected, a change is applied to all of them, and the first one is shown.');
@@ -1218,7 +1219,8 @@
 		'The actions that run, in order. A failing action is logged and the rest still run. Each action may have a delay.');
 
 	H('trigger.dialog', 'Trigger',
-		'A trigger checks conditions on tags and runs actions when the result changes: Actions when it turns true, Else actions when it turns false. It does not run on every update.');
+		'A trigger checks conditions on tags and runs actions when the result changes: Actions when it turns true, Else actions when it turns false. It does not run on every update.',
+		'Object triggers (Animation Links) belong to one object and travel with it; page triggers (Screen Settings) belong to the page.');
 	H('trigger.name', 'Name', 'The name of the trigger, shown in the list. It is also used in diagnostics.');
 	H('trigger.conditionType', 'Combine conditions',
 		'- `and`: all conditions have to be true.',
@@ -1323,8 +1325,9 @@
 
 	H('group.hmiLnkTriggersGroup', 'Triggers',
 		'Triggers run actions when conditions on tags become true or false, without a user action.',
-		'- A simple trigger has conditions, actions and else actions.',
-		'- A state machine has an ordered list of states; the first state whose conditions hold is the current state.');
+		'- An object trigger has conditions, actions and else actions.',
+		'- An object state machine has an ordered list of states; the first state whose conditions hold is the current state.',
+		'Scope: these belong to this object. They are copied, pasted and deleted with it, and actions without a target act on the object itself. For page-wide logic that is not tied to one object, use Screen Settings → Page Triggers.');
 
 	H('link.bindings', 'Bindings',
 		'A binding connects a tag or an expression to a property of the object: a style, the label, the tooltip, visibility, an attribute and more.',
@@ -1344,13 +1347,15 @@
 		'Touch Options roles only guard the touch links of the object.');
 	H('link.hoverHalo', 'Hover halo',
 		'How this object is highlighted when the mouse is over it or it has the keyboard focus in a running screen. Every setting can follow the page default (Screen Settings, Hover Halo).');
-	H('link.triggers', 'Simple triggers',
+	H('link.triggers', 'Object triggers',
 		'A trigger watches conditions. When they become true it runs its actions, when they become false it runs its else actions.',
 		'- Conditions compare a tag or an expression with a value or another tag.',
-		'- Deadband and delays keep the trigger from chattering.');
-	H('link.stateMachines', 'State machines',
+		'- Deadband and delays keep the trigger from chattering.',
+		'Scope: these belong to this object. They are copied, pasted and deleted with it, and actions without a target act on the object itself. For page-wide logic that is not tied to one object, use Screen Settings → Page Triggers.');
+	H('link.stateMachines', 'Object state machines',
 		'A trigger with several named states. The first state whose conditions hold becomes the current state, and its actions run once when it is entered.',
-		'Use it for sequences such as Stopped, Starting, Running and Fault.');
+		'Use it for sequences such as Stopped, Starting, Running and Fault.',
+		'Scope: these belong to this object. They are copied, pasted and deleted with it, and actions without a target act on the object itself. For page-wide logic that is not tied to one object, use Screen Settings → Page Triggers.');
 
 	H('field.conditions', 'Conditions',
 		'The tests of this item. Add one or more; the condition type decides whether all or any of them must hold. With no condition the item is always true.');

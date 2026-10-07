@@ -467,8 +467,8 @@ The features of the generic HMI model (ARCHITECTURE.md §2) appear as links in t
 | Touch → Actions | `events` | `hmiEvents` (click, dblclick, mousedown, mouseup, enter, leave, contextmenu, longpress, change, valueChange, message, pageOpen, pageClose → action lists, conditions, confirm, delay) | list of event handlers |
 | Touch → Actions | `security` | `hmiRoles` (comma list) and the attribute `hmiRolesMode` (`hide`/`disable`) | `roles`, `mode` |
 | Touch → Actions | `hoverHalo` | styles `hmiHalo`, `hmiHaloStyle`, `hmiHaloOutline`, `hmiHaloColor` | page default / glow / outline / glow and outline / off; outline shape; colour |
-| Scripts → Triggers (new group) | `triggers` | `hmiTriggers` entries without `states` | conditions with and/or, actions, else actions, deadband, on/off delay |
-| Scripts → Triggers | `stateMachines` | `hmiTriggers` entries with `states` | named states, each with conditions, and/or and actions |
+| Scripts → Triggers (new group), label **Object Triggers** | `triggers` | `hmiTriggers` entries without `states` | conditions with and/or, actions, else actions, deadband, on/off delay |
+| Scripts → Triggers, label **Object State Machines** | `stateMachines` | `hmiTriggers` entries with `states` | named states, each with conditions, and/or and actions |
 
 A link is "on" while its storage is non-empty. Unchecking clears the storage. All changes are written with the hmiLinks changes as one undoable edit when OK is pressed.
 
@@ -494,7 +494,7 @@ The `security` link writes `hmiRoles` and `hmiRolesMode`:
 |---|---|
 | `sources` | the Data Sources list and editor (previously the Data Sources dialog) |
 | `tags` | the tag catalogue and tag editor (previously the Tags dialog list) |
-| `pageTriggers` | the document-level triggers of the page |
+| `pageTriggers` | the document-level triggers and state machines of the page (**Add Page Trigger**, **Add Page State Machine**). They belong to the page; the object triggers and state machines of §12.1 travel with their object. |
 | `runtime` | simulation mode, scripts, fit, navigation, max rate, quality, pan/zoom, design width/height, theme, blink half-periods |
 | `hoverHalo` | the page hover halo settings (previously the Hover Halo dialog) |
 | `window` | the InTouch window type of this page (replace / overlay / popup, x, y, width, height, title; §8) |

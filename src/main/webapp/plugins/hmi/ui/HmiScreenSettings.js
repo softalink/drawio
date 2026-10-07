@@ -165,7 +165,7 @@
 					return {name: '', conditions: [], conditionType: 'and', actions: []};
 				},
 				emptyText: T('hmiNoItems'),
-				addTitle: T('hmiAddItem'), editTitle: T('edit'),
+				addLabel: T('hmiScrAddPageTrigger'), addTitle: T('hmiScrAddPageTrigger'), editTitle: T('edit'),
 				onChange: function(newItems)
 				{
 					cfg.triggers = newItems;

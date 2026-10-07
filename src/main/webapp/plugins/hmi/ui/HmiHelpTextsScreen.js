@@ -38,7 +38,8 @@
 	H('screen.tab.tags', 'Tags',
 		'The tag catalogue: declare tags with a type, unit, limits, alarms, a simulation or a write target. The number in brackets is the number of declared tags.');
 	H('screen.tab.pageTriggers', 'Page Triggers',
-		'Triggers that belong to the page, not to an object. The number in brackets is the number of triggers.');
+		'Page triggers and page state machines: logic that belongs to the page, not to an object. The number in brackets is the number of entries.',
+		'Scope: these belong to the page and do not depend on any object. Deleting or copying objects leaves them alone. For logic that should travel with an object, such as a reusable pump symbol, use Animation Links → Scripts → Object Triggers or Object State Machines.');
 	H('screen.tab.runtime', 'Runtime',
 		'How the running screen behaves: simulation mode, scripts, scaling, navigation, update rate, quality display, pan and zoom, design size, theme and the blink half-periods.');
 	H('screen.tab.hoverHalo', 'Hover Halo',
@@ -53,10 +54,12 @@
 
 	H('screen.triggers.stateMachine', 'Page state machine',
 		'A state machine for the whole page: a list of named states, each with its own conditions (AND or OR) and actions. The first state whose conditions are met becomes the current state, and its actions run once when it is entered.',
-		'Example: states Stopped, Running and Fault from the tags Motor.Run and Motor.Fault, each writing a status tag or showing a message.');
+		'Example: states Stopped, Running and Fault from the tags Motor.Run and Motor.Fault, each writing a status tag or showing a message.',
+		'Scope: these belong to the page and do not depend on any object. Deleting or copying objects leaves them alone. For logic that should travel with an object, such as a reusable pump symbol, use Animation Links → Scripts → Object Triggers or Object State Machines.');
 	H('screen.triggers.list', 'Page trigger list',
 		'The triggers of the page. Click a line or the pencil to edit it, the arrows change the order and the cross deletes it.',
-		'Triggers run in a running screen, in the order of the list.');
+		'Triggers run in a running screen, in the order of the list. Add Page Trigger adds a trigger with conditions, actions and else actions; Add Page State Machine adds one with named states.',
+		'Scope: these belong to the page and do not depend on any object. Deleting or copying objects leaves them alone. For logic that should travel with an object, such as a reusable pump symbol, use Animation Links → Scripts → Object Triggers or Object State Machines.');
 	H('trigger.deadband', 'Deadband',
 		'A number of units (not percent) that a value has to move past a limit before the condition changes back. It stops a trigger from flickering around a limit. Empty or 0 means no deadband.');
 	H('trigger.onDelay', 'On delay',

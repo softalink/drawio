@@ -1122,7 +1122,7 @@
 	/**
 	 * Renders a compact, reorderable list of items with add/edit/delete.
 	 * opts = {ui, container, items, itemLabel(item), kind, buildEditor,
-	 * emptyText, onChange(items)}.
+	 * emptyText, addLabel, addTitle, onChange(items)}.
 	 */
 	Editors.renderItemList = function(opts)
 	{
@@ -1228,7 +1228,7 @@
 			})(i);
 		}
 
-		var addBtn = Editors.button(mxResources.get('hmiAddItem'), function()
+		var addBtn = Editors.button(opts.addLabel || mxResources.get('hmiAddItem'), function()
 		{
 			Editors.showItemDialog({
 				ui: opts.ui,
