@@ -10,6 +10,41 @@ Development, test and build helpers for the HMI/SCADA plugin. The documentation 
 | `update-build-lists.py` | Regenerates the HMI file lists in `etc/build/build.xml` from `Hmi.FILES`. |
 | `gen-intouch-demo.py` | Regenerates `templates/hmi/intouch_links_demo.xml` (InTouch animation links demo). |
 
+## Running the app locally
+
+The app is static files: serve `src/main/webapp` with any web server and open it in a browser over `http://localhost`. Opening `index.html` as a `file://` page does not work.
+
+### On Windows
+
+Use PowerShell from the repository root. `-c-1` turns off caching, so your edits show on reload.
+
+```powershell
+npx http-server src\main\webapp -p 8080 -c-1
+# or, with Python:
+python -m http.server 8080 --directory src\main\webapp
+```
+
+Then open one of these:
+
+| URL | Loads |
+|---|---|
+| `http://localhost:8080/index.html?dev=1&p=hmi` | The plugin source files directly. Edits to `plugins/hmi/*.js` show after a reload, with no build step. |
+| `http://localhost:8080/index.html?p=hmi` | The built bundle `plugins/hmi.min.js`. Run the Ant build first if you changed the source (see Building). |
+| `http://localhost:8080/hmi-run.html?dev=1` | The Run Screen viewer, using the source files. |
+
+For live test data, start the simulated plant in a second terminal (see `dev/README.md`):
+
+```powershell
+cd etc\hmi\dev
+npm install        # first time only
+node server.js
+```
+
+It serves MQTT over WebSocket at `ws://localhost:9001/mqtt`, publishing `plant/Tank1/Level`, `plant/Pump1/Run` and other tags every 500 ms. It also serves a JSON WebSocket on port 9002 and HTTP and SSE on port 9003. In the editor, open **Screen Settings → Data Sources** and add an MQTT source with URL `ws://localhost:9001/mqtt` and topic filter `plant/#`. Then bind objects to those tags, or use **Live Preview**.
+
+- If Windows Firewall asks about Node or Python, allowing it on private networks is enough for localhost.
+- If port 8080 is in use, choose another port in the command and use the same number in the URL.
+
 ## Running the tests
 
 Install the dev dependencies once:
