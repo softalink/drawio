@@ -7,7 +7,8 @@ var fs = require('fs');
 var path = require('path');
 var util = require('./util.js');
 
-var SHOTS = '/tmp/claude-0/-home-user/45c66596-5d5a-5c90-9456-0e27846c9b6d/scratchpad/unified-links';
+// Screenshots are written only if HMI_UNIFIED_SHOTS names a directory
+var SHOTS = process.env.HMI_UNIFIED_SHOTS || null;
 var browser = null;
 var web = null;
 
@@ -15,7 +16,11 @@ test.before(async function()
 {
 	web = await util.startStatic(0);
 	browser = await util.launch();
-	fs.mkdirSync(SHOTS, {recursive: true});
+
+	if (SHOTS != null)
+	{
+		fs.mkdirSync(SHOTS, {recursive: true});
+	}
 });
 
 test.after(async function()
@@ -205,6 +210,11 @@ async function newCell(page, label)
 
 async function shot(page, name)
 {
+	if (SHOTS == null)
+	{
+		return;
+	}
+
 	await page.screenshot({path: path.join(SHOTS, name + '.png')});
 }
 

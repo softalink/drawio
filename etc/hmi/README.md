@@ -33,6 +33,30 @@ HMI_SOAK_MINUTES=1440 node --test --test-name-pattern=soak etc/hmi/e2e/perf.e2e.
 node --test etc/hmi/e2e/bundle.e2e.js    # after the Ant build
 ```
 
+### On Windows
+
+The tests are plain Node scripts and run the same way on Windows. Use PowerShell from the repository root:
+
+```powershell
+# Once: Node 22 and Playwright with its Chromium
+npm install --no-save playwright
+npx playwright install chromium
+
+# Unit tests
+cd src\main\webapp\plugins\hmi\test
+node --test --test-concurrency=1
+cd ..\..\..\..\..\..
+
+# One end-to-end file, or one test in it
+node --test etc\hmi\e2e\screen-settings.e2e.js
+node --test --test-name-pattern="page state machines" etc\hmi\e2e\screen-settings.e2e.js
+```
+
+- Playwright finds the Chromium that `npx playwright install` downloaded. To use another Chrome, set `$env:CHROMIUM_PATH = "C:\Program Files\Google\Chrome\Application\chrome.exe"`. If Playwright is installed elsewhere, set `$env:PLAYWRIGHT_MODULE` to its folder.
+- Environment variables use `$env:NAME = "value"` instead of `NAME=value`, for example `$env:HMI_SOAK_MINUTES = "1440"`.
+- The bundle tests need the Ant build first: `cd etc\build` then `ant app`.
+- The help screenshot tests write images only when `HMI_HELP_SHOTS` or `HMI_UNIFIED_SHOTS` is set to a folder.
+
 ## Building
 
 ```sh
