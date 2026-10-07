@@ -693,6 +693,7 @@
 		hmiScrColSource: 'Source',
 		hmiScrTriggersHint: 'Triggers of the whole page: they run actions when conditions on tags become true or false.',
 		hmiScrStates: 'states',
+		hmiScrAddStateMachine: 'Add State Machine',
 		hmiScrRuntime: 'Runtime',
 		hmiScrWindow: 'Window',
 		hmiScrRuntimeHint: 'How the running screen behaves: simulation, scripts, scaling, update rate, theme and blinking.',

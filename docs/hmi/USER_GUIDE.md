@@ -313,7 +313,7 @@ Existing draw.io `data:action/json` custom links keep working in runtime mode an
 
 ## 9. Triggers & state machines
 
-Triggers evaluate whenever a tag they reference changes, and run actions on state transitions — never on every update. Add them in the **Animation Links** dialog (**Scripts → Triggers → Simple Triggers**) or, for page-wide logic, on the **Page Triggers** tab of **Screen Settings…** (conditions with and/or, actions, else actions, deadband and on/off delays).
+Triggers evaluate whenever a tag they reference changes, and run actions on state transitions — never on every update. Add them in the **Animation Links** dialog (**Scripts → Triggers → Simple Triggers**) or, for page-wide logic, on the **Page Triggers** tab of **Screen Settings…**. That tab has two buttons. **Add** creates a trigger: conditions with and/or, actions, else actions, deadband and on/off delays. **Add State Machine** creates a state machine: named states, each with its own conditions and actions. Both use the same forms as the Animation Links dialog. In conditions, a boolean tag matches `true`/`false`, `1`/`0`, `on`/`off` or `yes`/`no`.
 
 ### Simple trigger
 

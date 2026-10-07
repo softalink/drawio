@@ -107,3 +107,15 @@ test('valueInRange / valueInArray directly', function()
 	assert.strictEqual(Hmi.Condition.valueInArray(5, '1,2..8,10'), true);
 	assert.strictEqual(Hmi.Condition.valueInArray(9, '1,2..8,10'), false);
 });
+
+test('== and != compare boolean tags with typed text values', function()
+{
+	var on = ctxFor({ P: true });
+	var off = ctxFor({ P: false });
+	assert.strictEqual(Hmi.Condition.test({ tag: 'P', operator: '==', value: 'true' }, on), true);
+	assert.strictEqual(Hmi.Condition.test({ tag: 'P', operator: '==', value: 'false' }, on), false);
+	assert.strictEqual(Hmi.Condition.test({ tag: 'P', operator: '==', value: 'off' }, off), true);
+	assert.strictEqual(Hmi.Condition.test({ tag: 'P', operator: '==', value: '1' }, on), true);
+	assert.strictEqual(Hmi.Condition.test({ tag: 'P', operator: '!=', value: 'yes' }, off), true);
+	assert.strictEqual(Hmi.Condition.test({ tag: 'P', operator: '==', value: 'maybe' }, on), false);
+});

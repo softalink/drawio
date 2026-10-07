@@ -51,6 +51,9 @@
 	H('sources.col.source', 'Source',
 		'The name, the type and the address of the source. Click the line to edit the source.');
 
+	H('screen.triggers.stateMachine', 'Page state machine',
+		'A state machine for the whole page: a list of named states, each with its own conditions (AND or OR) and actions. The first state whose conditions are met becomes the current state, and its actions run once when it is entered.',
+		'Example: states Stopped, Running and Fault from the tags Motor.Run and Motor.Fault, each writing a status tag or showing a message.');
 	H('screen.triggers.list', 'Page trigger list',
 		'The triggers of the page. Click a line or the pencil to edit it, the arrows change the order and the cross deletes it.',
 		'Triggers run in a running screen, in the order of the list.');

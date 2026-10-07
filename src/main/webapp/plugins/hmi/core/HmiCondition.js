@@ -33,6 +33,28 @@
 			return a == b;
 		}
 
+		// A boolean tag against a typed value: "true"/"1"/"on"/"yes" and
+		// "false"/"0"/"off"/"no" (condition values entered in forms are text)
+		if (typeof a === 'boolean' || typeof b === 'boolean')
+		{
+			var bool = (typeof a === 'boolean') ? a : b;
+			var other = (typeof a === 'boolean') ? b : a;
+
+			if (typeof other === 'string')
+			{
+				var t = other.trim().toLowerCase();
+
+				if (t === 'true' || t === '1' || t === 'on' || t === 'yes')
+				{
+					return bool === true;
+				}
+				else if (t === 'false' || t === '0' || t === 'off' || t === 'no')
+				{
+					return bool === false;
+				}
+			}
+		}
+
 		var an = typeof a === 'number' || (typeof a === 'string' && a !== '' && !isNaN(a));
 		var bn = typeof b === 'number' || (typeof b === 'string' && b !== '' && !isNaN(b));
 

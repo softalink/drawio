@@ -300,7 +300,8 @@ test('editing every tab and OK is one undoable edit, Cancel discards', async fun
 		return document.querySelectorAll('.geDialog').length == 2;
 	});
 	await dlg(page).locator('input[type="text"]').first().fill('LowLevel');
-	await dlg(page).locator('.geBtn', {hasText: /^Add$/}).nth(2).click();
+	// The second action list of the trigger form holds the else actions
+	await dlg(page).locator('[data-role="actions"]').nth(1).locator('[data-role="add"]').first().click();
 	await page.waitForFunction(function()
 	{
 		return document.querySelectorAll('.geDialog').length == 3;
@@ -590,5 +591,148 @@ test('the HMI tab summarises the page and the object', async function()
 	assert.strictEqual(none, 'No HMI links');
 
 	assert.deepStrictEqual(page.hmiErrors, []);
+	await page.close();
+});
+
+test('page state machines are created and edited with a form and run', async function()
+{
+	var page = await util.openEditor(browser, web.url);
+	var d = JSON.parse(JSON.stringify(DOC));
+	d.tags.push({name: 'Mode', type: 'string', access: 'rw', local: true, initial: ''});
+	await setup(page, d);
+	await open(page, 'pageTriggers');
+
+	var result = await page.evaluate(async function()
+	{
+		var wait = function(ms)
+		{
+			return new Promise(function(r)
+			{
+				setTimeout(r, ms || 60);
+			});
+		};
+		var top = function()
+		{
+			return Hmi.ui.dialog.container;
+		};
+		var set = function(el, v)
+		{
+			el.value = v;
+			el.dispatchEvent(new Event('input', {bubbles: true}));
+			el.dispatchEvent(new Event('change', {bubbles: true}));
+		};
+		var out = {};
+		var settings = top();
+		settings.querySelector('[data-role="add-state-machine"]').click();
+		await wait();
+		var sm = top();
+		out.form = sm.querySelector('[data-dialog="page-state-machine"]') != null &&
+			sm.querySelector('[data-field="addState"]') != null;
+		set(sm.querySelector('[data-field="name"]'), 'PumpState');
+		sm.querySelector('[data-field="addState"]').click();
+		sm.querySelector('[data-field="addState"]').click();
+		await wait();
+		var states = sm.querySelectorAll('[data-role="state"]');
+		set(states[0].querySelector('[data-field="stateName"]'), 'Stopped');
+		set(states[1].querySelector('[data-field="stateName"]'), 'Running');
+		states[0].querySelector('[data-field="addCondition"]').click();
+		states[1].querySelector('[data-field="addCondition"]').click();
+		await wait();
+		set(states[0].querySelector('[data-field="condTag"]'), 'Pump');
+		set(states[0].querySelector('[data-field="condValue"]'), 'false');
+		set(states[1].querySelector('[data-field="condTag"]'), 'Pump');
+		set(states[1].querySelector('[data-field="condValue"]'), 'true');
+
+		// One writeTag action per state
+		for (var i = 0; i < 2; i++)
+		{
+			var before = top();
+			states[i].querySelector('[data-role="actions"] [data-role="add"]').click();
+			await wait();
+			var ad = top();
+			set(ad.querySelector('select'), 'writeTag');
+			await wait();
+			var inputs = ad.querySelectorAll('input[type="text"], input:not([type])');
+			set(inputs[0], 'Mode');
+			set(inputs[1], (i == 0) ? 'stopped' : 'running');
+			ad.querySelector('.gePrimaryBtn').click();
+			await wait();
+			out['back' + i] = top() == before;
+		}
+
+		sm.querySelector('.gePrimaryBtn').click();
+		await wait();
+		out.listed = settings.querySelector('[data-role="page-triggers"]').textContent.indexOf('PumpState') >= 0;
+
+		// Editing it again shows the form with both states
+		var rows = settings.querySelectorAll('[data-role="page-triggers"] [data-role="item"]');
+		var edit = (rows.length > 0) ? rows[rows.length - 1] : null;
+		out.rows = rows.length;
+
+		if (edit != null)
+		{
+			(edit.querySelector('[data-role="edit"]') || edit).click();
+			await wait();
+			out.editStates = top().querySelectorAll('[data-role="state"]').length;
+			out.editJson = top().querySelector('textarea') != null &&
+				top().querySelector('[data-field="addState"]') == null;
+			Hmi.ui.hideDialog();
+			await wait();
+		}
+
+		settings.querySelector('.gePrimaryBtn').click();
+		await wait(200);
+
+		return out;
+	});
+
+	assert.strictEqual(result.form, true);
+	assert.strictEqual(result.back0, true);
+	assert.strictEqual(result.back1, true);
+	assert.strictEqual(result.listed, true);
+	assert.strictEqual(result.editStates, 2, JSON.stringify(result));
+	assert.strictEqual(result.editJson, false);
+
+	var cfg = await doc(page);
+	var sm = cfg.triggers[cfg.triggers.length - 1];
+	assert.strictEqual(sm.name, 'PumpState');
+	assert.deepStrictEqual(sm.states.map(function(s)
+	{
+		return s.name;
+	}), ['Stopped', 'Running']);
+	assert.strictEqual(sm.states[1].actions[0].type, 'writeTag');
+	assert.deepStrictEqual(await page.evaluate(function()
+	{
+		return Hmi.Schema.validate('triggers', Hmi.Model.getDocConfig(Hmi.ui.editor.graph).triggers);
+	}), []);
+
+	// The state machine runs in live preview
+	var modes = await page.evaluate(async function()
+	{
+		var wait = function(ms)
+		{
+			return new Promise(function(r)
+			{
+				setTimeout(r, ms);
+			});
+		};
+		var rt = Hmi.ui.hmi.run({mode: 'preview', sim: 'only'});
+		await wait(1500);
+		rt.setValues({Pump: true});
+		await wait(400);
+		var a = rt.tags.getValue('Mode');
+		rt.setValues({Pump: false});
+		await wait(400);
+		var b = rt.tags.getValue('Mode');
+		window.smDebug = {trig: JSON.stringify(Hmi.Model.getDocConfig(Hmi.ui.editor.graph).triggers.slice(-1)),
+			log: rt.diag.log.slice(-8).map(function(e) { return e.category + ' ' + e.message; }), init: rt.initialized};
+		Hmi.ui.hmi.stop();
+
+		return [a, b];
+	});
+	assert.deepStrictEqual(modes, ['running', 'stopped'], JSON.stringify(await page.evaluate(function()
+	{
+		return window.smDebug;
+	})));
 	await page.close();
 });

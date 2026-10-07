@@ -2713,3 +2713,4 @@ hmiLnkKeepState=Keep end state
 hmiLnkNextAnimation=Then start
 hmiScrSummary=Summary
 hmiScrLinks=Links
+hmiScrAddStateMachine=Add State Machine

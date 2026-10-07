@@ -4979,6 +4979,18 @@
 	};
 
 	LinksDialog.SPECS = SPECS;
+
+	// Trigger and state machine editors, also used by the Page Triggers tab
+	// of Screen Settings (returns an element with getValue and validate)
+	LinksDialog.buildSimpleTrigger = function(ui, value)
+	{
+		return buildSimpleTrigger(ui, value);
+	};
+
+	LinksDialog.buildStateMachine = function(ui, value)
+	{
+		return buildStateMachine(ui, value);
+	};
 	LinksDialog.GROUPS = GROUPS;
 	LinksDialog.ensureSpecs = function()
 	{

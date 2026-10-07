@@ -125,11 +125,19 @@
 		var listDiv = el('div');
 		box.appendChild(listDiv);
 
-		// A state machine has no form: it opens as JSON
+		// Same editors as the Triggers and State Machines links of the
+		// Animation Links dialog (JSON / HMI tab editor when not loaded)
 		function buildEditor(ui2, value)
 		{
-			return (value != null && value.states != null) ?
-				E.jsonFallback(ui2, 'triggers', value) :
+			var L = Hmi.LinksDialog;
+
+			if (value != null && value.states != null)
+			{
+				return (L != null && L.buildStateMachine != null) ? L.buildStateMachine(ui2, value) :
+					E.jsonFallback(ui2, 'triggers', value);
+			}
+
+			return (L != null && L.buildSimpleTrigger != null) ? L.buildSimpleTrigger(ui2, value) :
 				Hmi.FormatPanel.buildTriggerEditor(ui2, value);
 		};
 
@@ -140,7 +148,7 @@
 
 			E.renderItemList({
 				ui: ui, container: listDiv, items: items, kind: 'triggers',
-				helpKey: 'trigger.dialog',
+				helpKey: 'trigger.dialog', width: 740, dialogId: 'page-trigger',
 				itemLabel: function(t)
 				{
 					var n = (t.states != null) ? t.states.length + ' ' + T('hmiScrStates') :
@@ -164,6 +172,37 @@
 					render();
 				}
 			});
+
+			// Second add button: a state machine (named states, each with
+			// conditions and actions)
+			var addSm = E.button(T('hmiScrAddStateMachine'), function()
+			{
+				E.showItemDialog({
+					ui: ui, title: T('hmiScrAddStateMachine'), helpKey: 'screen.triggers.stateMachine',
+					width: 740, dialogId: 'page-state-machine', kind: 'triggers',
+					value: {name: '', states: []},
+					buildEditor: buildEditor,
+					onSave: function(value)
+					{
+						cfg.triggers.push(value);
+						render();
+					}
+				});
+			});
+			addSm.setAttribute('data-role', 'add-state-machine');
+			addSm.style.marginTop = '6px';
+			addSm.style.marginLeft = '6px';
+			var addBtn = listDiv.querySelector('[data-role="add"]');
+
+			if (addBtn != null && addBtn.parentNode != null)
+			{
+				addBtn.parentNode.insertBefore(addSm, addBtn.nextSibling);
+				E.help(addSm.parentNode, 'screen.triggers.stateMachine');
+			}
+			else
+			{
+				listDiv.appendChild(addSm);
+			}
 
 			state.changed();
 		};
