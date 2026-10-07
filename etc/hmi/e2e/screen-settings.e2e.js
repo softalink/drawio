@@ -294,7 +294,7 @@ test('editing every tab and OK is one undoable edit, Cancel discards', async fun
 
 	// Page trigger with else actions
 	await page.click('[data-dialog="screen-settings"] [data-tab="pageTriggers"]');
-	await page.locator('[data-role="page-triggers"] .geBtn', {hasText: /^Add$/}).click();
+	await page.locator('[data-role="page-triggers"] [data-role="add"]').first().click();
 	await page.waitForFunction(function()
 	{
 		return document.querySelectorAll('.geDialog').length == 2;
