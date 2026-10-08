@@ -189,7 +189,7 @@ test('Animation Links dialog: tabs, counts, keyboard and fixed size', async func
 	assert.strictEqual(await page.$('.geDialog [data-dialog="animation-links"] .geDialogHint[title]'), null);
 
 	// Rows of hidden tabs stay in the DOM
-	assert.strictEqual(await page.$$eval('.geDialog [data-link]', function(r) { return r.length; }), 59);
+	assert.strictEqual(await page.$$eval('.geDialog [data-link]', function(r) { return r.length; }), 60);
 
 	// Click
 	await page.click('.geDialog [data-tab="touch"]');
@@ -673,7 +673,7 @@ test('quick help: every icon of every dialog has a help text', async function()
 	});
 	assert.strictEqual(kinds.tab, 4);
 	assert.strictEqual(kinds.group, 16);
-	assert.strictEqual(kinds.link, 59);
+	assert.strictEqual(kinds.link, 60);
 	assert.ok(kinds.field > 40 && kinds.heading >= 8 && kinds.halo >= 15, JSON.stringify(kinds));
 	console.log('help keys used by the dialogs: ' + list.length + ' ' + JSON.stringify(kinds));
 	assert.deepStrictEqual(page.hmiErrors, []);

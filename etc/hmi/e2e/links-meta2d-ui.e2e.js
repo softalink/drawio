@@ -427,7 +427,7 @@ test('Animation Links dialog configures every extension link and round-trips', a
 	var out = await fillAll(page);
 
 	assert.deepStrictEqual(page.hmiErrors, []);
-	assert.strictEqual(out.rows, 59);
+	assert.strictEqual(out.rows, 60);
 	assert.deepStrictEqual(out.bands, ['Display', 'Animation', 'Touch', 'Scripts']);
 	assert.ok(['States and Properties', 'Animation', 'Actions', 'Object Scripts'].every(function(t)
 	{

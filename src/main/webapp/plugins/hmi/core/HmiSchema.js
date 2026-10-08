@@ -283,7 +283,7 @@
 	// ---------------------------------------------------------------
 
 	var LINK_DISPLAY_EXPR = ['valueDiscrete', 'valueAnalog', 'valueString', 'locationH', 'locationV',
-		'orientation', 'sizeHeight', 'sizeWidth', 'lineColor', 'fillColor', 'textColor',
+		'orientation', 'sizeHeight', 'sizeWidth', 'sizeScale', 'lineColor', 'fillColor', 'textColor',
 		'fillVertical', 'fillHorizontal', 'blink', 'visibility', 'disable', 'tooltip'];
 	var LINK_TOUCH = ['inputDiscrete', 'inputAnalog', 'inputString', 'sliderH', 'sliderV',
 		'pushDiscrete', 'pushAction', 'showWindow', 'hideWindow'];
@@ -304,6 +304,7 @@
 		orientation: { valueAtMaxCCW: 0, valueAtMaxCW: 100, ccwRotation: 0, cwRotation: 360, offsetX: 0, offsetY: 0 },
 		sizeHeight: { valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100 },
 		sizeWidth: { valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100 },
+		sizeScale: { valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100 },
 		fillVertical: { valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100 },
 		fillHorizontal: { valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100 },
 		sliderH: { atLeft: 0, atRight: 100, toLeft: 0, toRight: 100 },
@@ -320,8 +321,10 @@
 	 * Enum fields per link type: {field: [allowed values, default first]}.
 	 */
 	var LINK_ENUMS = {
-		sizeHeight: { anchor: ['bottom', 'top', 'middle'] },
-		sizeWidth: { anchor: ['left', 'center', 'right'] },
+		sizeHeight: { anchor: ['bottom', 'top', 'middle', 'offset'] },
+		sizeWidth: { anchor: ['left', 'center', 'right', 'offset'] },
+		sizeScale: { anchor: ['center', 'top', 'bottom', 'left', 'right', 'topLeft', 'topRight',
+			'bottomLeft', 'bottomRight', 'offset'] },
 		fillVertical: { direction: ['up', 'down'] },
 		fillHorizontal: { direction: ['right', 'left'] },
 		blink: { mode: ['invisible', 'visible'], speed: ['medium', 'slow', 'fast'] },
@@ -1251,12 +1254,17 @@
 				validateLinkFormat(link.format, path + '.format', errors);
 				break;
 
+			case 'sizeHeight':
+			case 'sizeWidth':
+			case 'sizeScale':
+				checkRequiredString(link, 'expr', path, errors);
+				checkNumbers(link, {offsetX: 0, offsetY: 0}, path, errors);
+				break;
+
 			case 'valueString':
 			case 'locationH':
 			case 'locationV':
 			case 'orientation':
-			case 'sizeHeight':
-			case 'sizeWidth':
 			case 'visibility':
 			case 'disable':
 				checkRequiredString(link, 'expr', path, errors);

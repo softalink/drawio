@@ -59,7 +59,7 @@
 	H('group.hmiLnkLocation', 'Location',
 		'Moves the object horizontally or vertically, in pixels, according to an expression. The movement is linear between two reference values and stops at them.');
 	H('group.hmiLnkObjectSize', 'Object Size',
-		'Scales the height or the width of the object as a percentage of its design size, driven by an expression.');
+		'Scales the height, the width or both (Scale) of the object as a percentage of its design size, driven by an expression.');
 	H('group.hmiLnkLineColor', 'Line Color',
 		'Changes the line colour of the object. Choose the kind:',
 		'- Discrete: two colours for false and true',
@@ -129,10 +129,14 @@
 		'Between the two values it moves linearly.');
 	H('link.sizeHeight', 'Object Size: Height',
 		'Changes the height of the object. The expression is mapped linearly from the minimum and maximum values to the height percentages (of the design height).',
-		'The anchor decides which edge stays in place.');
+		'The anchor decides what stays in place: the top, middle or bottom edge, or a point at a Y offset from the centre.');
 	H('link.sizeWidth', 'Object Size: Width',
 		'Changes the width of the object. The expression is mapped linearly from the minimum and maximum values to the width percentages (of the design width).',
-		'The anchor decides which edge stays in place.');
+		'The anchor decides what stays in place: the left edge, centre or right edge, or a point at an X offset from the centre.');
+	H('link.sizeScale', 'Object Size: Scale',
+		'Changes the width and the height of the object together by the same percentage of the design size, so it keeps its proportions. The expression is mapped linearly from the minimum and maximum values to the percentages.',
+		'- The anchor is the point that stays in place: the centre (default), an edge or a corner, or a point at an X and Y offset from the centre.',
+		'- With Height or Width links on the same object, the changes add up.');
 
 	var TARGETS = [['lineColor', 'line', 'Line Color'], ['fillColor', 'fill', 'Fill Color'],
 		['textColor', 'text', 'Text Color']];
@@ -348,7 +352,19 @@
 	H('field.anchor', 'Anchor',
 		'The part of the object that stays in place while it grows or shrinks.',
 		'- Height: top, middle or bottom (default bottom)',
-		'- Width: left, center or right (default left)');
+		'- Width: left, center or right (default left)',
+		'- Scale: center (default), an edge or a corner',
+		'- Offset from centre: the point at the X / Y offset below, as the rotation point of Orientation');
+	H('field.sizeHeight.offsetY', 'Y offset',
+		'Vertical offset in pixels of the anchor point from the centre of the object (positive is down). 0 keeps the middle in place; half the height keeps the bottom edge.');
+	H('field.sizeWidth.offsetX', 'X offset',
+		'Horizontal offset in pixels of the anchor point from the centre of the object (positive is right). 0 keeps the centre in place; half the width keeps the right edge.');
+	H('field.sizeScale.offsetX', 'X offset',
+		'Horizontal offset in pixels of the anchor point from the centre of the object (positive is right).');
+	H('field.sizeScale.offsetY', 'Y offset',
+		'Vertical offset in pixels of the anchor point from the centre of the object (positive is down).');
+	H('heading.hmiLnkScalePercent', 'Scale percent',
+		'The size of the object, in percent of its design width and height, at the minimum and at the maximum value.');
 	H('field.direction', 'Fill direction',
 		'The direction the fill grows in. Vertical: up (from the bottom) or down. Horizontal: right (from the left edge) or left.');
 	H('field.backgroundColor', 'Background color',

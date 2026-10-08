@@ -639,6 +639,7 @@ For deployment-wide security configuration (endpoint allow-listing, script polic
 The plugin implements every animation link of AVEVA InTouch (Visualization Guide, chapter 4). If you know InTouch, you can configure objects the same way:
 
 - **Display links:** value display, location, orientation, size, line / fill / text colour, percent fill, blink, visibility, disable and tooltip.
+- **Object Size** also has **Scale**, which changes width and height together around an anchor (centre, an edge, a corner or a point at an X / Y offset from the centre). Height and Width can also be anchored at such an offset, like the rotation point of Orientation.
 - **Touch links:** user inputs, sliders, pushbuttons, action scripts and show / hide window.
 
 The template **InTouch Animation Links** (*File → New → Hmi*) shows each link working. `docs/hmi/INTOUCH_MAPPING.md` lists every guide section with its implementation.

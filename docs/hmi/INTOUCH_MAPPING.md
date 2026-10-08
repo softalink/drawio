@@ -15,7 +15,8 @@ This matrix maps every item of **Chapter 4 "Animating Objects"** of the *AVEVA I
 | Location: Horizontal (58) | `locationH` | Links dialog | overlay geometry `dx` | `itd-location-h` |
 | Location: Vertical (59) | `locationV` | Links dialog | overlay geometry `dy` | `itd-location-v` |
 | Orientation (59–60) | `orientation` with centre offset | Links dialog | style `rotation` + offset correction | `itd-orientation` |
-| Object Size: Height / Width (60–61) | `sizeHeight`, `sizeWidth` with anchors | Links dialog | overlay geometry `dh`/`dy`, `dw`/`dx` | `itd-size-*` |
+| Object Size: Height / Width (60–61) | `sizeHeight`, `sizeWidth` with anchors, or an anchor at an X / Y offset from the centre | Links dialog | overlay geometry `dh`/`dy`, `dw`/`dx` | `itd-size-height`, `itd-size-width` |
+| Object Size: Scale (extension) | `sizeScale`: width and height together, anchor centre, edge, corner or offset | Links dialog | overlay geometry `dw`, `dh`, `dx`, `dy` | `itd-size-scale` |
 | Line / Fill / Text Colour: Discrete (61–62) | `lineColor`/`fillColor`/`textColor` `kind: discrete` | Links dialog with colour pickers | `strokeColor` / `fillColor` / `fontColor` | `itd-color-discrete` |
 | Colour: Analog, 10 breakpoints (62) | `kind: analog` | Breakpoint table (max 10) | `Hmi.Links.color` | `itd-color-analog` |
 | Colour: Discrete Alarm (62) | `kind: discreteAlarm` | Links dialog | `Hmi.Alarms.stateOf` | `itd-color-discrete-alarm` |

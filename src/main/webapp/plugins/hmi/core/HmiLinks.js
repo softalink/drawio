@@ -170,7 +170,34 @@
 	};
 
 	/**
-	 * Returns {dw, dx} (isWidth) or {dh, dy}.
+	 * Fraction (0 = left or top, 1 = right or bottom) of a size of the
+	 * point that stays in place: an anchor name, or 'offset' with a pixel
+	 * offset from the centre (as the rotation point of Orientation).
+	 */
+	function anchorFraction(anchor, offset, size)
+	{
+		if (anchor === 'offset')
+		{
+			return (size > 0) ? 0.5 + num(offset, 0) / size : 0.5;
+		}
+
+		if (anchor === 'middle' || anchor === 'center')
+		{
+			return 0.5;
+		}
+
+		return (anchor === 'bottom' || anchor === 'right') ? 1 : 0;
+	};
+
+	function sizePercent(link, n)
+	{
+		return lerp(n, num(link.valueAtMin, 0), num(link.valueAtMax, 100),
+			num(link.minPercent, 0), num(link.maxPercent, 100));
+	};
+
+	/**
+	 * Returns {dw, dx} (isWidth) or {dh, dy}. The anchor (or the point at
+	 * offsetX / offsetY from the centre with anchor 'offset') stays in place.
 	 */
 	function size(link, v, isWidth, w, h)
 	{
@@ -181,27 +208,45 @@
 			return null;
 		}
 
-		var pct = lerp(n, num(link.valueAtMin, 0), num(link.valueAtMax, 100),
-			num(link.minPercent, 0), num(link.maxPercent, 100));
+		var pct = sizePercent(link, n);
 		var base = isWidth ? num(w, 0) : num(h, 0);
 		var delta = base * pct / 100 - base;
 		var anchor = link.anchor || (isWidth ? 'left' : 'bottom');
-		var shift;
-
-		if (anchor === 'middle' || anchor === 'center')
-		{
-			shift = -delta / 2;
-		}
-		else if (anchor === 'bottom' || anchor === 'right')
-		{
-			shift = -delta;
-		}
-		else
-		{
-			shift = 0;
-		}
+		var shift = -delta * anchorFraction(anchor, isWidth ? link.offsetX : link.offsetY, base);
 
 		return isWidth ? { dw: norm(delta), dx: norm(shift) } : { dh: norm(delta), dy: norm(shift) };
+	};
+
+	/**
+	 * Scale link: changes width and height by the same percentage. Returns
+	 * {dw, dh, dx, dy}. The anchor is one of center (default), top, bottom,
+	 * left, right, topLeft, topRight, bottomLeft, bottomRight or offset
+	 * (offsetX / offsetY in pixels from the centre).
+	 */
+	var SCALE_ANCHORS = {
+		center: [0.5, 0.5], top: [0.5, 0], bottom: [0.5, 1], left: [0, 0.5], right: [1, 0.5],
+		topLeft: [0, 0], topRight: [1, 0], bottomLeft: [0, 1], bottomRight: [1, 1]
+	};
+
+	function scale(link, v, w, h)
+	{
+		var n = numberOrNull(v);
+
+		if (link == null || n == null)
+		{
+			return null;
+		}
+
+		var k = sizePercent(link, n) / 100;
+		var bw = num(w, 0);
+		var bh = num(h, 0);
+		var dw = bw * k - bw;
+		var dh = bh * k - bh;
+		var anchor = link.anchor || 'center';
+		var f = (anchor === 'offset') ? [anchorFraction('offset', link.offsetX, bw),
+			anchorFraction('offset', link.offsetY, bh)] : (SCALE_ANCHORS[anchor] || SCALE_ANCHORS.center);
+
+		return { dw: norm(dw), dh: norm(dh), dx: norm(-dw * f[0]), dy: norm(-dh * f[1]) };
 	};
 
 	/**
@@ -1091,6 +1136,7 @@
 		locationV: locationV,
 		orientation: orientation,
 		size: size,
+		scale: scale,
 		color: color,
 		fill: fill,
 		visible: visible,

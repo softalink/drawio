@@ -600,3 +600,75 @@ test('demo template: the Flowcharting Features page runs', async function()
 		await page.close();
 	}
 });
+
+test('Object Size: anchor at an offset and the Scale link in the dialog', async function()
+{
+	var page = await util.openEditor(browser, web.url);
+
+	try
+	{
+		await installHelpers(page);
+		var out = await page.evaluate(async function()
+		{
+			var ui = Hmi.ui;
+			var graph = ui.editor.graph;
+			var cell = TT.insert('Box', 'c1');
+			graph.setSelectionCell(cell);
+			Hmi.Model.setDocConfig(graph, {version: 1, sources: [], triggers: [], sim: 'off',
+				tags: [{name: 'Level', type: 'number'}]});
+			Hmi.LinksDialog.show(ui, [cell]);
+			await TT.wait(150);
+			var rows = Array.prototype.map.call(TT.dlg().querySelectorAll('[data-link^="size"]'), function(r)
+			{
+				return r.getAttribute('data-link');
+			});
+			var hidden = {};
+
+			await TT.configure('sizeHeight', function()
+			{
+				TT.set('expr', 'Level');
+				hidden.before = TT.field('offsetY').closest('[style*="display: none"]') != null ||
+					TT.field('offsetY').offsetParent == null;
+				TT.set('anchor', 'offset');
+				hidden.after = TT.field('offsetY').offsetParent == null;
+				TT.set('offsetY', 20);
+			});
+			await TT.configure('sizeWidth', function()
+			{
+				TT.set('expr', 'Level');
+				TT.set('anchor', 'right');
+			});
+			await TT.configure('sizeScale', function()
+			{
+				TT.set('expr', 'Level');
+				TT.set('minPercent', 50);
+				TT.set('maxPercent', 150);
+				TT.set('anchor', 'offset');
+				TT.set('offsetX', -10);
+				TT.set('offsetY', 15);
+			});
+			TT.ok();
+			await TT.wait(150);
+			var links = Hmi.Model.getCellConfig(cell).links;
+
+			return {rows: rows, hidden: hidden, links: links, errors: Hmi.Schema.validate('links', links),
+				summary: Hmi.LinksDialog.objectSummary(cell).map(function(e) { return e.text; })};
+		});
+
+		assert.deepStrictEqual(page.hmiErrors, []);
+		assert.deepStrictEqual(out.rows, ['sizeHeight', 'sizeWidth', 'sizeScale']);
+		assert.deepStrictEqual(out.hidden, {before: true, after: false});
+		assert.deepStrictEqual(out.errors, []);
+		assert.strictEqual(out.links.sizeHeight.anchor, 'offset');
+		assert.strictEqual(out.links.sizeHeight.offsetY, 20);
+		assert.strictEqual(out.links.sizeWidth.anchor, 'right');
+		assert.strictEqual(out.links.sizeWidth.offsetX, undefined);
+		assert.deepStrictEqual([out.links.sizeScale.anchor, out.links.sizeScale.offsetX, out.links.sizeScale.offsetY,
+			out.links.sizeScale.minPercent, out.links.sizeScale.maxPercent], ['offset', -10, 15, 50, 150]);
+		assert.ok(out.summary.some(function(t) { return /Scale/.test(t); }), JSON.stringify(out.summary));
+	}
+	finally
+	{
+		await page.close();
+	}
+});

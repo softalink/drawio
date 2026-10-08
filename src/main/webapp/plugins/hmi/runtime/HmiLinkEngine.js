@@ -639,6 +639,20 @@
 			}
 		}
 
+		// Scale: width and height together (adds to Height and Width links)
+		if (links.sizeScale != null && L.scale != null)
+		{
+			var sc = L.scale(links.sizeScale, value(links.sizeScale), rec.width, rec.height);
+
+			if (sc != null)
+			{
+				geo.dw += sc.dw;
+				geo.dh += sc.dh;
+				geo.dx += sc.dx;
+				geo.dy += sc.dy;
+			}
+		}
+
 		// Colours
 		var fillLinkColor = null;
 

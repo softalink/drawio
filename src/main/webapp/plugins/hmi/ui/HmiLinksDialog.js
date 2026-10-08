@@ -247,11 +247,22 @@
 		def('sizeHeight', arrow('hmiLnkObjectHeight', 'hmiLnkAnalogValue'),
 			[expr()].concat(percentFields('hmiLnkHeightPercent')).concat([
 			sel('anchor', 'hmiLnkAnchor', 'bottom', [['top', 'hmiLnkTop'],
-				['middle', 'hmiLnkMiddle'], ['bottom', 'hmiLnkBottom']])]));
+				['middle', 'hmiLnkMiddle'], ['bottom', 'hmiLnkBottom'], ['offset', 'hmiLnkAnchorOffset']]),
+			num('offsetY', 'hmiLnkOffsetY', 0, null, {showWhen: {anchor: 'offset'}})]));
 		def('sizeWidth', arrow('hmiLnkObjectWidth', 'hmiLnkAnalogValue'),
 			[expr()].concat(percentFields('hmiLnkWidthPercent')).concat([
 			sel('anchor', 'hmiLnkAnchor', 'left', [['left', 'hmiLnkLeft'],
-				['center', 'hmiLnkCenter'], ['right', 'hmiLnkRight']])]));
+				['center', 'hmiLnkCenter'], ['right', 'hmiLnkRight'], ['offset', 'hmiLnkAnchorOffset']]),
+			num('offsetX', 'hmiLnkOffsetX', 0, null, {showWhen: {anchor: 'offset'}})]));
+		def('sizeScale', arrow('hmiLnkObjectScale', 'hmiLnkAnalogValue'),
+			[expr()].concat(percentFields('hmiLnkScalePercent')).concat([
+			sel('anchor', 'hmiLnkAnchor', 'center', [['center', 'hmiLnkCenter'],
+				['topLeft', 'hmiLnkTopLeft'], ['top', 'hmiLnkTop'], ['topRight', 'hmiLnkTopRight'],
+				['left', 'hmiLnkLeft'], ['right', 'hmiLnkRight'], ['bottomLeft', 'hmiLnkBottomLeft'],
+				['bottom', 'hmiLnkBottom'], ['bottomRight', 'hmiLnkBottomRight'],
+				['offset', 'hmiLnkAnchorOffset']]),
+			num('offsetX', 'hmiLnkOffsetX', 0, 'c', {showWhen: {anchor: 'offset'}}),
+			num('offsetY', 'hmiLnkOffsetY', 0, 'c', {showWhen: {anchor: 'offset'}})]));
 
 		var targets = [['lineColor', 'hmiLnkLineColor'], ['fillColor', 'hmiLnkFillColor'],
 			['textColor', 'hmiLnkTextColor']];
@@ -464,7 +475,7 @@
 		{title: 'hmiLnkLocation', items: [['locationH', 'hmiLnkHorizontal'],
 			['locationV', 'hmiLnkVertical']]},
 		{title: 'hmiLnkObjectSize', items: [['sizeHeight', 'hmiLnkHeight'],
-			['sizeWidth', 'hmiLnkWidth']]},
+			['sizeWidth', 'hmiLnkWidth'], ['sizeScale', 'hmiLnkScale']]},
 		{title: 'hmiLnkLineColor', color: 'lineColor'},
 		{title: 'hmiLnkFillColor', color: 'fillColor'},
 		{title: 'hmiLnkTextColor', color: 'textColor'},
@@ -510,7 +521,7 @@
 	 * Canonical order of the link types for summaries.
 	 */
 	var ORDER = ['valueDiscrete', 'valueAnalog', 'valueString', 'locationH', 'locationV',
-		'sizeHeight', 'sizeWidth', 'lineColor', 'fillColor', 'textColor', 'fillVertical',
+		'sizeHeight', 'sizeWidth', 'sizeScale', 'lineColor', 'fillColor', 'textColor', 'fillVertical',
 		'fillHorizontal', 'visibility', 'blink', 'orientation', 'disable', 'tooltip',
 		'inputDiscrete', 'inputAnalog', 'inputString', 'sliderV', 'sliderH', 'pushDiscrete',
 		'pushAction', 'showWindow', 'hideWindow', 'opacity', 'states', 'properties', 'widgetData',
@@ -642,7 +653,7 @@
 		};
 
 		var numExpr = {valueAnalog: 1, locationH: 1, locationV: 1, orientation: 1,
-			sizeHeight: 1, sizeWidth: 1, fillVertical: 1, fillHorizontal: 1};
+			sizeHeight: 1, sizeWidth: 1, sizeScale: 1, fillVertical: 1, fillHorizontal: 1};
 		var boolExpr = {valueDiscrete: 1, blink: 1, visibility: 1, disable: 1};
 
 		for (var type in links)
@@ -2858,6 +2869,7 @@
 			locationV: ['hmiLnkLocation', 'hmiLnkVertical'],
 			sizeHeight: ['hmiLnkObjectSize', 'hmiLnkHeight'],
 			sizeWidth: ['hmiLnkObjectSize', 'hmiLnkWidth'],
+			sizeScale: ['hmiLnkObjectSize', 'hmiLnkScale'],
 			fillVertical: ['hmiLnkPercentFill', 'hmiLnkVertical'],
 			fillHorizontal: ['hmiLnkPercentFill', 'hmiLnkHorizontal'],
 			visibility: ['hmiLnkMiscellaneous', 'hmiLnkVisibility'],

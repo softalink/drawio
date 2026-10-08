@@ -155,3 +155,48 @@ test('demo template: the Flowcharting Features page has valid links', function()
 	assert.ok(xml.indexOf('"blend":true') >= 0);
 	assert.ok(xml.indexOf('"staleSeconds":5') >= 0);
 });
+
+test('size: anchor at an offset from the centre', function()
+{
+	// Height 100 -> 50 %: delta -50
+	var h = { expr: 'A', anchor: 'offset', offsetY: 0 };
+	assert.deepStrictEqual(L.size(h, 50, false, 200, 100), { dh: -50, dy: 25 });
+	h.offsetY = 50;
+	assert.deepStrictEqual(L.size(h, 50, false, 200, 100), { dh: -50, dy: 50 });
+	h.offsetY = -50;
+	assert.deepStrictEqual(L.size(h, 50, false, 200, 100), { dh: -50, dy: 0 });
+	h.offsetY = 30;
+	assert.deepStrictEqual(L.size(h, 50, false, 200, 100), { dh: -50, dy: 40 });
+	// Width 200 -> 150 %: delta 100, point 40 px right of the centre stays
+	var w = { expr: 'A', anchor: 'offset', offsetX: 40, maxPercent: 150 };
+	assert.deepStrictEqual(L.size(w, 100, true, 200, 100), { dw: 100, dx: -70 });
+	// Unchanged anchors
+	assert.deepStrictEqual(L.size({ expr: 'A' }, 50, false, 200, 100), { dh: -50, dy: 50 });
+	assert.deepStrictEqual(L.size({ expr: 'A', anchor: 'center' }, 50, true, 200, 100), { dw: -100, dx: 50 });
+});
+
+test('scale: width and height together around an anchor', function()
+{
+	var link = { expr: 'A', valueAtMin: 0, valueAtMax: 100, minPercent: 50, maxPercent: 150 };
+	// Value 100 -> 150 %
+	assert.deepStrictEqual(L.scale(link, 100, 200, 100), { dw: 100, dh: 50, dx: -50, dy: -25 });
+	link.anchor = 'topLeft';
+	assert.deepStrictEqual(L.scale(link, 100, 200, 100), { dw: 100, dh: 50, dx: 0, dy: 0 });
+	link.anchor = 'bottomRight';
+	assert.deepStrictEqual(L.scale(link, 0, 200, 100), { dw: -100, dh: -50, dx: 100, dy: 50 });
+	link.anchor = 'bottom';
+	assert.deepStrictEqual(L.scale(link, 50, 200, 100), { dw: 0, dh: 0, dx: 0, dy: 0 });
+	link.anchor = 'offset';
+	link.offsetX = -100;
+	link.offsetY = 50;
+	assert.deepStrictEqual(L.scale(link, 100, 200, 100), { dw: 100, dh: 50, dx: 0, dy: -50 });
+	assert.strictEqual(L.scale(link, 'x', 200, 100), null);
+	assert.strictEqual(L.scale(null, 1, 200, 100), null);
+
+	assert.deepStrictEqual(S.validate('links', { sizeScale: { expr: 'A', anchor: 'offset', offsetX: 5, offsetY: -5 },
+		sizeHeight: { expr: 'B', anchor: 'offset', offsetY: 10 } }), []);
+	assert.ok(S.validate('links', { sizeScale: { expr: 'A', anchor: 'middle' } }).join().indexOf('anchor') >= 0);
+	assert.ok(S.validate('links', { sizeWidth: { expr: 'A', offsetX: 'x' } }).join().indexOf('offsetX') >= 0);
+	assert.ok(S.validate('links', { sizeScale: { anchor: 'center' } }).join().indexOf('expr') >= 0);
+	assert.strictEqual(S.defaults('links', { sizeScale: { expr: 'A' } }).sizeScale.anchor, 'center');
+});

@@ -67,9 +67,12 @@ InTouch mode extends the normal language as follows.
   orientation:   {expr, valueAtMaxCCW: 0, valueAtMaxCW: 100, ccwRotation: 0, cwRotation: 360,
                   offsetX: 0, offsetY: 0},                                    // degrees, pixels
   sizeHeight:    {expr, valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100,
-                  anchor: 'top'|'middle'|'bottom'},                           // default 'bottom'
+                  anchor: 'top'|'middle'|'bottom'|'offset', offsetY?},        // default 'bottom'
   sizeWidth:     {expr, valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100,
-                  anchor: 'left'|'center'|'right'},                           // default 'left'
+                  anchor: 'left'|'center'|'right'|'offset', offsetX?},        // default 'left'
+  sizeScale:     {expr, valueAtMin: 0, valueAtMax: 100, minPercent: 0, maxPercent: 100,
+                  anchor: 'center'|'top'|'bottom'|'left'|'right'|'topLeft'|'topRight'|
+                          'bottomLeft'|'bottomRight'|'offset', offsetX?, offsetY?}, // default 'center'
   lineColor:     ColorLink,
   fillColor:     ColorLink,
   textColor:     ColorLink,
@@ -162,7 +165,8 @@ Display-link results are computed by DOM-free functions. The runtime turns resul
 | `Hmi.Links.locationH(link, v)` | `{dx}` = lerp(v, atLeft, atRight, -toLeft, +toRight), in design-pixel units. |
 | `Hmi.Links.locationV(link, v)` | `{dy}` = lerp(v, atBottom, atTop, +down, -up). Up is negative y. |
 | `Hmi.Links.orientation(link, v, w, h)` | `{rotation, dx, dy}`. `angle` = lerp(v, valueAtMaxCCW, valueAtMaxCW, -ccwRotation, +cwRotation), with clockwise positive as in draw.io. The rotation centre is the cell centre plus `(offsetX, offsetY)`. The returned `dx, dy` move the cell so that rotating about its own centre equals rotating about the offset point: d = R(-P) + P − P', where P is the offset and R the rotation. |
-| `Hmi.Links.size(link, v, isWidth, w, h)` | `{dw, dx}` or `{dh, dy}`. The percentage is lerp(v, valueAtMin, valueAtMax, minPercent, maxPercent). The new size is design size × percentage / 100. Anchor `top`/`left` keeps that edge; `middle`/`center` keeps the centre; `bottom`/`right` keeps that edge. |
+| `Hmi.Links.size(link, v, isWidth, w, h)` | `{dw, dx}` or `{dh, dy}`. The percentage is lerp(v, valueAtMin, valueAtMax, minPercent, maxPercent). The new size is design size × percentage / 100. Anchor `top`/`left` keeps that edge; `middle`/`center` keeps the centre; `bottom`/`right` keeps that edge; `offset` keeps the point at `offsetY` (height) or `offsetX` (width) pixels from the centre, positive down or right, as the rotation point of Orientation. |
+| `Hmi.Links.scale(link, v, w, h)` | `{dw, dh, dx, dy}` (Scale, an extension of Object Size). Width and height change by the same percentage. The anchor point stays in place: `center` (default), an edge (`top`, `bottom`, `left`, `right`), a corner (`topLeft`, `topRight`, `bottomLeft`, `bottomRight`) or `offset` (`offsetX`, `offsetY` from the centre). Scale adds to Height and Width links on the same object. |
 | `Hmi.Links.color(link, v, alarm)` | The colour, or `null`. For alarm kinds, `alarm` = `{active: bool, level: 'lolo'|'lo'|'hi'|'hihi'|'minor'|'major'|'roc'|null, acked}` is taken from `Hmi.Alarms.stateOf(tag)`. |
 | `Hmi.Links.fill(link, v)` | `{percent: 0..100, direction}`. The percentage is lerp(v, valueAtMin, valueAtMax, minPercent, maxPercent). |
 | `Hmi.Links.visible(link, v)` | `'on'`: visible when true. `'off'`: invisible when true. |

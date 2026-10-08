@@ -216,13 +216,17 @@ def display_page():
     p.add(x + 145, y + 79, 10, 10, 'ellipse;html=1;fillColor=#263238;strokeColor=none;')
 
     x, y = pos(2, 1)
-    p.tile(x, y, W, H, 'Object Size: Height and Width', 'Height anchored bottom, width anchored left')
-    p.add(x + 30, y + 30, 50, 100, BOX, '', {
+    p.tile(x, y, W, H, 'Object Size: Height, Width and Scale',
+           'Height anchored bottom, width left, scale around the centre')
+    p.add(x + 20, y + 30, 50, 100, BOX, '', {
         'sizeHeight': {'expr': 'Level', 'valueAtMin': 0, 'valueAtMax': 100, 'minPercent': 10,
                        'maxPercent': 100, 'anchor': 'bottom'}}, cid='itd-size-height')
-    p.add(x + 110, y + 70, 170, 30, BOX + 'fillColor=#A5D6A7;strokeColor=#2E7D32;', '', {
+    p.add(x + 85, y + 65, 110, 30, BOX + 'fillColor=#A5D6A7;strokeColor=#2E7D32;', '', {
         'sizeWidth': {'expr': 'Level', 'valueAtMin': 0, 'valueAtMax': 100, 'minPercent': 5,
                       'maxPercent': 100, 'anchor': 'left'}}, cid='itd-size-width')
+    p.add(x + 215, y + 50, 60, 60, 'ellipse;html=1;fillColor=#FFCC80;strokeColor=#EF6C00;strokeWidth=2;',
+          '', {'sizeScale': {'expr': 'Level', 'valueAtMin': 0, 'valueAtMax': 100, 'minPercent': 40,
+                             'maxPercent': 130, 'anchor': 'center'}}, cid='itd-size-scale')
 
     x, y = pos(3, 1)
     p.tile(x, y, W, H, 'Percent Fill: Vertical and Horizontal',

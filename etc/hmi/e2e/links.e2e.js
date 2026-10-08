@@ -206,6 +206,10 @@ async function displayScenario(page)
 		'sizeHeight ' + JSON.stringify(sh.geo));
 	var sw = await cellState(page, 'itd-size-width');
 	assert.ok(sw.geo.dw < 0 && Math.abs(sw.geo.dx) < 0.01, 'sizeWidth ' + JSON.stringify(sw.geo));
+	var sc = await cellState(page, 'itd-size-scale');
+	var d = 60 * (40 + 0.4225 * 90) / 100 - 60;
+	assert.ok(Math.abs(sc.geo.dw - d) < 0.01 && Math.abs(sc.geo.dh - d) < 0.01 &&
+		Math.abs(sc.geo.dx + d / 2) < 0.01 && Math.abs(sc.geo.dy + d / 2) < 0.01, 'sizeScale ' + JSON.stringify(sc.geo));
 
 	// Percent fill
 	var fv = await cellState(page, 'itd-fill-vertical');
