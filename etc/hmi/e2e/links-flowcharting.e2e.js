@@ -19,7 +19,8 @@ async function shot(page, name)
 	if (SHOTS != null)
 	{
 		fs.mkdirSync(SHOTS, {recursive: true});
-		await page.screenshot({path: path.join(SHOTS, name + '.png'), clip: {x: 0, y: 0, width: 1000, height: 420}});
+		await page.screenshot({path: path.join(SHOTS, name + '.png'), clip: (name.indexOf('demo') == 0) ?
+			undefined : {x: 0, y: 0, width: 1000, height: 420}});
 	}
 }
 
@@ -476,6 +477,123 @@ test('Animation Links and Screen Settings configure the new options', async func
 		assert.deepStrictEqual(out.rt1, {smoothMs: 400, alarmMarkers: true});
 		assert.deepStrictEqual(out.shown, {smooth: '400', markers: true});
 		assert.deepStrictEqual(out.rt2, {smoothMs: undefined, alarmMarkers: undefined});
+	}
+	finally
+	{
+		await page.close();
+	}
+});
+
+test('demo template: the Flowcharting Features page runs', async function()
+{
+	var demo = fs.readFileSync(path.join(util.WEBAPP, 'templates/hmi/intouch_links_demo.xml'), 'utf8');
+	var editor = await util.openEditor(browser, web.url);
+	var url = await editor.evaluate(async function(xml)
+	{
+		var ui = Hmi.ui;
+		ui.fileLoaded(new LocalFile(ui, xml, 'demo.drawio', true));
+		await new Promise(function(r)
+		{
+			setTimeout(r, 500);
+		});
+
+		return Hmi.Plugin.getRunUrl(ui, false);
+	}, demo);
+	await editor.close();
+
+	var page = await browser.newPage({viewport: {width: 1400, height: 900}});
+	page.hmiErrors = [];
+	page.on('pageerror', function(e)
+	{
+		page.hmiErrors.push(e.message);
+	});
+
+	try
+	{
+		await page.goto(web.url + url.substring(url.lastIndexOf('/')));
+		await page.waitForFunction(function()
+		{
+			try
+			{
+				return Hmi.Viewer.instances[0].isRunning();
+			}
+			catch (e)
+			{
+				return false;
+			}
+		}, null, {timeout: 60000});
+		await page.evaluate(async function()
+		{
+			window.rt = function()
+			{
+				return Hmi.Viewer.instances[0].getRuntime();
+			};
+			var ui = rt().ui;
+
+			for (var i = 0; i < ui.pages.length; i++)
+			{
+				if (ui.pages[i].getName() == 'Flowcharting Features')
+				{
+					ui.selectPage(ui.pages[i]);
+				}
+			}
+
+			await new Promise(function(r)
+			{
+				setTimeout(r, 800);
+			});
+		});
+
+		// With the simulator running: values move, objects are linked
+		var info = await page.evaluate(function()
+		{
+			var r = rt();
+
+			return {page: r.ui.currentPage.getName(), links: r.links.count,
+				step: r.tags.getValue('Step'), message: r.tags.getValue('Message')};
+		});
+		assert.strictEqual(info.page, 'Flowcharting Features');
+		assert.ok(info.links >= 12, JSON.stringify(info));
+
+		// Step jumps; the smoothed tank is mid-way while the instant one is there
+		await page.waitForFunction(function()
+		{
+			var r = rt();
+			var s = r.graph.view.getState(r.graph.model.getCell('itd-fc-tank-smooth'));
+			var i = r.graph.view.getState(r.graph.model.getCell('itd-fc-tank-instant'));
+
+			return r.tags.getValue('Step') != 10 && s != null && i != null &&
+				String(s.style.hmiLevel) != String(i.style.hmiLevel);
+		}, null, {timeout: 8000});
+		await shot(page, 'demo-page');
+
+		// Deterministic checks with the simulator stopped
+		await page.evaluate(function()
+		{
+			rt().simulator.stop();
+		});
+		await set(page, {Message: 'Valve ALARM: stuck', Mode: 'MANUAL', Temp: 90, Level: 50}, 400);
+		var state = function(id, key)
+		{
+			return style(page, id, key);
+		};
+		assert.strictEqual(String(await state('itd-fc-regex-message', 'fillColor')).toUpperCase(), '#E53935');
+		assert.strictEqual(String(await state('itd-fc-regex-mode', 'fillColor')).toUpperCase(), '#FB8C00');
+		assert.strictEqual(String(await state('itd-fc-blend', 'fillColor')).toUpperCase(), '#FDD835');
+		assert.ok(await page.evaluate(function()
+		{
+			return document.querySelectorAll('[data-hmi-alarm-marker]').length >= 1;
+		}), 'alarm marker on Temp');
+
+		// Sensor stops updating: NO DATA after 5 s
+		await page.waitForTimeout(6500);
+		assert.strictEqual(await page.evaluate(function()
+		{
+			return rt().overlay.getMerged('itd-fc-stale-state', 'label');
+		}), 'NO DATA');
+		assert.strictEqual(String(await state('itd-fc-stale-color', 'fillColor')).toUpperCase(), '#BDBDBD');
+		await shot(page, 'demo-page-stale');
+		assert.deepStrictEqual(page.hmiErrors, []);
 	}
 	finally
 	{

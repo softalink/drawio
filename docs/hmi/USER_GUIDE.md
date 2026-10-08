@@ -715,7 +715,7 @@ These options come from the Grafana plugin grafana-flowcharting. All of them are
   The object returns to normal within a second of the next update.
 - **Regular expressions in Multi-State.** A state match can be a regular expression such as `/^man/i` (any text starting with "man", ignoring case) or `/warn|alarm/`.
 
-The exact storage is in `INTOUCH_LINKS.md` §13.
+The page **Flowcharting Features** of the template **InTouch Animation Links** shows each of them. The exact storage is in `INTOUCH_LINKS.md` §13.
 
 ### Extension links from meta2d
 

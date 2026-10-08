@@ -126,3 +126,32 @@ test('schema: new fields and links validate', function()
 	assert.strictEqual(d.alarmMarker.show, 'show');
 	assert.strictEqual(d.tooltip.trendSeconds, 60);
 });
+
+test('demo template: the Flowcharting Features page has valid links', function()
+{
+	var fs = require('fs');
+	var path = require('path');
+	var xml = fs.readFileSync(path.join(__dirname, '../../../templates/hmi/intouch_links_demo.xml'), 'utf8');
+	var re = /<object id="(itd-fc-[^"]+)"[^>]*?hmiLinks='([^']*)'/g;
+	var m;
+	var count = 0;
+	var types = {};
+
+	while ((m = re.exec(xml)) != null)
+	{
+		var json = m[2].replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<')
+			.replace(/&gt;/g, '>').replace(/&#10;/g, '\n').replace(/&amp;/g, '&');
+		var links = JSON.parse(json);
+		assert.deepStrictEqual(S.validate('links', links), [], m[1]);
+		Object.keys(links).forEach(function(k) { types[k] = true; });
+		count++;
+	}
+
+	assert.ok(count >= 12, 'cells: ' + count);
+	['smooth', 'alarmMarker', 'tooltip', 'states', 'fillColor'].forEach(function(t)
+	{
+		assert.ok(types[t], 'demo uses ' + t);
+	});
+	assert.ok(xml.indexOf('"blend":true') >= 0);
+	assert.ok(xml.indexOf('"staleSeconds":5') >= 0);
+});

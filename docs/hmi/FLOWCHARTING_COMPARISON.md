@@ -1,6 +1,6 @@
 # grafana-flowcharting vs. the HMI plugin
 
-**grafana-flowcharting** (`softalink/grafana-flowcharting`, a Grafana panel plugin that also uses draw.io diagrams) colours and animates draw.io shapes from Grafana metrics with rules. This document compares its functions with the HMI plugin and lists the ones that were adopted. Their contract is `src/main/webapp/plugins/hmi/INTOUCH_LINKS.md` §13.
+**grafana-flowcharting** (`softalink/grafana-flowcharting`, a Grafana panel plugin that also uses draw.io diagrams) colours and animates draw.io shapes from Grafana metrics with rules. This document compares its functions with the HMI plugin and lists the ones that were adopted. Their contract is `src/main/webapp/plugins/hmi/INTOUCH_LINKS.md` §13. The template page **Flowcharting Features** of `templates/hmi/intouch_links_demo.xml` demonstrates them.
 
 ## 1. Adopted
 

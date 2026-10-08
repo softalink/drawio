@@ -58,4 +58,4 @@ The combined design adds the meta2d functions that InTouch lacks as further link
 
 ## Features from grafana-flowcharting
 
-Smooth changes, blended analog colours, alarm markers on objects, tooltip trends, data age (stale colours and states) and regular expressions in Multi-State come from the Grafana plugin grafana-flowcharting. See `FLOWCHARTING_COMPARISON.md` and `INTOUCH_LINKS.md` §13. The end-to-end test `etc/hmi/e2e/links-flowcharting.e2e.js` covers them.
+Smooth changes, blended analog colours, alarm markers on objects, tooltip trends, data age (stale colours and states) and regular expressions in Multi-State come from the Grafana plugin grafana-flowcharting. See `FLOWCHARTING_COMPARISON.md` and `INTOUCH_LINKS.md` §13. The template page **Flowcharting Features** (cell ids `itd-fc-*`) demonstrates them, and the end-to-end test `etc/hmi/e2e/links-flowcharting.e2e.js` covers them.

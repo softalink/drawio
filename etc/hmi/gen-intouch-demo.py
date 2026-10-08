@@ -2,8 +2,8 @@
 """Generates templates/hmi/intouch_links_demo.xml.
 
 The demo shows every InTouch animation link (plugins/hmi/INTOUCH_LINKS.md)
-on four pages: display links, touch links, an overlay window and a popup
-window. Run from the repository root:
+on six pages: display links, touch links, meta2d extensions, features from
+grafana-flowcharting, an overlay window and a popup window. Run from the repository root:
 
     python3 etc/hmi/gen-intouch-demo.py
 """
@@ -69,6 +69,15 @@ TAGS = [
     {'name': 'Changes', 'type': 'number', 'access': 'rw', 'local': True, 'initial': 0},
     {'name': 'HighCount', 'type': 'number', 'access': 'rw', 'local': True, 'initial': 0},
     {'name': 'Animate', 'type': 'boolean', 'access': 'rw', 'local': True, 'initial': True},
+    # Features from grafana-flowcharting
+    {'name': 'Step', 'type': 'number', 'access': 'r', 'min': 0, 'max': 100, 'initial': 10,
+     'sim': {'kind': 'list', 'values': [10, 90, 35, 75, 50], 'interval': 2500}},
+    {'name': 'Sensor', 'type': 'number', 'access': 'r', 'min': 0, 'max': 100, 'initial': 42,
+     'sim': {'kind': 'list', 'values': [42, 47, 44, 51], 'interval': 8000}},
+    {'name': 'Manual', 'type': 'number', 'access': 'rw', 'local': True, 'initial': 0},
+    {'name': 'Message', 'type': 'string', 'access': 'r', 'initial': 'Pump OK',
+     'sim': {'kind': 'list', 'values': ['Pump OK', 'Pump WARNING: vibration', 'Valve ALARM: stuck',
+                                         'Valve ok'], 'interval': 3000}},
 ]
 
 RUNTIME = {'fit': 'page', 'panZoom': True, 'nav': 'tabs', 'maxRate': 30, 'quality': 'outline',
@@ -595,6 +604,125 @@ def meta2d_page():
     return p
 
 
+def flowcharting_page():
+    p = Page('itd-fc', 'Flowcharting Features', {'version': 1, 'sources': [], 'tags': [],
+                                                  'triggers': []})
+    p.text(20, 8, 900, 30, 'Features from grafana-flowcharting', 20, True, '#263238')
+    p.text(20, 36, 1240, 18, 'Smooth changes, blended colours, alarm markers, tooltip trends, data age '
+           'and regular expression states (INTOUCH_LINKS.md section 13). Page-wide options are in '
+           'Screen Settings, Runtime.', 11)
+
+    W, H, X0, Y0, DX, DY = 400, 310, 20, 64, 420, 322
+
+    def pos(c, r):
+        return X0 + c * DX, Y0 + r * DY
+
+    tank = 'rounded=0;html=1;fillColor=#42A5F5;strokeColor=#1565C0;strokeWidth=2;fontStyle=1;'
+    level = {'expr': 'Step', 'valueAtMin': 0, 'valueAtMax': 100, 'minPercent': 0, 'maxPercent': 100,
+             'direction': 'up', 'backgroundColor': '#FFFFFF'}
+    ramp = [{'value': 0, 'color': '#43A047'}, {'value': 50, 'color': '#FDD835'},
+            {'value': 100, 'color': '#E53935'}]
+
+    # Smooth changes: the same links without and with smoothing
+    x, y = pos(0, 0)
+    p.tile(x, y, W, H, 'Smooth Changes', 'Step jumps every 2.5 s; right: Smooth Changes 800 ms')
+    for i, (name, smooth) in enumerate([('Instant', None), ('Smooth', {'duration': 800})]):
+        links = {'fillVertical': dict(level),
+                 'fillColor': {'kind': 'analog', 'expr': 'Step', 'breakpoints': ramp, 'blend': True},
+                 'valueAnalog': {'expr': 'Step', 'format': {'mode': 'text'}}}
+        mover = {'locationH': {'expr': 'Step', 'atLeft': 0, 'atRight': 100, 'toLeft': 0,
+                               'toRight': 130}}
+        if smooth:
+            links['smooth'] = smooth
+            mover['smooth'] = smooth
+        cx = x + 30 + i * 200
+        p.text(cx, y + 30, 150, 18, name, 11, True, '#37474F')
+        p.add(cx + 30, y + 52, 90, 150, tank, '##', links, cid='itd-fc-tank-' + name.lower())
+        p.add(cx, y + 220, 20, 20, 'ellipse;html=1;fillColor=#5E35B1;strokeColor=#311B92;', '', mover,
+              cid='itd-fc-move-' + name.lower())
+        p.add(cx, y + 248, 150, 2, 'rounded=0;html=1;fillColor=#B0BEC5;strokeColor=none;')
+
+    # Blended colours: stepped and blended analog colour links on Level
+    x, y = pos(1, 0)
+    p.tile(x, y, W, H, 'Blended Colours', 'Break points green 0, yellow 50, red 100; Level as value')
+    for i, (name, blend) in enumerate([('Steps', False), ('Blend', True)]):
+        ty = y + 50 + i * 110
+        p.text(x + 20, ty, 300, 18, name + (' (Blend between break points)' if blend else ' (default)'),
+               11, True, '#37474F')
+        p.add(x + 20, ty + 22, 360, 60, 'rounded=1;html=1;strokeColor=#455A64;fontStyle=1;fontSize=14;',
+              'Level ##.#', {'fillColor': {'kind': 'analog', 'expr': 'Level', 'breakpoints': ramp,
+                                           'blend': blend},
+                             'valueAnalog': {'expr': 'Level', 'format': {'mode': 'text'}}},
+              cid='itd-fc-' + name.lower())
+
+    # Alarm markers on objects
+    x, y = pos(2, 0)
+    p.tile(x, y, W, H, 'Alarm Marker', 'Warning triangle while in alarm; blinks until acknowledged')
+    p.add(x + 40, y + 60, 140, 70, LABEL, 'Temp ##.# C', {
+        'valueAnalog': {'expr': 'Temp', 'format': {'mode': 'text'}},
+        'alarmMarker': {'show': 'show'}}, cid='itd-fc-marker-temp')
+    p.add(x + 220, y + 60, 140, 70, LABEL, 'HighAlarm', {
+        'valueDiscrete': {'expr': 'HighAlarm', 'onMessage': 'ALARM', 'offMessage': 'normal'},
+        'alarmMarker': {'show': 'show', 'tag': 'HighAlarm'}}, cid='itd-fc-marker-bool')
+    p.text(x + 20, y + 150, 360, 110, 'Temp has value alarms (Lo 25, Hi 80, HiHi 100): orange for '
+           'medium, red for high severity. HighAlarm is a boolean alarm. Acknowledge in the alarm list '
+           'of the status bar to stop the blinking. Screen Settings, Runtime, "Alarm markers on '
+           'objects" adds markers to every object of the page.', 10)
+
+    # Tooltip trend
+    x, y = pos(0, 1)
+    p.tile(x, y, W, H, 'Tooltip Trend', 'Rest the mouse on an object to see its recent values')
+    p.add(x + 20, y + 60, 170, 80, LABEL + 'fillColor=#E3F2FD;', 'Level ##.#', {
+        'valueAnalog': {'expr': 'Level', 'format': {'mode': 'text'}},
+        'tooltip': {'mode': 'static', 'text': 'Tank level (%)', 'trend': True, 'trendTag': 'Level',
+                    'trendSeconds': 60}}, cid='itd-fc-trend-level')
+    p.add(x + 210, y + 60, 170, 80, LABEL + 'fillColor=#FFF3E0;', 'Temp ##.#', {
+        'valueAnalog': {'expr': 'Temp', 'format': {'mode': 'text'}},
+        'tooltip': {'mode': 'expression', 'expr': '"Temperature " + Text(Temp, "#.0") + " C"',
+                    'trend': True, 'trendSeconds': 30}}, cid='itd-fc-trend-temp')
+    p.text(x + 20, y + 160, 360, 60, 'Left: 60 s of Level with a fixed text. Right: 30 s of the '
+           'first tag of the tooltip expression (Temp).', 10)
+
+    # Data age
+    x, y = pos(1, 1)
+    p.tile(x, y, W, H, 'Data Age', 'Stale after 5 s: grey colour or the "stale" state')
+    p.add(x + 20, y + 50, 170, 80, 'rounded=1;html=1;fontStyle=1;fontSize=13;strokeColor=#455A64;'
+          'fillColor=#43A047;fontColor=#FFFFFF;', 'SENSOR', {
+              'states': {'expr': 'Sensor', 'staleSeconds': 5, 'states': [
+                  {'match': 'stale', 'fillColor': '#9E9E9E', 'label': 'NO DATA'},
+                  {'match': '*', 'fillColor': '#43A047', 'label': 'Sensor #.#'}]}},
+          cid='itd-fc-stale-state')
+    p.add(x + 210, y + 50, 170, 80, 'rounded=1;html=1;fontStyle=1;fontSize=13;strokeColor=#455A64;',
+          'Manual #', {
+              'valueAnalog': {'expr': 'Manual', 'format': {'mode': 'text'}},
+              'fillColor': {'kind': 'discrete', 'expr': 'Manual >= 0', 'onColor': '#FFFFFF', 'offColor': '#FFFFFF',
+                            'staleSeconds': 5, 'staleColor': '#BDBDBD'}}, cid='itd-fc-stale-color')
+    p.add(x + 230, y + 145, 130, 40, BUTTON, 'Update', {
+        'pushValue': {'tag': 'Manual', 'action': 'add', 'value': 1}}, cid='itd-fc-stale-update')
+    p.text(x + 20, y + 200, 360, 70, 'Left: Sensor updates every 8 s, so it shows NO DATA for 3 s of '
+           'every 8. Right: the colour link turns grey 5 s after the last press of Update.', 10)
+
+    # Regular expression states
+    x, y = pos(2, 1)
+    p.tile(x, y, W, H, 'Regular Expression States', 'Multi-State matches such as /warn/i')
+    p.add(x + 20, y + 50, 360, 60, 'rounded=1;html=1;fontStyle=1;fontSize=13;strokeColor=#455A64;'
+          'fontColor=#FFFFFF;fillColor=#43A047;', 'Message', {
+              'states': {'expr': 'Message', 'states': [
+                  {'match': '/alarm/i', 'fillColor': '#E53935'},
+                  {'match': '/warn/i', 'fillColor': '#FB8C00'},
+                  {'match': '*', 'fillColor': '#43A047'}]},
+              'valueString': {'expr': 'Message'}}, cid='itd-fc-regex-message')
+    p.add(x + 20, y + 130, 360, 60, 'rounded=1;html=1;fontStyle=1;fontSize=13;strokeColor=#455A64;'
+          'fontColor=#FFFFFF;fillColor=#607D8B;', 'Mode', {
+              'states': {'expr': 'Mode', 'states': [
+                  {'match': '/^auto/i', 'fillColor': '#1E88E5', 'label': 'Automatic'},
+                  {'match': '/^man/i', 'fillColor': '#FB8C00', 'label': 'Manual'},
+                  {'match': '*', 'fillColor': '#607D8B', 'label': 'Off'}]}}, cid='itd-fc-regex-mode')
+    p.text(x + 20, y + 205, 360, 60, 'Top: red for any message with "alarm", orange with "warn". '
+           'Bottom: /^auto/i and /^man/i on Mode, ignoring case.', 10)
+    return p
+
+
 def window_page(pid, name, wtype, x, y):
     doc = {'version': 1, 'sources': [], 'tags': [], 'triggers': [],
            'window': {'type': wtype, 'x': x, 'y': y, 'width': 360, 'height': 260,
@@ -620,7 +748,7 @@ def window_page(pid, name, wtype, x, y):
 
 
 def main():
-    pages = [display_page(), touch_page(), meta2d_page(),
+    pages = [display_page(), touch_page(), meta2d_page(), flowcharting_page(),
              window_page('itd-overlay', 'Overlay Window', 'overlay', 860, 120),
              window_page('itd-popup', 'Popup Window', 'popup', None, None)]
     xml = ('<mxfile host="app.diagrams.net" agent="hmi-template-generator" version="24.0.0" '

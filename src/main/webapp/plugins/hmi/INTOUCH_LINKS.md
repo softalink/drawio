@@ -508,7 +508,7 @@ One OK button saves all tabs as a single undoable edit. The old menu actions (Da
 
 ## 13. Features from grafana-flowcharting
 
-These features come from the Grafana plugin **grafana-flowcharting** (see `docs/hmi/FLOWCHARTING_COMPARISON.md`). They extend existing links with optional fields, add two links and two page options. Missing fields keep the previous behaviour, so existing diagrams are unchanged.
+These features come from the Grafana plugin **grafana-flowcharting** (see `docs/hmi/FLOWCHARTING_COMPARISON.md`). They extend existing links with optional fields, add two links and two page options. Missing fields keep the previous behaviour, so existing diagrams are unchanged. The template page **Flowcharting Features** (`templates/hmi/intouch_links_demo.xml`, cell ids `itd-fc-*`) demonstrates them.
 
 ### 13.1 Smooth changes
 
