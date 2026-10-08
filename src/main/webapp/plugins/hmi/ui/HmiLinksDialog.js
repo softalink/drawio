@@ -160,6 +160,23 @@
 		return f;
 	};
 
+	/**
+	 * Data-age fields: a colour (colour links) for data older than
+	 * staleSeconds.
+	 */
+	function staleFields(noColor)
+	{
+		var list = [head('hmiLnkDataAge'), num('staleSeconds', 'hmiLnkStaleSeconds', undefined, 'age',
+			{optional: true, min: 0})];
+
+		if (!noColor)
+		{
+			list.push(color('staleColor', 'hmiLnkStaleColor', '', {optional: true, inline: 'age'}));
+		}
+
+		return list;
+	};
+
 	function def(id, title, fields, fixed, width)
 	{
 		SPECS[id] = {id: id, title: title, fields: fields, fixed: fixed || {}, width: width || 470};
@@ -245,19 +262,22 @@
 			{
 				def(id + ':discrete', arrow(label, 'hmiLnkDiscreteExpression'),
 					[expr(), color('offColor', 'hmiLnkOffColor', '#FF0000'),
-					color('onColor', 'hmiLnkOnColor', '#00C000')], {kind: 'discrete'});
+					color('onColor', 'hmiLnkOnColor', '#00C000')].concat(staleFields()), {kind: 'discrete'});
 				def(id + ':analog', arrow(label, 'hmiLnkAnalogExpression'),
 					[expr(), field('breakpoints', 'breakpoints', 'hmiLnkBreakPoints',
-					{def: [{value: 0, color: '#0000FF'}, {value: 50, color: '#00C000'}]})],
+					{def: [{value: 0, color: '#0000FF'}, {value: 50, color: '#00C000'}]}),
+					field('blend', 'bool', 'hmiLnkBlend', {def: false})].concat(staleFields()),
 					{kind: 'analog'});
 				def(id + ':discreteAlarm', arrow(label, 'hmiLnkDiscreteAlarm'),
 					[field('tag', 'tag', 'hmiLnkTagname'), color('normalColor', 'hmiLnkNormalColor', '#00C000'),
-					color('alarmColor', 'hmiLnkAlarmColor', '#FF0000')], {kind: 'discreteAlarm'});
+					color('alarmColor', 'hmiLnkAlarmColor', '#FF0000')].concat(staleFields()),
+					{kind: 'discreteAlarm'});
 				def(id + ':analogAlarm', arrow(label, 'hmiLnkAnalogAlarm'),
 					[field('tag', 'tag', 'hmiLnkTagname'),
 					sel('alarmType', 'hmiLnkAlarmType', 'value', [['value', 'hmiLnkAlarmValue'],
 						['deviation', 'hmiLnkAlarmDeviation'], ['roc', 'hmiLnkAlarmRoc']]),
-					field('colors', 'alarmColors', 'hmiLnkColors', {})], {kind: 'analogAlarm'});
+					field('colors', 'alarmColors', 'hmiLnkColors', {})].concat(staleFields()),
+					{kind: 'analogAlarm'});
 			})(targets[i][0], targets[i][1]);
 		}
 
@@ -290,7 +310,10 @@
 				['expression', 'hmiLnkExpression']]),
 			field('text', 'text', 'hmiLnkTooltipText', {def: '', maxLength: 131,
 				showWhen: {mode: 'static'}}),
-			expr({showWhen: {mode: 'expression'}})]);
+			expr({showWhen: {mode: 'expression'}}),
+			field('trend', 'bool', 'hmiLnkTrend', {def: false}),
+			field('trendTag', 'tag', 'hmiLnkTrendTag', {optional: true, showWhen: {trend: true}}),
+			num('trendSeconds', 'hmiLnkTrendSeconds', 60, null, {min: 5, max: 3600, showWhen: {trend: true}})]);
 
 		def('inputDiscrete', arrow('hmiLnkInput', 'hmiLnkDiscreteTagname'),
 			[field('tag', 'tag', 'hmiLnkTagname'), KEY_FIELD,
@@ -350,7 +373,8 @@
 		def('opacity', arrow('hmiLnkOpacity', 'hmiLnkAnalogValue'),
 			[expr()].concat(percentFields('hmiLnkOpacityPercent')));
 		def('states', T('hmiLnkMultiState'),
-			[expr(), field('states', 'states', 'hmiLnkStates', {def: [{match: '*'}]})], null, 700);
+			[expr(), field('states', 'states', 'hmiLnkStates', {def: [{match: '*'}]})].concat(staleFields(true)),
+			null, 700);
 		def('properties', T('hmiLnkProperties'),
 			[field('items', 'propItems', 'hmiLnkPropItems', {def: [{target: '', expr: ''}]})], null, 620);
 		def('widgetData', T('hmiLnkWidgetData'),
@@ -371,6 +395,12 @@
 			num('width', 'hmiLnkLineWidth', undefined, null, {optional: true, min: 1}),
 			field('speedExpr', 'expr', 'hmiLnkSpeedExpr', {optional: true}),
 			field('reverseExpr', 'expr', 'hmiLnkReverseExpr', {optional: true})]);
+		def('smooth', T('hmiLnkSmooth'),
+			[num('duration', 'hmiLnkSmoothDuration', 500, null, {min: 0, max: 10000})]);
+		def('alarmMarker', T('hmiLnkAlarmMarker'),
+			[sel('show', 'hmiLnkMarkerShow', 'show', [['show', 'hmiLnkMarkerShowOpt'],
+				['hide', 'hmiLnkMarkerHideOpt']]),
+			field('tag', 'tag', 'hmiLnkMarkerTag', {optional: true, showWhen: {show: 'show'}})]);
 		def('media', T('hmiLnkMedia'),
 			[expr(), sel('mode', 'hmiLnkMediaMode', 'play', [['play', 'hmiLnkMediaPlay'],
 				['pause', 'hmiLnkMediaPause']])]);
@@ -443,13 +473,14 @@
 		{title: 'hmiLnkMiscellaneous', items: [['visibility', 'hmiLnkVisibility'],
 			['blink', 'hmiLnkBlink'], ['orientation', 'hmiLnkOrientation'],
 			['disable', 'hmiLnkDisable'], ['tooltip', 'hmiLnkTooltip'],
-			['opacity', 'hmiLnkOpacity']]},
+			['opacity', 'hmiLnkOpacity'], ['alarmMarker', 'hmiLnkAlarmMarker']]},
 		{title: 'hmiLnkStatesProps', items: [['states', 'hmiLnkMultiState'],
 			['properties', 'hmiLnkProperties'], ['widgetData', 'hmiLnkWidgetData'],
 			['bindings', 'hmiLnkBindings']]},
 		{band: 'hmiLnkAnimationLinks'},
 		{title: 'hmiLnkAnimationGroup', items: [['animation', 'hmiLnkAnimation'],
-			['flow', 'hmiLnkFlow'], ['media', 'hmiLnkMedia'], ['keyframes', 'hmiLnkKeyframes']]},
+			['flow', 'hmiLnkFlow'], ['media', 'hmiLnkMedia'], ['keyframes', 'hmiLnkKeyframes'],
+			['smooth', 'hmiLnkSmooth']]},
 		{band: 'hmiLnkTouchLinks'},
 		{title: 'hmiLnkUserInputs', items: [['inputDiscrete', 'hmiLnkDiscrete'],
 			['inputAnalog', 'hmiLnkAnalog'], ['inputString', 'hmiLnkString'],
@@ -484,7 +515,7 @@
 		'inputDiscrete', 'inputAnalog', 'inputString', 'sliderV', 'sliderH', 'pushDiscrete',
 		'pushAction', 'showWindow', 'hideWindow', 'opacity', 'states', 'properties', 'widgetData',
 		'animation', 'flow', 'media', 'inputChoice', 'pushValue', 'openUrl', 'sendMessage',
-		'control', 'touchOptions', 'dataChange', 'condition'];
+		'control', 'touchOptions', 'dataChange', 'condition', 'smooth', 'alarmMarker'];
 
 	// ---------------------------------------------------------------
 	// Expression helpers
@@ -638,6 +669,11 @@
 			else if (type == 'tooltip')
 			{
 				addExpr(l.expr, 'any', 'any');
+
+				if (l.trend === true)
+				{
+					add(l.trendTag, 'number', false);
+				}
 			}
 			else if (COLOR_TARGETS[type])
 			{
@@ -727,6 +763,10 @@
 			else if (type == 'media')
 			{
 				addExpr(l.expr, 'boolean', 'any');
+			}
+			else if (type == 'alarmMarker')
+			{
+				add(l.tag, 'any', false);
 			}
 			else if (type == 'inputChoice')
 			{
@@ -1226,7 +1266,7 @@
 				return trim(pk.input.value);
 			}, validate: function()
 			{
-				return (trim(pk.input.value) === '') ? T(f.label) + ': ' + T('hmiLnkRequired') : null;
+				return (trim(pk.input.value) === '' && !f.optional) ? T(f.label) + ': ' + T('hmiLnkRequired') : null;
 			}};
 		};
 
@@ -2835,6 +2875,8 @@
 			showWindow: ['hmiLnkTouchPushbuttons', 'hmiLnkShowWindow'],
 			hideWindow: ['hmiLnkTouchPushbuttons', 'hmiLnkHideWindow'],
 			opacity: ['hmiLnkMiscellaneous', 'hmiLnkOpacity'],
+			alarmMarker: ['hmiLnkMiscellaneous', 'hmiLnkAlarmMarker'],
+			smooth: ['hmiLnkAnimationGroup', 'hmiLnkSmooth'],
 			states: ['hmiLnkStatesProps', 'hmiLnkMultiState'],
 			properties: ['hmiLnkStatesProps', 'hmiLnkProperties'],
 			widgetData: ['hmiLnkStatesProps', 'hmiLnkWidgetData'],
@@ -2928,6 +2970,15 @@
 				else if (type == 'flow')
 				{
 					detail = T('hmiLnkFlow_' + (l.type || 'dash')) + (l.expr ? ', ' + shorten(l.expr, 20) : '');
+				}
+				else if (type == 'smooth')
+				{
+					detail = (l.duration > 0) ? l.duration + ' ms' : T('hmiLnkSmoothOff');
+				}
+				else if (type == 'alarmMarker')
+				{
+					detail = T(l.show == 'hide' ? 'hmiLnkMarkerHideOpt' : 'hmiLnkMarkerShowOpt') +
+						(l.tag ? ', ' + shorten(l.tag, 20) : '');
 				}
 				else if (type == 'media')
 				{

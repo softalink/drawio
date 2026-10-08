@@ -172,14 +172,22 @@
 		'Disables touch input of the object depending on a discrete expression.',
 		'Disabled objects, and the objects inside them, ignore clicks, events and key equivalents. The cursor shows "not allowed".');
 	H('link.tooltip', 'Tooltip',
-		'Sets the tooltip that appears when the mouse rests on the object: a fixed text (up to 131 characters) or the value of an expression.');
+		'Sets the tooltip that appears when the mouse rests on the object: a fixed text (up to 131 characters) or the value of an expression.',
+		'With "Show trend" it also charts the recent values of a tag.');
 	H('link.opacity', 'Opacity',
 		'Changes the transparency of the object from an expression: 0 % is invisible, 100 % is fully opaque.');
+	H('link.alarmMarker', 'Alarm marker',
+		'A warning triangle at the top right corner of the object while one of its tags is in alarm.',
+		'- The colour shows the highest severity: red for high (HiHi, LoLo, major), orange for medium, yellow for low.',
+		'- The marker blinks until the alarm is acknowledged. Its tooltip lists the alarm messages.',
+		'- Show: a marker for this object, even when the page option is off. Hide: never a marker for this object.',
+		'The page option is in Screen Settings, Runtime, "Alarm markers on objects".');
 	H('link.states', 'Multi-State',
 		'Gives the object a different look for each value of one expression.',
 		'- The states are checked from top to bottom. The first match wins.',
 		'- A state can change colours, text, image, opacity, visibility and blinking. Empty settings keep the design.',
-		'- Put a state with `*` last as the default.');
+		'- Put a state with `*` last as the default.',
+		'- Matches can be regular expressions such as `/warn/i`, and a `stale` state shows old data (set "Stale after").');
 	H('link.properties', 'Properties',
 		'Sets any property of the object from an expression, with one row per property: style keys (`style:fillColor`), attributes, the label, the tooltip or the visibility.');
 	H('link.widgetData', 'Widget Data',
@@ -189,6 +197,13 @@
 		'Optional expressions control the speed and the direction.');
 	H('link.flow', 'Flow',
 		'Animates the flow along a pipe or edge while a condition holds, as dashes, dots, beads, arrows or liquid. Optional expressions set the speed and reverse the direction.');
+	H('link.smooth', 'Smooth changes',
+		'Changes of this object glide to the new value over the duration instead of jumping: colours fade, and position, size, rotation, opacity and percent fill move gradually.',
+		'- 0 ms switches smooth changes off for this object.',
+		'- Without this link, the page setting applies (Screen Settings, Runtime, "Smooth changes").',
+		'- The first values when the screen opens are shown at once.');
+	H('field.smooth.duration', 'Duration',
+		'How long a change takes, in milliseconds (0 to 10000). A new value during a change continues from where the object is.');
 	H('link.media', 'Media',
 		'Plays or pauses a video or audio widget while a discrete expression is true.');
 	H('link.inputDiscrete', 'User Input: Discrete',
@@ -447,6 +462,16 @@
 	H('field.blink.fillColor', 'Blink fill color',
 		'The fill colour while it blinks (visible mode). Empty leaves the fill colour alone.');
 
+	// Blend and data age of colour links
+	H('field.blend', 'Blend between break points',
+		'Mixes the colours of the two break points around the value, for example from green at 0 through yellow-green at 25 to yellow at 50. Off: the colour changes in steps at each break point.');
+	H('heading.hmiLnkDataAge', 'Data age',
+		'What to show when the tags of the link have not been updated for a while, for example because a device or the connection stopped.');
+	H('field.staleSeconds', 'Stale after',
+		'Seconds without an update after which the data counts as stale. The age is that of the oldest tag the link reads. Empty or 0: off.');
+	H('field.staleColor', 'Stale colour',
+		'The colour used while the data is stale, for example grey. Empty: the normal colour stays.');
+
 	// Visibility, disable, tooltip
 	H('field.visibleState', 'Visible when',
 		'"True" shows the object while the expression is true. "False" shows it while the expression is false.');
@@ -456,6 +481,14 @@
 		'"Static text" uses a fixed text. "Expression" shows the current value of an expression.');
 	H('field.tooltip.text', 'Tooltip text',
 		'The fixed tooltip text, up to 131 characters.');
+	H('field.trend', 'Show trend',
+		'Adds a small chart of the recent values of a tag below the tooltip text, with the minimum, maximum and latest value.');
+	H('field.tooltip.trend', 'Show trend',
+		'Adds a small chart of the recent values of a tag below the tooltip text, with the minimum, maximum and latest value.');
+	H('field.tooltip.trendTag', 'Trend tagname',
+		'The numeric tag whose values are charted. Empty uses the first tag of the tooltip expression.');
+	H('field.tooltip.trendSeconds', 'Trend period',
+		'How many seconds of values the chart shows (5 to 3600). Values are collected from when the screen opens.');
 
 	// Input
 	H('field.inputAnalog.min', 'Minimum',
@@ -534,7 +567,15 @@
 		'- A range: `10..20` (from 10 up to, but not including, 20)',
 		'- A list: `1,3,5..8`',
 		'- `*`: any value',
+		'- A regular expression: `/^man/i` (tests the value as text; `i` ignores case)',
+		'- `stale`: the data is older than "Stale after"',
 		'Numbers compare as numbers, other values as text without regard to case.');
+	H('field.states.staleSeconds', 'Stale after',
+		'Seconds without an update of the tags of the expression after which the data counts as stale. A state with the match `stale` is then used, whatever the value. Empty or 0: off.');
+	H('field.alarmMarker.show', 'Marker',
+		'Show: this object gets a marker while one of its tags is in alarm, even when the page option is off. Hide: it never gets one.');
+	H('field.alarmMarker.tag', 'Only for tag',
+		'Shows the marker only for alarms of this tag. Empty uses every tag that the object reads.');
 	H('field.states.label', 'Label',
 		'The text of the object in this state. A `#` mask is replaced by the value, for example `Level #.#`. Empty keeps the design text.');
 	H('field.states.fillColor', 'Fill color', 'The fill colour (#RRGGBB) in this state. Empty keeps the design colour.');

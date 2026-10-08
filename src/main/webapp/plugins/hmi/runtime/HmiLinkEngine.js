@@ -1221,7 +1221,8 @@
 
 	/**
 	 * Builds the tooltip HTML: text lines, a 180x44 sparkline (SVG) of the
-	 * points in [now - span, now] and min, max and last values.
+	 * points in [now - span, now] (or since the first point, while less is
+	 * recorded) and min, max and last values.
 	 */
 	LinkEngine.sparkline = function(trend, text, now)
 	{
@@ -1241,8 +1242,11 @@
 		}
 
 		var W = 180, H = 44, P = 2;
-		var start = now - trend.span;
 		var pts = trend.points;
+		// Until a full period is recorded, the chart spans the recorded time
+		var start = (pts.length > 0) ? Math.min(Math.max(now - trend.span, pts[0][0]), now - 1000) :
+			now - trend.span;
+		var width = now - start;
 		var min = Infinity, max = -Infinity;
 
 		for (var i = 0; i < pts.length; i++)
@@ -1266,7 +1270,7 @@
 		if (pts.length > 0)
 		{
 			var range = (max - min) || 1;
-			var x = function(ts) { return P + Math.max(0, (ts - start) / trend.span) * (W - 2 * P); };
+			var x = function(ts) { return P + Math.max(0, (ts - start) / width) * (W - 2 * P); };
 			var y = function(v) { return H - P - (v - min) / range * (H - 2 * P) - ((max == min) ? (H / 2 - P) : 0); };
 			var d = '';
 

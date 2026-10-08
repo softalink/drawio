@@ -82,6 +82,12 @@
 		'The look of the running screen:',
 		'- Default: the background of the drawing.',
 		'- ISA-101: a grey screen background (`#D4D4D4`) as the ISA-101 guideline for control rooms suggests, so that colour stands out for abnormal conditions.');
+	H('screen.runtime.effects', 'Smooth changes and alarm markers',
+		'Page-wide defaults for the look of changes and alarms. Objects can override both in Animation Links (Smooth Changes, Alarm Marker).');
+	H('runtime.smoothMs', 'Smooth changes',
+		'Milliseconds over which colours fade and positions, sizes, rotation, opacity and fills glide to new values on every object of the page. 0 switches it off (default).');
+	H('runtime.alarmMarkers', 'Alarm markers on objects',
+		'Shows a warning triangle on every object whose tags are in alarm: coloured by severity, blinking until acknowledged, with the alarm messages as tooltip.');
 	H('runtime.blink', 'Blink half-periods',
 		'The time in milliseconds that a blinking object stays visible, and then invisible. The Slow, Medium and Fast speed of the blink links use these values.',
 		'Defaults: 1000, 500 and 250 ms.');

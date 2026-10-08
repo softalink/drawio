@@ -6,8 +6,22 @@ var test = require('node:test');
 var assert = require('node:assert');
 var util = require('./util.js');
 
+var path = require('path');
+var fs = require('fs');
+
+// Screenshots are written only if HMI_FC_SHOTS names a directory
+var SHOTS = process.env.HMI_FC_SHOTS || null;
 var browser = null;
 var web = null;
+
+async function shot(page, name)
+{
+	if (SHOTS != null)
+	{
+		fs.mkdirSync(SHOTS, {recursive: true});
+		await page.screenshot({path: path.join(SHOTS, name + '.png'), clip: {x: 0, y: 0, width: 1000, height: 420}});
+	}
+}
 
 test.before(async function()
 {
@@ -212,6 +226,7 @@ test('blend, smooth changes, data age, regex states, trend tooltip and alarm mar
 		await page.mouse.move(box.x, box.y);
 		await page.mouse.move(box.x + 3, box.y + 2);
 		await page.waitForSelector('.mxTooltip [data-hmi-trend] svg path', {timeout: 5000});
+		await shot(page, 'trend-tooltip');
 		await page.mouse.move(5, 5);
 
 		// Alarm markers: on objects with an alarmed tag, unless hidden
@@ -231,6 +246,7 @@ test('blend, smooth changes, data age, regex states, trend tooltip and alarm mar
 		assert.strictEqual(await page.evaluate(function() { return rt().links.markers.count(); }), 1);
 		await set(page, {Temp: 99}, 300);
 		assert.deepStrictEqual(await markers(), ['unacked:1']);
+		await shot(page, 'alarm-marker');
 		await page.evaluate(function()
 		{
 			rt().alarms.ack();
@@ -266,6 +282,200 @@ test('page smoothMs applies to every object; markers stay off by default', async
 			return document.querySelectorAll('[data-hmi-alarm-marker]').length;
 		}), 0);
 		assert.deepStrictEqual(page.hmiErrors, []);
+	}
+	finally
+	{
+		await page.close();
+	}
+});
+
+// Dialog helpers (as in links-meta2d-ui.e2e.js)
+async function installHelpers(page)
+{
+	await page.evaluate(function()
+	{
+		var H = window.TT = {};
+		H.wait = function(ms)
+		{
+			return new Promise(function(r)
+			{
+				setTimeout(r, ms || 50);
+			});
+		};
+		H.dlg = function()
+		{
+			return Hmi.ui.dialog.container;
+		};
+		H.field = function(key, index)
+		{
+			return H.dlg().querySelectorAll('[data-field="' + key + '"]')[index || 0];
+		};
+		H.fire = function(el)
+		{
+			el.dispatchEvent(new Event('input', {bubbles: true}));
+			el.dispatchEvent(new Event('change', {bubbles: true}));
+		};
+		H.set = function(key, value, index)
+		{
+			var el = H.field(key, index);
+
+			if (el == null)
+			{
+				throw new Error('no field ' + key);
+			}
+
+			if (el.type == 'checkbox')
+			{
+				el.checked = !!value;
+			}
+			else
+			{
+				el.value = value;
+			}
+
+			H.fire(el);
+		};
+		H.ok = function()
+		{
+			H.dlg().querySelector('.gePrimaryBtn').click();
+		};
+		H.check = function(id)
+		{
+			var cb = H.dlg().querySelector('[data-link="' + id + '"] [data-role="check"]');
+			cb.checked = true;
+			H.fire(cb);
+		};
+		H.isChecked = function(id)
+		{
+			return H.dlg().querySelector('[data-link="' + id + '"] [data-role="check"]').checked;
+		};
+		H.depth = function()
+		{
+			return Hmi.ui.dialogs != null ? Hmi.ui.dialogs.length : 0;
+		};
+		// Checks a link (opens its dialog), fills it with fn and presses OK
+		H.configure = async function(id, fn)
+		{
+			var before = H.depth();
+			H.check(id);
+			await H.wait(80);
+
+			if (H.depth() != before + 1)
+			{
+				throw new Error('config dialog of ' + id + ' did not open');
+			}
+
+			fn();
+			H.ok();
+			await H.wait(80);
+
+			if (H.depth() != before)
+			{
+				throw new Error('config dialog of ' + id + ' did not close: ' +
+					H.dlg().textContent.substring(0, 200));
+			}
+		};
+		H.insert = function(label, id)
+		{
+			var graph = Hmi.ui.editor.graph;
+
+			return graph.insertVertex(graph.getDefaultParent(), id || null, label, 100, 100, 120, 80);
+		};
+	});
+}
+
+test('Animation Links and Screen Settings configure the new options', async function()
+{
+	var page = await util.openEditor(browser, web.url);
+
+	try
+	{
+		await installHelpers(page);
+		var out = await page.evaluate(async function()
+		{
+			var ui = Hmi.ui;
+			var graph = ui.editor.graph;
+			var cell = TT.insert('Tank', 'c1');
+			graph.setSelectionCell(cell);
+			Hmi.Model.setDocConfig(graph, {version: 1, sources: [], triggers: [], sim: 'off',
+				tags: [{name: 'Level', type: 'number'}, {name: 'Mode', type: 'string'}]});
+			Hmi.LinksDialog.show(ui, [cell]);
+			await TT.wait(150);
+
+			await TT.configure('fillColor:analog', function()
+			{
+				TT.set('expr', 'Level');
+				TT.set('blend', true);
+				TT.set('staleSeconds', 30);
+				TT.set('staleColor', '#808080');
+			});
+			await TT.configure('tooltip', function()
+			{
+				TT.set('text', 'Tank');
+				TT.set('trend', true);
+				TT.set('trendTag', 'Level');
+				TT.set('trendSeconds', 120);
+			});
+			await TT.configure('states', function()
+			{
+				TT.set('expr', 'Mode');
+				TT.set('stMatch', '/^man/i', 0);
+				TT.set('st_fillColor', '#FFA500', 0);
+				TT.set('staleSeconds', 10);
+			});
+			await TT.configure('smooth', function()
+			{
+				TT.set('duration', 750);
+			});
+			await TT.configure('alarmMarker', function()
+			{
+				TT.set('show', 'hide');
+			});
+			TT.ok();
+			await TT.wait(150);
+			var summary = Hmi.LinksDialog.objectSummary(cell).map(function(e) { return e.text; });
+			var links = Hmi.Model.getCellConfig(cell).links;
+
+			// Screen Settings: smooth changes and alarm markers of the page
+			Hmi.ScreenSettings.show(ui, {tab: 'runtime'});
+			await TT.wait(200);
+			TT.set('smoothMs', 400);
+			TT.set('alarmMarkers', true);
+			TT.ok();
+			await TT.wait(200);
+			var rt1 = Hmi.Model.getDocConfig(graph).runtime;
+
+			Hmi.ScreenSettings.show(ui, {tab: 'runtime'});
+			await TT.wait(200);
+			var shown = {smooth: TT.field('smoothMs').value, markers: TT.field('alarmMarkers').checked};
+			TT.set('smoothMs', 0);
+			TT.set('alarmMarkers', false);
+			TT.ok();
+			await TT.wait(200);
+			var rt2 = Hmi.Model.getDocConfig(graph).runtime;
+
+			return {links: links, summary: summary, rt1: {smoothMs: rt1.smoothMs, alarmMarkers: rt1.alarmMarkers},
+				shown: shown, rt2: {smoothMs: rt2.smoothMs, alarmMarkers: rt2.alarmMarkers},
+				errors: Hmi.Schema.validate('links', links)};
+		});
+
+		assert.deepStrictEqual(page.hmiErrors, []);
+		assert.deepStrictEqual(out.errors, []);
+		assert.strictEqual(out.links.fillColor.blend, true);
+		assert.strictEqual(out.links.fillColor.staleSeconds, 30);
+		assert.strictEqual(out.links.fillColor.staleColor, '#808080');
+		assert.strictEqual(out.links.tooltip.trend, true);
+		assert.strictEqual(out.links.tooltip.trendTag, 'Level');
+		assert.strictEqual(out.links.tooltip.trendSeconds, 120);
+		assert.strictEqual(out.links.states.states[0].match, '/^man/i');
+		assert.strictEqual(out.links.states.staleSeconds, 10);
+		assert.deepStrictEqual(out.links.smooth, {duration: 750});
+		assert.strictEqual(out.links.alarmMarker.show, 'hide');
+		assert.ok(out.summary.some(function(t) { return t.indexOf('750 ms') >= 0; }), JSON.stringify(out.summary));
+		assert.ok(out.summary.some(function(t) { return t.indexOf('Hide') >= 0; }), JSON.stringify(out.summary));
+		assert.deepStrictEqual(out.rt1, {smoothMs: 400, alarmMarkers: true});
+		assert.deepStrictEqual(out.shown, {smooth: '400', markers: true});
+		assert.deepStrictEqual(out.rt2, {smoothMs: undefined, alarmMarkers: undefined});
 	}
 	finally
 	{

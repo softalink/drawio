@@ -427,7 +427,7 @@ test('Animation Links dialog configures every extension link and round-trips', a
 	var out = await fillAll(page);
 
 	assert.deepStrictEqual(page.hmiErrors, []);
-	assert.strictEqual(out.rows, 57);
+	assert.strictEqual(out.rows, 59);
 	assert.deepStrictEqual(out.bands, ['Display', 'Animation', 'Touch', 'Scripts']);
 	assert.ok(['States and Properties', 'Animation', 'Actions', 'Object Scripts'].every(function(t)
 	{
@@ -437,7 +437,7 @@ test('Animation Links dialog configures every extension link and round-trips', a
 	assert.deepStrictEqual(out.groups['States and Properties'].map(function(r) { return r.split('=')[0]; }),
 		['states', 'properties', 'widgetData', 'bindings']);
 	assert.deepStrictEqual(out.groups.Animation.map(function(r) { return r.split('=')[0]; }),
-		['animation', 'flow', 'media', 'keyframes']);
+		['animation', 'flow', 'media', 'keyframes', 'smooth']);
 	assert.ok(out.groups['User Inputs'].some(function(r) { return /^inputChoice=Choice/.test(r); }));
 	assert.ok(out.groups['Touch Pushbuttons'].some(function(r) { return /^pushValue=Analog\/String Value/.test(r); }));
 	assert.deepStrictEqual(out.groups.Actions.map(function(r) { return r.split('=')[0]; }),

@@ -261,6 +261,14 @@
 		var h = E.numberInput(rt.height || '');
 		E.inlineField(r4, T('height') + ':', h, 'tags.height');
 
+		// Smooth changes and alarm markers (after grafana-flowcharting)
+		var fx = section(container, T('hmiScrEffectsSection'), 'screen.runtime.effects');
+		var r6 = E.inlineFields(fx);
+		var smooth = E.numberInput(rt.smoothMs > 0 ? rt.smoothMs : 0);
+		E.inlineField(r6, T('hmiScrSmoothMs') + ' (ms):', smooth, 'runtime.smoothMs');
+		var markers = E.checkbox(T('hmiScrAlarmMarkers'), rt.alarmMarkers === true, 'runtime.alarmMarkers');
+		r6.appendChild(markers);
+
 		var bl = section(container, T('hmiScrBlinkSection'), 'runtime.blink');
 		var r5 = E.inlineFields(bl);
 		var slow = E.numberInput(blink.slow != null ? blink.slow : BLINK_DEFAULTS.slow);
@@ -283,6 +291,8 @@
 		slow.setAttribute('data-field', 'blinkSlow');
 		medium.setAttribute('data-field', 'blinkMedium');
 		fast.setAttribute('data-field', 'blinkFast');
+		smooth.setAttribute('data-field', 'smoothMs');
+		markers.input.setAttribute('data-field', 'alarmMarkers');
 
 		return {commit: function()
 		{
@@ -299,6 +309,13 @@
 			if (!isNum(bw) || !isNum(bh) || bw <= 0 || bh <= 0)
 			{
 				errors.push(T('width') + ' / ' + T('height') + ': ' + T('hmiScrPositive'));
+			}
+
+			var smoothMs = (String(smooth.value).trim() === '') ? 0 : Number(smooth.value);
+
+			if (!(smoothMs >= 0 && smoothMs <= 10000))
+			{
+				errors.push(T('hmiScrSmoothMs') + ': 0 – 10000 ms');
 			}
 
 			var times = {slow: Number(slow.value), medium: Number(medium.value), fast: Number(fast.value)};
@@ -327,6 +344,25 @@
 			rt.theme = theme.value;
 			rt.width = (bw != null) ? Math.round(bw) : undefined;
 			rt.height = (bh != null) ? Math.round(bh) : undefined;
+
+			// Stored only when on, so existing pages stay unchanged
+			if (smoothMs > 0)
+			{
+				rt.smoothMs = Math.round(smoothMs);
+			}
+			else
+			{
+				delete rt.smoothMs;
+			}
+
+			if (markers.input.checked)
+			{
+				rt.alarmMarkers = true;
+			}
+			else
+			{
+				delete rt.alarmMarkers;
+			}
 
 			// Only the half-periods that differ from the defaults are stored
 			var out = clone(rt.blink) || {};
