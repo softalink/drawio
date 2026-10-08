@@ -55,3 +55,7 @@ This matrix maps every item of **Chapter 4 "Animating Objects"** of the *AVEVA I
 ## Extension links from meta2d
 
 The combined design adds the meta2d functions that InTouch lacks as further links in the same dialog: Opacity, Multi-State, Properties, Widget Data, Animation, Flow, Media, Choice, Analog/String Value, Open URL, Send Message, Animation/Media Control, Touch Options, Data Change and Condition. See `META2D_INTOUCH_COMPARISON.md` and `INTOUCH_LINKS.md` §11. The template page **meta2d Extensions** (cell ids `itd-m2d-*`) demonstrates them.
+
+## Features from grafana-flowcharting
+
+Smooth changes, blended analog colours, alarm markers on objects, tooltip trends, data age (stale colours and states) and regular expressions in Multi-State come from the Grafana plugin grafana-flowcharting. See `FLOWCHARTING_COMPARISON.md` and `INTOUCH_LINKS.md` §13. The end-to-end test `etc/hmi/e2e/links-flowcharting.e2e.js` covers them.

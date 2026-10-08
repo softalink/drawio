@@ -692,9 +692,30 @@ The same dialog also edits the generic HMI features of the object. They are stor
 - **Touch, Actions, Event Handlers**: actions on click, double-click, enter, leave, long press, message, page open and more, with conditions, confirmation and delay.
 - **Touch, Actions, Security**: roles, and whether users without the role do not see (hide) or cannot use (disable) the object.
 - **Touch, Actions, Hover Halo**: halo style, outline shape and colour of this object.
-- **Scripts, Triggers**: simple triggers (conditions with AND/OR, actions, else actions, deadband, on and off delay) and state machines (ordered states with conditions and actions).
+- **Scripts, Triggers**: object triggers (conditions with AND/OR, actions, else actions, deadband, on and off delay) and object state machines (ordered states with conditions and actions).
 
 List links show one line per item. Click a line to edit the item, use the arrows to reorder. All changes are written with OK as one undoable edit.
+
+### Smooth changes, blended colours, alarm markers, trends and data age
+
+These options come from the Grafana plugin grafana-flowcharting. All of them are off until you set them, so existing screens look the same.
+
+- **Smooth changes.** Colours fade and position, size, rotation, opacity and percent fill glide to new values instead of jumping.
+  - For the whole page: **Screen Settings → Runtime → Smooth changes** in milliseconds, for example 500.
+  - For one object: **Animation → Smooth Changes** with its own duration. 0 switches it off for that object.
+  - The values shown when the screen opens appear at once.
+- **Blended colours.** In an analog line, fill or text colour link, tick **Blend between break points**. A value between two break points then gets a mix of their colours, for example green at 0, yellow at 50 and red at 100 give a smooth scale. Without it, the colour changes in steps.
+- **Alarm markers.** A warning triangle appears at the top right corner of an object while one of its tags is in alarm: red for high severity, orange for medium and yellow for low. It blinks until the alarm is acknowledged, and its tooltip lists the alarm messages.
+  - For every object of the page: **Screen Settings → Runtime → Alarm markers on objects**.
+  - For one object: **Display → Miscellaneous → Alarm Marker**. **Show** adds the marker even when the page option is off, optionally only for one tag. **Hide** never shows one.
+- **Tooltip trend.** In the Tooltip link, tick **Show trend**. The tooltip then shows a small chart of the recent values of the trend tag (default: the first tag of the tooltip expression) over the trend period (default 60 s), with the minimum, maximum and latest value. Values are collected from the moment the screen opens.
+- **Data age.** Colour links and Multi-State have a **Stale after (s)** field. When the tags of the link have not been updated for that long, for example because a device stopped sending:
+  - a colour link shows its **Stale colour**, such as grey;
+  - Multi-State uses the state whose match is `stale`.
+  The object returns to normal within a second of the next update.
+- **Regular expressions in Multi-State.** A state match can be a regular expression such as `/^man/i` (any text starting with "man", ignoring case) or `/warn|alarm/`.
+
+The exact storage is in `INTOUCH_LINKS.md` §13.
 
 ### Extension links from meta2d
 

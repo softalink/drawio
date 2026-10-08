@@ -495,7 +495,7 @@ The `security` link writes `hmiRoles` and `hmiRolesMode`:
 | `sources` | the Data Sources list and editor (previously the Data Sources dialog) |
 | `tags` | the tag catalogue and tag editor (previously the Tags dialog list) |
 | `pageTriggers` | the document-level triggers and state machines of the page (**Add Page Trigger**, **Add Page State Machine**). They belong to the page; the object triggers and state machines of §12.1 travel with their object. |
-| `runtime` | simulation mode, scripts, fit, navigation, max rate, quality, pan/zoom, design width/height, theme, blink half-periods |
+| `runtime` | simulation mode, scripts, fit, navigation, max rate, quality, pan/zoom, design width/height, theme, smooth changes and alarm markers (§13), blink half-periods |
 | `hoverHalo` | the page hover halo settings (previously the Hover Halo dialog) |
 | `window` | the InTouch window type of this page (replace / overlay / popup, x, y, width, height, title; §8) |
 
@@ -505,3 +505,53 @@ One OK button saves all tabs as a single undoable edit. The old menu actions (Da
 
 - **Object selected:** the tab shows a compact list of the object's configured links (`objectSummary`). Clicking a line opens the Animation Links dialog on that link. Below the list are the **Animation Links…** button and the Tag Browser.
 - **No selection:** the tab shows a page summary (sources, tags, objects with links, page triggers) and these buttons: **Screen Settings…**, Tag Browser, Substitute Tags, Define Missing Tags, Validate, Live Preview and Run Screen.
+
+## 13. Features from grafana-flowcharting
+
+These features come from the Grafana plugin **grafana-flowcharting** (see `docs/hmi/FLOWCHARTING_COMPARISON.md`). They extend existing links with optional fields, add two links and two page options. Missing fields keep the previous behaviour, so existing diagrams are unchanged.
+
+### 13.1 Smooth changes
+
+| Where | Storage | Fields |
+|---|---|---|
+| Animation → Animation → **Smooth Changes** | `hmiLinks.smooth` | `duration` (ms, 0..10000, default 500; 0 = off for this object) |
+| Screen Settings → Runtime | `runtime.smoothMs` | ms, 0..10000; stored only when > 0 |
+
+- Applies to the styles that links write: colours (`fillColor`, `strokeColor`, `fontColor`, `gradientColor`, label colours, the level colour), `opacity`, `rotation`, `fontSize`, `strokeWidth`, percent fill (`hmiLevel`, `hmiLevelH`), and the geometry offsets of Location and Object Size (`dx`, `dy`, `dw`, `dh`).
+- Numbers are interpolated and colours mixed in RGB with ease-in-out. Other values (text, images) switch at once.
+- A change that arrives during a transition continues from the shown value. Updates that keep the same target do not restart it.
+- Values written before the initial evaluation (`initialized`) are shown at once, so a screen does not animate when it opens.
+- The object's link wins over the page option. The blink layer is not smoothed.
+
+### 13.2 Blended analog colours
+
+Line, fill and text colour links of kind `analog` take `blend` (boolean, default false). With `blend`, a value between two break points gets the RGB mix of their colours in proportion to its position. Below the first and above the last break point, their colours apply. A break point colour that cannot be parsed keeps the stepped colour.
+
+### 13.3 Alarm markers
+
+| Where | Storage | Fields |
+|---|---|---|
+| Display → Miscellaneous → **Alarm Marker** | `hmiLinks.alarmMarker` | `show`: `show` \| `hide` (default `show`); `tag` (optional) |
+| Screen Settings → Runtime | `runtime.alarmMarkers` | `true`; stored only when on |
+
+- With the page option, every object with tags in its links or bindings gets a marker while one of its tags has an active alarm. `show` turns markers on for one object when the page option is off. `hide` turns them off. `tag` limits the marker to the alarms of that tag.
+- The marker is a warning triangle at the top right corner (an `mxCellOverlay`, view state only). Its colour shows the highest severity: 1 red, 2 orange, 3 and lower yellow. It blinks while any of the alarms is unacknowledged. The tooltip lists the alarm messages.
+- Markers follow alarm events, acknowledgement and the visibility of the object (hidden objects have no marker) (`data-hmi-alarm-marker="unacked|acked"`, `data-hmi-severity` on the marker node).
+
+### 13.4 Tooltip trend
+
+The Tooltip link takes `trend` (boolean), `trendTag` (optional; default the first tag of the tooltip expression) and `trendSeconds` (5..3600, default 60).
+
+- The runtime records the values of the trend tag from the time the page opens, with their timestamps, for `trendSeconds`.
+- The tooltip shows the text, a 180 × 44 px step-line chart (SVG) of the recorded values and the line `tag min … max … = last`. Until a full period is recorded, the chart spans the recorded time.
+- Without text, the tag name is the tooltip text. The tooltip is HTML (`mxTooltipHandler` shows only strings). The text is escaped.
+
+### 13.5 Data age
+
+- Colour links (every kind) take `staleSeconds` (number, > 0 to enable) and `staleColor`. While the oldest tag that the link reads has not been updated for more than `staleSeconds`, the link shows `staleColor`.
+- Multi-State takes `staleSeconds`. While the data is that old, the state whose match is `stale` is used, whatever the value. Without such a state, the value states apply.
+- Age is `now − ts` of the tag store entry. A tag store entry gets a new `ts` on every update, also when the value is unchanged. Cells with data-age settings are re-evaluated once a second, so they turn stale without an update and back within a second of one.
+
+### 13.6 Regular expressions in Multi-State
+
+A state match `/pattern/flags` tests the value as text against the regular expression (flags `i`, `m`, `s`, `u`, `y`; `g` is ignored). A match that is a regular expression is not split at commas. An invalid pattern never matches. The reserved match `stale` (case-insensitive) holds only for stale data (§13.5).

@@ -447,11 +447,17 @@
 	 */
 	LinkEngine.prototype.update = function(names)
 	{
+		this.updateLinks(names);
+
+		// After the links, so that markers see the new visibility
 		if (this.markers != null && names != null)
 		{
 			this.markers.update(names);
 		}
+	};
 
+	LinkEngine.prototype.updateLinks = function(names)
+	{
 		if (this.count == 0 || this.index == null || names == null)
 		{
 			return;
