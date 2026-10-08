@@ -43,6 +43,15 @@
 		textColor: ['fontColor', 'hmiFontColor']
 	};
 
+	/**
+	 * Style keys that smooth changes interpolate (numbers and colours).
+	 */
+	var TWEEN_KEYS = {fillColor: true, strokeColor: true, fontColor: true, gradientColor: true,
+		labelBackgroundColor: true, labelBorderColor: true, hmiFillColor: true, hmiStrokeColor: true,
+		hmiFontColor: true, hmiLevelColor: true, opacity: true, fillOpacity: true, strokeOpacity: true,
+		textOpacity: true, rotation: true, hmiLevel: true, hmiLevelH: true, fontSize: true, strokeWidth: true};
+	var GEO_KEYS = ['dx', 'dy', 'dw', 'dh'];
+
 	function LinkEngine(rt)
 	{
 		this.rt = rt;
@@ -52,6 +61,10 @@
 		this.timers = [];
 		this.blinkTimers = {};
 		this.blinkPhase = {};
+		this.tweens = {};
+		this.ageTimer = null;
+		this.markers = (Hmi.AlarmMarkers != null && rt != null && rt.graph != null) ?
+			new Hmi.AlarmMarkers(rt) : null;
 	};
 
 	/**
@@ -327,6 +340,93 @@
 		{
 			this.updateAll();
 		}
+
+		this.startAgeTimer();
+		this.rt.overlay.tooltipNode = mxUtils.bind(this, this.tooltipNode);
+
+		if (this.markers != null)
+		{
+			this.markers.build(index);
+		}
+	};
+
+	/**
+	 * Re-evaluates cells with data-age settings once a second, so that they
+	 * turn stale without a tag update and back when updates resume.
+	 */
+	LinkEngine.prototype.startAgeTimer = function()
+	{
+		var watched = [];
+
+		for (var id in this.cells)
+		{
+			if (LinkEngine.watchesAge(this.cells[id].links))
+			{
+				watched.push(this.cells[id]);
+			}
+		}
+
+		if (watched.length > 0 && this.ageTimer == null)
+		{
+			var self = this;
+
+			this.ageTimer = setInterval(function()
+			{
+				for (var i = 0; i < watched.length; i++)
+				{
+					self.updateCell(watched[i]);
+				}
+
+				self.rt.requestFlush();
+			}, 1000);
+		}
+	};
+
+	/**
+	 * True when a colour or Multi-State link of the set has staleSeconds.
+	 */
+	LinkEngine.watchesAge = function(links)
+	{
+		var types = ['lineColor', 'fillColor', 'textColor', 'states'];
+
+		for (var i = 0; i < types.length; i++)
+		{
+			var l = (links != null) ? links[types[i]] : null;
+
+			if (l != null && parseFloat(l.staleSeconds) > 0)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	/**
+	 * Age in ms of the oldest tag a link reads (null when unknown).
+	 */
+	LinkEngine.prototype.dataAge = function(link)
+	{
+		if (link == null || !(parseFloat(link.staleSeconds) > 0))
+		{
+			return null;
+		}
+
+		var names = Hmi.Links.refs({link: link});
+		var now = Date.now();
+		var age = null;
+
+		for (var i = 0; i < names.length; i++)
+		{
+			var entry = this.rt.tags.get(names[i]);
+
+			if (entry != null && entry.ts != null)
+			{
+				age = Math.max((age == null) ? 0 : age, now - entry.ts);
+			}
+		}
+
+		return age;
 	};
 
 	/**
@@ -347,6 +447,11 @@
 	 */
 	LinkEngine.prototype.update = function(names)
 	{
+		if (this.markers != null && names != null)
+		{
+			this.markers.update(names);
+		}
+
 		if (this.count == 0 || this.index == null || names == null)
 		{
 			return;
@@ -540,7 +645,7 @@
 				var alarm = (link.kind == 'discreteAlarm' || link.kind == 'analogAlarm') ?
 					this.alarmState(link.tag) : null;
 				var v = (alarm != null) ? rt.tags.getValue(link.tag) : value(link);
-				var color = L.color(link, v, alarm);
+				var color = L.color(link, v, alarm, this.dataAge(link));
 
 				if (color != null)
 				{
@@ -607,6 +712,18 @@
 		{
 			var tip = (links.tooltip.mode == 'expression') ?
 				this.evaluate(rec, links.tooltip.expr, env) : links.tooltip.text;
+
+			if (links.tooltip.trend === true)
+			{
+				var trendTag = this.recordTrend(rec, links.tooltip);
+
+				// The trend needs a tooltip, even without text
+				if ((tip == null || tip === '') && trendTag != null)
+				{
+					tip = trendTag;
+				}
+			}
+
 			overlay.setTooltip(rec.id, (tip != null && tip !== '') ?
 				String(tip).substring(0, (links.tooltip.mode == 'expression') ? 1024 : 131) : null, LAYER);
 		}
@@ -628,7 +745,7 @@
 		if (links.states != null && L.state != null)
 		{
 			var sv = value(links.states);
-			var st = L.state(links.states, sv);
+			var st = L.state(links.states, sv, this.dataAge(links.states));
 
 			if (st != null)
 			{
@@ -828,23 +945,362 @@
 
 		// Writes the changes
 		overlay.setLabel(rec.id, label, LAYER);
-		overlay.setGeo(rec.id, (geo.dx != 0 || geo.dy != 0 || geo.dw != 0 || geo.dh != 0) ?
-			geo : null, LAYER);
+		this.writeShown(rec, styles, geo);
+		rec.prevStyles = styles;
+	};
+
+	/**
+	 * Smooth-change duration of a cell in ms: its smooth link, else the
+	 * page option runtime.smoothMs, else 0 (off).
+	 */
+	LinkEngine.prototype.smoothDuration = function(rec)
+	{
+		var link = rec.links.smooth;
+		var ms = (link != null) ? parseFloat(link.duration) :
+			parseFloat((this.rt.config != null && this.rt.config.runtime != null) ?
+			this.rt.config.runtime.smoothMs : 0);
+
+		return (isNaN(ms) || ms <= 0) ? 0 : Math.min(10000, ms);
+	};
+
+	/**
+	 * Writes the styles and geometry offsets of a cell, interpolating
+	 * numbers and colours over the smooth duration once the screen has its
+	 * initial values (grafana-flowcharting animation).
+	 */
+	LinkEngine.prototype.writeShown = function(rec, styles, geo)
+	{
+		var overlay = this.rt.overlay;
+		var L = Hmi.Links;
+		var ms = this.smoothDuration(rec);
+		var animate = ms > 0 && this.rt.initialized === true;
+		var shown = rec.shown = rec.shown || {};
+		var old = this.tweens[rec.id] || {items: {}, geo: null};
+		var tw = {rec: rec, items: {}, geo: null};
+		var now = Date.now();
+		var count = 0;
 
 		for (var key in rec.prevStyles)
 		{
 			if (styles[key] === undefined)
 			{
 				overlay.setStyle(rec.id, key, null, LAYER);
+				delete shown[key];
 			}
 		}
 
 		for (var key in styles)
 		{
-			overlay.setStyle(rec.id, key, styles[key], LAYER);
+			var to = styles[key];
+			var running = old.items[key];
+
+			// A running change to the same value continues
+			if (animate && running != null && String(running.to) === String(to))
+			{
+				tw.items[key] = running;
+				count++;
+
+				continue;
+			}
+
+			var from = (shown[key] !== undefined) ? shown[key] : rec.style[key];
+
+			if (animate && TWEEN_KEYS[key] && to != null && from != null && String(from) !== String(to) &&
+				L.tween(from, to, 0.5) !== undefined)
+			{
+				tw.items[key] = {from: from, to: to, start: now, ms: ms};
+				count++;
+			}
+			else
+			{
+				overlay.setStyle(rec.id, key, to, LAYER);
+				shown[key] = to;
+			}
 		}
 
-		rec.prevStyles = styles;
+		var geoTo = (geo.dx != 0 || geo.dy != 0 || geo.dw != 0 || geo.dh != 0) ? geo : null;
+
+		if (animate && old.geo != null && LinkEngine.sameGeo(old.geo.to, geoTo))
+		{
+			tw.geo = old.geo;
+			count++;
+		}
+		else if (animate && !LinkEngine.sameGeo(rec.shownGeo, geoTo))
+		{
+			tw.geo = {from: rec.shownGeo || {dx: 0, dy: 0, dw: 0, dh: 0}, to: geoTo, start: now, ms: ms};
+			count++;
+		}
+		else
+		{
+			overlay.setGeo(rec.id, geoTo, LAYER);
+			rec.shownGeo = geoTo;
+		}
+
+		if (count > 0)
+		{
+			this.tweens[rec.id] = tw;
+			this.rt.requestFlush();
+		}
+		else
+		{
+			delete this.tweens[rec.id];
+		}
+	};
+
+	LinkEngine.sameGeo = function(a, b)
+	{
+		for (var i = 0; i < GEO_KEYS.length; i++)
+		{
+			if (((a != null) ? a[GEO_KEYS[i]] || 0 : 0) != ((b != null) ? b[GEO_KEYS[i]] || 0 : 0))
+			{
+				return false;
+			}
+		}
+
+		return true;
+	};
+
+	/**
+	 * Ease in and out of a smooth change (t in 0..1).
+	 */
+	function ease(t)
+	{
+		return (t < 0.5) ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+	};
+
+	/**
+	 * Advances the smooth changes. Returns true while any is running.
+	 */
+	LinkEngine.prototype.tick = function(now)
+	{
+		var overlay = this.rt.overlay;
+		var L = Hmi.Links;
+		var running = false;
+
+		for (var id in this.tweens)
+		{
+			var tw = this.tweens[id];
+			var rec = tw.rec;
+			var left = 0;
+
+			for (var key in tw.items)
+			{
+				var it = tw.items[key];
+				var t = Math.min(1, (now - it.start) / it.ms);
+				var v = L.tween(it.from, it.to, ease(t));
+				overlay.setStyle(id, key, v, LAYER);
+				rec.shown[key] = v;
+
+				if (t >= 1)
+				{
+					delete tw.items[key];
+				}
+				else
+				{
+					left++;
+				}
+			}
+
+			if (tw.geo != null)
+			{
+				var g = tw.geo;
+				var t = Math.min(1, (now - g.start) / g.ms);
+				var to = g.to || {dx: 0, dy: 0, dw: 0, dh: 0};
+				var cur = g.to;
+
+				if (t < 1)
+				{
+					cur = {};
+
+					for (var j = 0; j < GEO_KEYS.length; j++)
+					{
+						var k = GEO_KEYS[j];
+						cur[k] = (g.from[k] || 0) + ((to[k] || 0) - (g.from[k] || 0)) * ease(t);
+					}
+
+					left++;
+				}
+				else
+				{
+					tw.geo = null;
+				}
+
+				overlay.setGeo(id, cur, LAYER);
+				rec.shownGeo = cur;
+			}
+
+			if (left == 0)
+			{
+				delete this.tweens[id];
+			}
+			else
+			{
+				running = true;
+			}
+		}
+
+		return running;
+	};
+
+	/**
+	 * Records the tooltip trend of a cell: the values of the trend tag (or
+	 * the first tag of the tooltip expression) over trendSeconds. Returns
+	 * the tag name or null.
+	 */
+	LinkEngine.prototype.recordTrend = function(rec, link)
+	{
+		var tag = link.trendTag;
+
+		if (!tag)
+		{
+			var names = Hmi.Links.refs({link: {expr: (link.mode == 'expression') ? link.expr : null}});
+			tag = (names.length > 0) ? names[0] : null;
+		}
+
+		if (tag == null)
+		{
+			rec.trend = null;
+
+			return null;
+		}
+
+		var span = Math.max(5, Math.min(3600, parseFloat(link.trendSeconds) || 60)) * 1000;
+		var trend = rec.trend;
+
+		if (trend == null || trend.tag != tag)
+		{
+			trend = rec.trend = {tag: tag, span: span, points: []};
+		}
+
+		trend.span = span;
+		var entry = this.rt.tags.get(tag);
+		var v = (entry != null) ? parseFloat(entry.value) : NaN;
+
+		if (entry != null && !isNaN(v))
+		{
+			var ts = entry.ts || Date.now();
+			var last = trend.points[trend.points.length - 1];
+
+			if (last == null || last[0] != ts || last[1] != v)
+			{
+				trend.points.push([ts, v]);
+			}
+		}
+
+		// Keeps the window (and one older point for the left edge)
+		var cut = Date.now() - span;
+
+		while (trend.points.length > 2 && trend.points[1][0] < cut)
+		{
+			trend.points.shift();
+		}
+
+		if (trend.points.length > 2000)
+		{
+			trend.points.splice(0, trend.points.length - 2000);
+		}
+
+		return tag;
+	};
+
+	/**
+	 * Tooltip HTML with the text and a sparkline of the recorded trend, or
+	 * null for a plain text tooltip.
+	 */
+	LinkEngine.prototype.tooltipNode = function(cell, text)
+	{
+		var rec = (cell != null) ? this.cells[cell.id] : null;
+
+		if (rec == null || rec.trend == null || rec.links.tooltip == null || rec.links.tooltip.trend !== true)
+		{
+			return null;
+		}
+
+		return LinkEngine.sparkline(rec.trend, text, Date.now());
+	};
+
+	/**
+	 * Builds the tooltip HTML: text lines, a 180x44 sparkline (SVG) of the
+	 * points in [now - span, now] and min, max and last values.
+	 */
+	LinkEngine.sparkline = function(trend, text, now)
+	{
+		var div = document.createElement('div');
+		div.setAttribute('data-hmi-trend', trend.tag);
+
+		if (text != null && text !== '' && text != trend.tag)
+		{
+			var lines = String(text).split('\n');
+
+			for (var i = 0; i < lines.length; i++)
+			{
+				var line = document.createElement('div');
+				line.textContent = lines[i];
+				div.appendChild(line);
+			}
+		}
+
+		var W = 180, H = 44, P = 2;
+		var start = now - trend.span;
+		var pts = trend.points;
+		var min = Infinity, max = -Infinity;
+
+		for (var i = 0; i < pts.length; i++)
+		{
+			min = Math.min(min, pts[i][1]);
+			max = Math.max(max, pts[i][1]);
+		}
+
+		var ns = 'http://www.w3.org/2000/svg';
+		var svg = document.createElementNS(ns, 'svg');
+		svg.setAttribute('width', W);
+		svg.setAttribute('height', H);
+		svg.style.display = 'block';
+		svg.style.margin = '4px 0 2px 0';
+		var bg = document.createElementNS(ns, 'rect');
+		bg.setAttribute('width', W);
+		bg.setAttribute('height', H);
+		bg.setAttribute('fill', 'rgba(127,127,127,0.12)');
+		svg.appendChild(bg);
+
+		if (pts.length > 0)
+		{
+			var range = (max - min) || 1;
+			var x = function(ts) { return P + Math.max(0, (ts - start) / trend.span) * (W - 2 * P); };
+			var y = function(v) { return H - P - (v - min) / range * (H - 2 * P) - ((max == min) ? (H / 2 - P) : 0); };
+			var d = '';
+
+			// Step line: a value holds until the next one
+			for (var i = 0; i < pts.length; i++)
+			{
+				var px = x(pts[i][0]);
+				var py = y(pts[i][1]);
+				d += (i == 0) ? 'M' + px + ' ' + py : ' L' + px + ' ' + y(pts[i - 1][1]) + ' L' + px + ' ' + py;
+			}
+
+			var endX = x(now);
+			d += ' L' + endX + ' ' + y(pts[pts.length - 1][1]);
+			var path = document.createElementNS(ns, 'path');
+			path.setAttribute('d', d);
+			path.setAttribute('fill', 'none');
+			path.setAttribute('stroke', '#1E88E5');
+			path.setAttribute('stroke-width', '1.5');
+			path.setAttribute('stroke-linejoin', 'round');
+			svg.appendChild(path);
+		}
+
+		div.appendChild(svg);
+		var fmt = function(v) { return (Math.round(v * 100) / 100).toString(); };
+		var info = document.createElement('div');
+		info.style.fontSize = '10px';
+		info.style.opacity = '0.8';
+		info.textContent = trend.tag + (pts.length > 0 ? '  ' + mxResources.get('min', null, 'min') + ' ' + fmt(min) +
+			'  ' + mxResources.get('max', null, 'max') + ' ' + fmt(max) +
+			'  = ' + fmt(pts[pts.length - 1][1]) : '');
+		div.appendChild(info);
+
+		// HTML markup: mxTooltipHandler only shows strings
+		return div.outerHTML;
 	};
 
 	/**
@@ -2928,6 +3384,19 @@
 		this.stopBlink();
 		this.stopWhile(null);
 		this.closeInline();
+		this.tweens = {};
+
+		if (this.ageTimer != null)
+		{
+			clearInterval(this.ageTimer);
+			this.ageTimer = null;
+		}
+
+		if (this.markers != null)
+		{
+			this.markers.clear();
+		}
+
 		this.drag = null;
 		this.pressed = null;
 		this.hoverRec = null;

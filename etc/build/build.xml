@@ -678,6 +678,7 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="runtime/HmiDomWidgets.js" />
 				<file name="runtime/HmiHalo.js" />
 				<file name="runtime/HmiKeypad.js" />
+				<file name="runtime/HmiAlarmMarkers.js" />
 				<file name="runtime/HmiLinkEngine.js" />
 				<file name="runtime/HmiRuntime.js" />
 				<file name="runtime/HmiEmbed.js" />
@@ -772,6 +773,7 @@ OUTPUT FILES (in src/main/webapp/js/):
 				<file name="runtime/HmiDomWidgets.js" />
 				<file name="runtime/HmiHalo.js" />
 				<file name="runtime/HmiKeypad.js" />
+				<file name="runtime/HmiAlarmMarkers.js" />
 				<file name="runtime/HmiLinkEngine.js" />
 				<file name="runtime/HmiRuntime.js" />
 				<file name="runtime/HmiEmbed.js" />

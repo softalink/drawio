@@ -790,6 +790,14 @@
 		Graph.prototype.getTooltipForCell = function(cell)
 		{
 			var tip = (this.hmiOverlay != null) ? this.hmiOverlay.getTooltip(cell) : null;
+			// Tooltip HTML of the runtime (trend sparklines), already escaped
+			var html = (tip != null && this.hmiOverlay.tooltipNode != null) ?
+				this.hmiOverlay.tooltipNode(cell, tip) : null;
+
+			if (html != null)
+			{
+				return html;
+			}
 
 			return (tip != null) ? mxUtils.htmlEntities(tip) :
 				graphGetTooltipForCell.apply(this, arguments);

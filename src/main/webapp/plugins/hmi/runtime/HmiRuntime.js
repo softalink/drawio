@@ -567,6 +567,8 @@
 				this.animator.step(now);
 			}
 
+			// Smooth changes of animation links
+			this.linksTweening = this.links != null && this.links.tick != null && this.links.tick(now);
 			this.diag.counters.flushed += this.overlay.flush(true);
 		}
 		catch (e)
@@ -577,7 +579,8 @@
 		this.flushRequested = false;
 		this.lastWork = Date.now() - workStart;
 
-		if (this.overlay.isDirty() || (this.animator != null && this.animator.isAnimating()))
+		if (this.overlay.isDirty() || this.linksTweening ||
+			(this.animator != null && this.animator.isAnimating()))
 		{
 			this.scheduleFrame();
 		}

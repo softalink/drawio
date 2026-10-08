@@ -47,6 +47,7 @@
 		'runtime/HmiDomWidgets.js',
 		'runtime/HmiHalo.js',
 		'runtime/HmiKeypad.js',
+		'runtime/HmiAlarmMarkers.js',
 		'runtime/HmiLinkEngine.js',
 		'runtime/HmiRuntime.js',
 		'runtime/HmiEmbed.js',
