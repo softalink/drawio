@@ -474,9 +474,12 @@ The features of the generic HMI model (ARCHITECTURE.md §2) appear as links in t
 | Scripts → Triggers (new group), label **Object Triggers** | `triggers` | `hmiTriggers` entries without `states` | conditions with and/or, actions, else actions, deadband, on/off delay |
 | Scripts → Triggers, label **Object State Machines** | `stateMachines` | `hmiTriggers` entries with `states` | named states, each with conditions, and/or and actions |
 
+The template page **Object Features** (`templates/hmi/intouch_links_demo.xml`, cell ids `itd-of-*`) demonstrates each of them, with one page trigger and one page state machine.
+
 A link is "on" while its storage is non-empty. Unchecking clears the storage. All changes are written with the hmiLinks changes as one undoable edit when OK is pressed.
 
 The `security` link writes `hmiRoles` and `hmiRolesMode`:
+- A list of roles needs all of them (`Runtime.hasRoles`).
 - `hide` (the default) hides the object from users without the roles.
 - `disable` disables it.
 

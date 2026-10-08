@@ -121,7 +121,9 @@
 	{
 		var data = this.getLayer(cellId, layer || 'binding');
 
-		if (data[field] !== value)
+		// A missing field equals null: clearing it again does not redraw the
+		// cell (which would recreate HTML labels such as a playing <audio>)
+		if (((data[field] !== undefined) ? data[field] : null) !== value)
 		{
 			if (value == null)
 			{

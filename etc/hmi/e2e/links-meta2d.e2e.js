@@ -118,15 +118,27 @@ async function openRuntime(url, apiExpr)
 	return page;
 }
 
+// Sets values and waits for a frame that processed them (the adaptive
+// frame rate may drop to 2 fps in the full app)
 function set(page, values)
 {
 	return page.evaluate(async function(values)
 	{
+		var frames = rt().diag.counters.frames;
+		var start = Date.now();
 		rt().setValues(values);
 		await new Promise(function(r)
 		{
 			setTimeout(r, 200);
 		});
+
+		while ((rt().diag.counters.frames <= frames || rt().overlay.dirtyCount > 0) && Date.now() - start < 3000)
+		{
+			await new Promise(function(r)
+			{
+				setTimeout(r, 20);
+			});
+		}
 	}, values);
 }
 

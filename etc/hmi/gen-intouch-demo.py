@@ -2,14 +2,19 @@
 """Generates templates/hmi/intouch_links_demo.xml.
 
 The demo shows every InTouch animation link (plugins/hmi/INTOUCH_LINKS.md)
-on six pages: display links, touch links, meta2d extensions, features from
-grafana-flowcharting, an overlay window and a popup window. Run from the repository root:
+on seven pages: display links, touch links, meta2d extensions, features from
+grafana-flowcharting, object features (bindings, keyframes, event handlers,
+security, hover halo, object and page triggers and state machines, media), an
+overlay window and a popup window. Run from the repository root:
 
     python3 etc/hmi/gen-intouch-demo.py
 """
 
+import base64
 import json
+import math
 import os
+import struct
 from xml.sax.saxutils import quoteattr
 
 OUT = os.path.join('src', 'main', 'webapp', 'templates', 'hmi', 'intouch_links_demo.xml')
@@ -78,6 +83,16 @@ TAGS = [
     {'name': 'Message', 'type': 'string', 'access': 'r', 'initial': 'Pump OK',
      'sim': {'kind': 'list', 'values': ['Pump OK', 'Pump WARNING: vibration', 'Valve ALARM: stuck',
                                          'Valve ok'], 'interval': 3000}},
+    # Right button and double-click scripts
+    {'name': 'Doubles', 'type': 'number', 'access': 'rw', 'local': True, 'initial': 0},
+    {'name': 'RightClicks', 'type': 'number', 'access': 'rw', 'local': True, 'initial': 0},
+    {'name': 'RightHeld', 'type': 'number', 'access': 'rw', 'local': True, 'initial': 0},
+    {'name': 'RightDoubles', 'type': 'number', 'access': 'rw', 'local': True, 'initial': 0},
+    {'name': 'LastClick', 'type': 'string', 'access': 'rw', 'local': True, 'initial': 'none'},
+    # Object features
+    {'name': 'EvClicks', 'type': 'number', 'access': 'rw', 'local': True, 'initial': 0},
+    {'name': 'Presses', 'type': 'number', 'access': 'rw', 'local': True, 'initial': 0},
+    {'name': 'MediaOn', 'type': 'boolean', 'access': 'rw', 'local': True, 'initial': False},
 ]
 
 RUNTIME = {'fit': 'page', 'panZoom': True, 'nav': 'tabs', 'maxRate': 30, 'quality': 'outline',
@@ -131,6 +146,16 @@ class Page(object):
 
         if note:
             self.text(x + 8, y + h - 20, w - 16, 16, note, 9, False, '#78909C')
+
+    def edge(self, x1, y1, x2, y2, style, links, cid):
+        self.cells.append(('<object id=%s label="" hmiLinks=%s><mxCell style=%s edge="1" parent="1">'
+                           '<mxGeometry relative="1" as="geometry"><mxPoint x="%s" y="%s" '
+                           'as="sourcePoint"/><mxPoint x="%s" y="%s" as="targetPoint"/></mxGeometry>'
+                           '</mxCell></object>') % (
+            quoteattr(cid), quoteattr(json.dumps(links, separators=(',', ':'))), quoteattr(style),
+            x1, y1, x2, y2))
+
+        return cid
 
     def xml(self):
         doc = json.dumps(self.doc, separators=(',', ':'))
@@ -217,16 +242,28 @@ def display_page():
 
     x, y = pos(2, 1)
     p.tile(x, y, W, H, 'Object Size: Height, Width and Scale',
-           'Height anchored bottom, width left, scale around the centre')
-    p.add(x + 20, y + 30, 50, 100, BOX, '', {
+           'Bottom, left and centre anchors; the second of each: an offset')
+    p.add(x + 12, y + 28, 26, 100, BOX, '', {
         'sizeHeight': {'expr': 'Level', 'valueAtMin': 0, 'valueAtMax': 100, 'minPercent': 10,
                        'maxPercent': 100, 'anchor': 'bottom'}}, cid='itd-size-height')
-    p.add(x + 85, y + 65, 110, 30, BOX + 'fillColor=#A5D6A7;strokeColor=#2E7D32;', '', {
+    p.add(x + 44, y + 28, 26, 100, BOX + 'dashed=1;', '', {
+        'sizeHeight': {'expr': 'Level', 'valueAtMin': 0, 'valueAtMax': 100, 'minPercent': 10,
+                       'maxPercent': 100, 'anchor': 'offset', 'offsetY': -25}},
+          cid='itd-size-height-offset')
+    p.add(x + 84, y + 40, 100, 26, BOX + 'fillColor=#A5D6A7;strokeColor=#2E7D32;', '', {
         'sizeWidth': {'expr': 'Level', 'valueAtMin': 0, 'valueAtMax': 100, 'minPercent': 5,
                       'maxPercent': 100, 'anchor': 'left'}}, cid='itd-size-width')
-    p.add(x + 215, y + 50, 60, 60, 'ellipse;html=1;fillColor=#FFCC80;strokeColor=#EF6C00;strokeWidth=2;',
+    p.add(x + 84, y + 84, 100, 26, BOX + 'fillColor=#A5D6A7;strokeColor=#2E7D32;dashed=1;', '', {
+        'sizeWidth': {'expr': 'Level', 'valueAtMin': 0, 'valueAtMax': 100, 'minPercent': 5,
+                      'maxPercent': 100, 'anchor': 'offset', 'offsetX': 25}},
+          cid='itd-size-width-offset')
+    p.add(x + 200, y + 34, 60, 60, 'ellipse;html=1;fillColor=#FFCC80;strokeColor=#EF6C00;strokeWidth=2;',
           '', {'sizeScale': {'expr': 'Level', 'valueAtMin': 0, 'valueAtMax': 100, 'minPercent': 40,
                              'maxPercent': 130, 'anchor': 'center'}}, cid='itd-size-scale')
+    p.add(x + 215, y + 96, 32, 32, 'ellipse;html=1;fillColor=#FFCC80;strokeColor=#EF6C00;strokeWidth=2;'
+          'dashed=1;', '', {'sizeScale': {'expr': 'Level', 'valueAtMin': 0, 'valueAtMax': 100,
+                                          'minPercent': 40, 'maxPercent': 120, 'anchor': 'offset',
+                                          'offsetX': -8, 'offsetY': -8}}, cid='itd-size-scale-offset')
 
     x, y = pos(3, 1)
     p.tile(x, y, W, H, 'Percent Fill: Vertical and Horizontal',
@@ -459,11 +496,31 @@ def touch_page():
           cid='itd-dialog-entry')
 
     x, y = pos(2, 2)
-    p.tile(x, y, 2 * W + 12, H - 20, 'Key equivalents', '')
-    p.text(x + 12, y + 30, 2 * W - 12, 120,
-           'Ctrl+D: discrete input &nbsp; F2: speed keypad &nbsp; Ctrl+T: toggle pushbutton<br>'
-           'Shift+F3: counter script &nbsp; F4: show overlay window<br>'
-           'Tab moves the focus between touch objects, Enter activates the focused object.', 12)
+    p.tile(x, y, W, H - 20, 'Action Scripts: Right Button, Double-Click',
+           'Double-click / right press, hold, release, double')
+    p.add(x + 20, y + 35, 120, 44, BUTTON, 'Double-click', {
+        'pushAction': {'scripts': [
+            {'condition': 'onLeftDouble', 'script': 'Doubles = Doubles + 1;\nLastClick = "left double";'}]}},
+        cid='itd-action-double')
+    p.add(x + 160, y + 35, 120, 44, BUTTON + 'fillColor=#6D4C41;strokeColor=#3E2723;', 'Right button', {
+        'pushAction': {'scripts': [
+            {'condition': 'onRightDown', 'script': 'RightClicks = RightClicks + 1;\nLastClick = "right down";'},
+            {'condition': 'whileRightDown', 'period': 200, 'script': 'RightHeld = RightHeld + 1;'},
+            {'condition': 'onRightUp', 'script': 'LastClick = "right up";'},
+            {'condition': 'onRightDouble', 'script':
+             'RightDoubles = RightDoubles + 1;\nLastClick = "right double";'}]}},
+        cid='itd-action-right')
+    p.add(x + 20, y + 95, 260, 50, LABEL + 'fontSize=11;', 'D=# R=# H=# RD=#', {
+        'valueString': {'expr': '"D=" + Text(Doubles, "#") + "  R=" + Text(RightClicks, "#") + '
+                                '"  H=" + Text(RightHeld, "#") + "  RD=" + Text(RightDoubles, "#") + '
+                                '"  last: " + LastClick'}}, cid='itd-action-right-value')
+
+    x, y = pos(3, 2)
+    p.tile(x, y, W, H - 20, 'Key equivalents', '')
+    p.text(x + 12, y + 28, W - 24, 140,
+           'Ctrl+D: discrete input<br>F2: speed keypad<br>Ctrl+T: toggle pushbutton<br>'
+           'Shift+F3: counter script<br>F4: show overlay window<br>'
+           'Tab moves the focus between touch objects, Enter activates the focused object.', 11)
     return p
 
 
@@ -518,33 +575,61 @@ def meta2d_page():
 
     # Row 1: animation
     x, y = pos(0, 1)
-    p.tile(x, y, W, H, 'Animation: Spin and Glow', 'Fan spins at Rpm; glow while HighAlarm')
-    p.add(x + 40, y + 45, 90, 90, 'shape=mxgraph.hmi.fan;html=1;noLabel=1;fillColor=#90A4AE;', '', {
+    p.tile(x, y, W, H, 'Animation: Spin, Glow, Pulse, Shake', 'Fan spins at Rpm; glow, pulse, shake by tags')
+    p.add(x + 35, y + 30, 75, 75, 'shape=mxgraph.hmi.fan;html=1;noLabel=1;fillColor=#90A4AE;', '', {
         'animation': {'expr': 'Animate', 'preset': 'spin', 'rateExpr': 'Rpm'}},
         cid='itd-m2d-spin')
-    p.add(x + 170, y + 55, 90, 70, 'ellipse;html=1;fillColor=#FFFFFF;strokeColor=#E53935;'
+    p.add(x + 170, y + 35, 100, 60, 'ellipse;html=1;fillColor=#FFFFFF;strokeColor=#E53935;'
           'strokeWidth=2;fontStyle=1;', 'ALERT', {
               'animation': {'expr': 'HighAlarm', 'preset': 'glow', 'color': '#E53935'}},
           cid='itd-m2d-glow')
+    p.add(x + 25, y + 120, 100, 50, 'rounded=1;html=1;fillColor=#90CAF9;strokeColor=#1565C0;', 'Pulse', {
+        'animation': {'expr': 'Pump', 'preset': 'pulse', 'rateExpr': '90'}}, cid='itd-m2d-pulse')
+    p.add(x + 170, y + 120, 100, 50, 'rounded=1;html=1;fillColor=#FFCC80;strokeColor=#EF6C00;', 'Shake', {
+        'animation': {'expr': 'Temp > 80', 'preset': 'shake'}}, cid='itd-m2d-shake')
 
     x, y = pos(1, 1)
-    p.tile(x, y, W, H, 'Animation: Bounce and Sway', 'Preset animations while Animate')
-    p.add(x + 40, y + 60, 80, 60, 'rounded=1;html=1;fillColor=#A5D6A7;strokeColor=#2E7D32;', 'Bounce', {
-        'animation': {'expr': 'Animate', 'preset': 'bounce', 'rateExpr': '60'}},
-        cid='itd-m2d-bounce')
-    p.add(x + 170, y + 60, 80, 60, 'rounded=1;html=1;fillColor=#CE93D8;strokeColor=#6A1B9A;', 'Sway', {
-        'animation': {'expr': 'Animate', 'preset': 'sway'}}, cid='itd-m2d-sway')
+    p.tile(x, y, W, H, 'Animation: more presets', 'Bounce, sway, fade, blink, colour cycle, custom')
+    presets = [('Bounce', 'bounce', {'rateExpr': '60'}, '#A5D6A7', '#2E7D32'),
+               ('Sway', 'sway', {}, '#CE93D8', '#6A1B9A'),
+               ('Fade', 'fadeInOut', {}, '#90CAF9', '#1565C0'),
+               ('Blink', 'blink', {'rateExpr': '40'}, '#EF9A9A', '#C62828'),
+               ('Colours', 'colorCycle', {}, '#FFFFFF', '#455A64'),
+               ('Custom', 'custom', {'name': 'wiggle'}, '#FFF59D', '#F9A825')]
+
+    for i, (label, preset, more, fill, stroke) in enumerate(presets):
+        link = {'expr': 'Animate', 'preset': preset}
+        link.update(more)
+        extra = None
+
+        if preset == 'custom':
+            extra = {'hmiAnimations': json.dumps([{'name': 'wiggle', 'frames': [
+                {'duration': 300, 'props': {'rotation': 12}},
+                {'duration': 300, 'props': {'rotation': -12}},
+                {'duration': 300, 'props': {'rotation': 0}}]}], separators=(',', ':'))}
+
+        p.add(x + 15 + (i % 3) * 95, y + 40 + (i // 3) * 75, 80, 50,
+              'rounded=1;html=1;fillColor=%s;strokeColor=%s;' % (fill, stroke), label,
+              {'animation': link}, cid='itd-m2d-' + ('fade' if preset == 'fadeInOut' else
+                                                     'colorcycle' if preset == 'colorCycle' else
+                                                     preset), extra=extra)
 
     x, y = pos(2, 1)
-    p.tile(x, y, W, H, 'Flow', 'Pipe flow while FlowOn, speed and direction by expression')
-    p.cells.append(('<object id="itd-m2d-flow" label="" hmiLinks=%s><mxCell style="endArrow=none;'
-                    'html=1;strokeWidth=8;strokeColor=#90CAF9;flowAnimationDuration=600;" edge="1" '
-                    'parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="%d" y="%d" '
-                    'as="sourcePoint"/><mxPoint x="%d" y="%d" as="targetPoint"/></mxGeometry>'
-                    '</mxCell></object>') % (quoteattr(json.dumps({'flow': {
-                        'expr': 'FlowOn', 'type': 'dash', 'speedExpr': '0.5 + Level / 50',
-                        'reverseExpr': 'Level > 80', 'color': '#0D47A1', 'width': 4}},
-                        separators=(',', ':'))), x + 20, y + 110, x + 280, y + 110))
+    p.tile(x, y, W, H, 'Flow', 'While FlowOn; dash speed and direction by expression')
+    flows = [('dash', 'itd-m2d-flow', {'speedExpr': '0.5 + Level / 50', 'reverseExpr': 'Level > 80',
+                                       'color': '#0D47A1', 'width': 4}),
+             ('dots', 'itd-m2d-flow-dots', {'color': '#1B5E20', 'width': 4}),
+             ('beads', 'itd-m2d-flow-beads', {'color': '#E65100', 'width': 6}),
+             ('arrows', 'itd-m2d-flow-arrows', {'color': '#4A148C', 'width': 3}),
+             ('liquid', 'itd-m2d-flow-liquid', {'color': '#0277BD', 'width': 6})]
+
+    for i, (ftype, cid, more) in enumerate(flows):
+        fy = y + 40 + i * 30
+        link = {'expr': 'FlowOn', 'type': ftype}
+        link.update(more)
+        p.text(x + 12, fy - 9, 60, 18, ftype, 10, True, '#37474F')
+        p.edge(x + 75, fy, x + 285, fy, 'endArrow=none;html=1;strokeWidth=8;strokeColor=#90CAF9;'
+               'flowAnimationDuration=600;', {'flow': link}, cid)
 
     x, y = pos(3, 1)
     p.tile(x, y, W, H, 'Object Scripts', 'Data change counts Status changes; condition on Temp')
@@ -727,6 +812,278 @@ def flowcharting_page():
     return p
 
 
+def tone_wav(seconds=0.6, rate=8000, freq=440):
+    """A short 8-bit mono tone with a fade in and out, as a data URI."""
+    n = int(seconds * rate)
+    data = bytearray()
+
+    for i in range(n):
+        env = min(1.0, i / (0.1 * rate), (n - i) / (0.1 * rate))
+        data.append(int(128 + 60 * env * math.sin(2 * math.pi * freq * i / rate)))
+
+    header = (b'RIFF' + struct.pack('<I', 36 + n) + b'WAVEfmt ' +
+              struct.pack('<IHHIIHH', 16, 1, 1, rate, rate, 1, 8) + b'data' + struct.pack('<I', n))
+
+    return 'data:audio/wav;base64,' + base64.b64encode(header + bytes(data)).decode('ascii')
+
+
+def object_features_page():
+    def cells(*ids):
+        return {'cells': list(ids)}
+
+    def props(target, label=None, **style):
+        action = {'type': 'setProps', 'target': target}
+
+        if label is not None:
+            action['label'] = label
+
+        if style:
+            action['style'] = style
+
+        return action
+
+    lamps = ['itd-of-psm-low', 'itd-of-psm-normal', 'itd-of-psm-high']
+    grey = props(cells(*lamps), fillColor='#CFD8DC')
+
+    def band(name, lamp, color, conditions):
+        return {'name': name, 'conditions': conditions, 'actions': [
+            grey, props(cells(lamp), fillColor=color),
+            props(cells('itd-of-psm-band'), 'Level band: ' + name.upper(), fillColor=color)]}
+
+    page_trigger = {
+        'name': 'TempHigh', 'conditions': [{'tag': 'Temp', 'operator': '>', 'value': 80}],
+        'conditionType': 'and', 'deadband': 2, 'onDelay': 500, 'offDelay': 500,
+        'actions': [props(cells('itd-of-ptrig-banner'), 'Temp high: check cooling', fillColor='#E53935',
+                          fontColor='#FFFFFF')],
+        'elseActions': [props(cells('itd-of-ptrig-banner'), 'Temp normal', fillColor='#C8E6C9',
+                              fontColor='#1B5E20')]}
+    page_state_machine = {'name': 'LevelBand', 'states': [
+        band('high', 'itd-of-psm-high', '#EF5350', [{'tag': 'Level', 'operator': '>=', 'value': 70}]),
+        band('low', 'itd-of-psm-low', '#42A5F5', [{'tag': 'Level', 'operator': '<', 'value': 30}]),
+        band('normal', 'itd-of-psm-normal', '#66BB6A', [])]}
+
+    p = Page('itd-of', 'Object Features', {'version': 1, 'sources': [], 'tags': [],
+                                            'triggers': [page_trigger, page_state_machine]})
+    p.text(20, 8, 900, 30, 'Object features', 20, True, '#263238')
+    p.text(20, 36, 1240, 18, 'Bindings, keyframes, event handlers, security, hover halo, object triggers '
+           'and state machines, and media are links of the Animation Links dialog (INTOUCH_LINKS.md '
+           'section 12.1). Page triggers are in Screen Settings, Page Triggers.', 11)
+
+    W, H, X0, Y0, DX, DY = 244, 310, 20, 64, 252, 322
+
+    def pos(c, r):
+        return X0 + c * DX, Y0 + r * DY
+
+    def js(value):
+        return json.dumps(value, separators=(',', ':'))
+
+    # Bindings: tag or expression to any property, with transforms and formats
+    x, y = pos(0, 0)
+    p.tile(x, y, W, H, 'Bindings', 'Label, colour map, level, tooltip, rotation')
+    p.add(x + 20, y + 36, 204, 44, LABEL + 'fontStyle=1;', 'Level', extra={'hmiBindings': js([
+        {'tag': 'Level', 'target': 'label', 'format': {'decimals': 1}},
+        {'tag': 'Level', 'target': 'style:fillColor', 'transform': {'kind': 'map', 'entries': [
+            {'operator': '>=', 'value': 80, 'output': '#EF9A9A'},
+            {'operator': '>=', 'value': 50, 'output': '#FFE082'}], 'default': '#A5D6A7'}}])},
+        cid='itd-of-bind-label')
+    p.add(x + 30, y + 100, 70, 150, 'shape=cylinder3;html=1;boundedLbl=1;size=8;fillColor=#ECEFF1;'
+          'strokeColor=#1565C0;hmiLevelColor=#42A5F5;', '', extra={'hmiBindings': js([
+              {'tag': 'Level', 'target': 'style:hmiLevel'},
+              {'expr': '"Level " + str(round(tag("Level"))) + " %"', 'target': 'tooltip'}])},
+          cid='itd-of-bind-tank')
+    p.add(x + 130, y + 110, 90, 90, 'ellipse;html=1;fillColor=#FFFFFF;strokeColor=#B0BEC5;')
+    p.add(x + 168, y + 115, 14, 45, 'triangle;direction=north;html=1;fillColor=#EF5350;strokeColor=#B71C1C;',
+          '', extra={'hmiBindings': js([
+              {'tag': 'Angle', 'target': 'style:rotation', 'transform': {
+                  'kind': 'scale', 'inMin': 0, 'inMax': 100, 'outMin': 0, 'outMax': 360, 'clamp': True}}])},
+          cid='itd-of-bind-rotate')
+    p.text(x + 120, y + 210, 110, 60, 'The needle: Angle scaled to 0..360 deg. Rest on the tank '
+           'for its tooltip.', 9)
+
+    # Keyframes: named animations with frames, presets and chaining
+    x, y = pos(1, 0)
+    p.tile(x, y, W, H, 'Keyframes', 'Frames with autoplay, a colour cycle, a chain')
+    p.add(x + 20, y + 40, 50, 40, BOX, '', extra={'hmiAnimations': js([
+        {'name': 'patrol', 'autoPlay': True, 'cycles': 0, 'easing': 'ease-in-out', 'frames': [
+            {'duration': 1200, 'props': {'dx': 150, 'fillColor': '#FFCC80'}},
+            {'duration': 1200, 'props': {'dx': 0, 'fillColor': '#90CAF9'}}]}])}, cid='itd-of-key-patrol')
+    p.add(x + 20, y + 100, 204, 44, LABEL + 'fontStyle=1;', 'Colour cycle', extra={'hmiAnimations': js([
+        {'name': 'cycle', 'preset': 'colorCycle', 'autoPlay': True,
+         'params': {'colors': ['#EF9A9A', '#FFE082', '#A5D6A7', '#90CAF9']}}])}, cid='itd-of-key-cycle')
+    p.add(x + 30, y + 170, 60, 60, 'rounded=1;html=1;fillColor=#CE93D8;strokeColor=#6A1B9A;', '',
+          extra={'hmiAnimations': js([
+              {'name': 'grow', 'cycles': 1, 'keepState': True, 'next': {'target': 'self', 'name': 'shrink'},
+               'frames': [{'duration': 600, 'props': {'scale': 1.4, 'rotation': 90}}]},
+              {'name': 'shrink', 'cycles': 1, 'frames': [{'duration': 600, 'props': {'scale': 1,
+                                                                                    'rotation': 0}}]}])},
+          cid='itd-of-key-chain')
+    p.add(x + 120, y + 180, 104, 40, BUTTON, 'Play chain', extra={'hmiEvents': js([
+        {'on': 'click', 'actions': [{'type': 'startAnimation', 'target': cells('itd-of-key-chain'),
+                                     'name': 'grow'}]}])}, cid='itd-of-key-play')
+
+    # Event handlers: mouse events, messages, confirmation and delays
+    x, y = pos(2, 0)
+    p.tile(x, y, W, H, 'Event Handlers', 'Click, double-click, hover, message, confirm')
+    p.add(x + 20, y + 36, 98, 44, BUTTON, 'Click +1', extra={'hmiEvents': js([
+        {'on': 'click', 'actions': [{'type': 'writeTag', 'tag': 'EvClicks', 'expr': 'tag("EvClicks") + 1'}]},
+        {'on': 'dblclick', 'actions': [{'type': 'notify', 'text': 'Double-click', 'level': 'info'}]}])},
+        cid='itd-of-ev-click')
+    p.add(x + 126, y + 36, 98, 44, BUTTON + 'fillColor=#C62828;strokeColor=#8E0000;', 'Reset',
+          extra={'hmiEvents': js([
+              {'on': 'click', 'confirm': {'title': 'Reset', 'text': 'Reset the click counter?'},
+               'actions': [{'type': 'writeTag', 'tag': 'EvClicks', 'value': 0}]}])}, cid='itd-of-ev-reset')
+    p.add(x + 20, y + 92, 204, 36, LABEL, 'Clicks: #', {
+        'valueString': {'expr': '"Clicks: " + Text(EvClicks, "#")'}}, cid='itd-of-ev-count')
+    p.add(x + 20, y + 140, 204, 40, LABEL, 'Outside', extra={'hmiEvents': js([
+        {'on': 'enter', 'actions': [props('self', 'Inside', fillColor='#FFF59D')]},
+        {'on': 'leave', 'actions': [props('self', 'Outside', fillColor='#FFFFFF')]}])},
+        cid='itd-of-ev-hover')
+    p.add(x + 20, y + 194, 98, 44, BUTTON + 'fillColor=#00897B;strokeColor=#004D40;', 'Send ping',
+          extra={'hmiEvents': js([
+              {'on': 'click', 'actions': [{'type': 'emit', 'name': 'ping', 'payload': 'hello'}]}])},
+          cid='itd-of-ev-emit')
+    p.add(x + 126, y + 194, 98, 44, LABEL + 'fontSize=11;', 'Waiting', extra={'hmiEvents': js([
+        {'on': 'message', 'message': 'ping', 'actions': [
+            props('self', 'Ping received', fillColor='#B2DFDB'),
+            dict(props('self', 'Waiting', fillColor='#FFFFFF'), delay=1500)]}])}, cid='itd-of-ev-message')
+    p.text(x + 12, y + 246, W - 24, 40, 'Double-click Click +1 for a message. The ping label resets '
+           'after 1.5 s.', 9)
+
+    # Security: roles hide or disable the object
+    x, y = pos(3, 0)
+    p.tile(x, y, W, H, 'Security', 'Roles hide or disable an object')
+    p.add(x + 20, y + 40, 204, 44, BUTTON, 'Engineers only (hide)', {
+        'pushValue': {'tag': 'Presses', 'action': 'add', 'value': 1}},
+        cid='itd-of-sec-hide', extra={'hmiRoles': 'engineer', 'hmiRolesMode': 'hide'})
+    p.add(x + 20, y + 100, 204, 44, BUTTON + 'fillColor=#6D4C41;strokeColor=#3E2723;',
+          'Operators (disable)', {'pushValue': {'tag': 'Presses', 'action': 'add', 'value': 1}},
+          cid='itd-of-sec-disable', extra={'hmiRoles': 'operator', 'hmiRolesMode': 'disable'})
+    p.add(x + 20, y + 160, 204, 44, BUTTON + 'fillColor=#757575;strokeColor=#424242;', 'Everyone', {
+        'pushValue': {'tag': 'Presses', 'action': 'add', 'value': 1}}, cid='itd-of-sec-open')
+    p.text(x + 12, y + 214, W - 24, 70, 'Without roles the first button is hidden and the second '
+           'disabled. Add &amp;hmi-role=engineer,operator to the Run Screen URL to use both. A list '
+           'of roles needs all of them.', 9)
+
+    # Hover halo per object
+    x, y = pos(4, 0)
+    p.tile(x, y, W, H, 'Hover Halo', 'Point at each button; press for the stronger look')
+    halos = [('Page default', '', 'itd-of-halo-default'),
+             ('Glow (green)', 'hmiHaloStyle=glow;hmiHaloColor=#43A047;', 'itd-of-halo-glow'),
+             ('Outline', 'hmiHaloStyle=outline;hmiHaloOutline=rect;hmiHaloColor=#1E88E5;',
+              'itd-of-halo-outline'),
+             ('Glow and outline', 'hmiHaloStyle=glowOutline;hmiHaloColor=#E53935;',
+              'itd-of-halo-both'),
+             ('Off', 'hmiHalo=0;', 'itd-of-halo-off')]
+
+    for i, (label, style, cid) in enumerate(halos):
+        p.add(x + 20, y + 36 + i * 46, 140, 36, BUTTON + style, label, {
+            'pushValue': {'tag': 'Presses', 'action': 'add', 'value': 1}}, cid=cid)
+
+    p.add(x + 172, y + 36, 56, 56, 'ellipse;html=1;fillColor=#FFCA28;strokeColor=#FF8F00;strokeWidth=2;'
+          'hmiHaloStyle=outline;hmiHaloOutline=shape;', '', {
+              'pushValue': {'tag': 'Presses', 'action': 'add', 'value': 1}}, cid='itd-of-halo-shape')
+    p.text(x + 166, y + 96, 70, 40, 'Outline follows the shape', 9, align='center')
+    p.add(x + 172, y + 150, 56, 36, LABEL + 'fontSize=11;', '#', {
+        'valueAnalog': {'expr': 'Presses', 'format': {'mode': 'text'}}}, cid='itd-of-halo-count')
+
+    # Object triggers: conditions with and/or, actions and else actions
+    x, y = pos(0, 1)
+    p.tile(x, y, W, H, 'Object Triggers', 'Pressure outside 30..70 (or); HighAlarm')
+    p.add(x + 20, y + 40, 204, 60, LABEL + 'fontStyle=1;strokeWidth=3;', 'Pressure ##.#', {
+        'valueAnalog': {'expr': 'Pressure', 'format': {'mode': 'text'}}}, cid='itd-of-trig-pressure',
+        extra={'hmiAnimations': js([{'name': 'alert', 'preset': 'blink'}]), 'hmiTriggers': js([
+            {'name': 'OutOfRange', 'conditionType': 'or', 'deadband': 2, 'onDelay': 300, 'conditions': [
+                {'tag': 'Pressure', 'operator': '>', 'value': 70},
+                {'tag': 'Pressure', 'operator': '<', 'value': 30}],
+             'actions': [props('self', strokeColor='#E53935', fillColor='#FFEBEE'),
+                         {'type': 'startAnimation', 'target': 'self', 'name': 'alert'}],
+             'elseActions': [props('self', strokeColor='#90A4AE', fillColor='#FFFFFF'),
+                             {'type': 'stopAnimation', 'target': 'self', 'name': 'alert'}]}])})
+    p.add(x + 20, y + 120, 204, 60, 'rounded=1;html=1;fillColor=#E0E0E0;strokeColor=#616161;fontStyle=1;',
+          'HighAlarm', cid='itd-of-trig-alarm', extra={'hmiTriggers': js([
+              {'name': 'Alarm', 'conditions': [{'tag': 'HighAlarm', 'operator': '==', 'value': True}],
+               'actions': [props('self', 'ALARM', fillColor='#E53935', fontColor='#FFFFFF')],
+               'elseActions': [props('self', 'normal', fillColor='#E0E0E0', fontColor='#212121')]}])})
+    p.text(x + 12, y + 196, W - 24, 80, 'Actions run when the conditions become true, else actions when '
+           'they become false. Pressure: deadband 2, on delay 300 ms, blinks while out of range.', 9)
+
+    # Object state machines: ordered states, actions on entry
+    x, y = pos(1, 1)
+    p.tile(x, y, W, H, 'Object State Machines', 'Status 0..3; Temp ranges')
+    p.add(x + 20, y + 40, 204, 60, 'rounded=1;html=1;fillColor=#9E9E9E;strokeColor=#424242;fontStyle=1;'
+          'fontColor=#FFFFFF;fontSize=14;', 'Status', cid='itd-of-sm-status', extra={'hmiTriggers': js([
+              {'name': 'StatusState', 'states': [
+                  {'name': 'fault', 'conditions': [{'tag': 'Status', 'operator': '>=', 'value': 3}],
+                   'actions': [props('self', 'FAULT', fillColor='#E53935')]},
+                  {'name': 'warning', 'conditions': [{'tag': 'Status', 'operator': '==', 'value': 2}],
+                   'actions': [props('self', 'WARNING', fillColor='#FB8C00')]},
+                  {'name': 'running', 'conditions': [{'tag': 'Status', 'operator': '==', 'value': 1}],
+                   'actions': [props('self', 'RUNNING', fillColor='#43A047')]},
+                  {'name': 'stopped', 'conditions': [],
+                   'actions': [props('self', 'STOPPED', fillColor='#9E9E9E')]}]}])})
+    p.add(x + 20, y + 120, 204, 60, 'rounded=1;html=1;fillColor=#9E9E9E;strokeColor=#424242;fontStyle=1;'
+          'fontColor=#FFFFFF;fontSize=14;', 'Temp', cid='itd-of-sm-temp', extra={'hmiTriggers': js([
+              {'name': 'TempRange', 'states': [
+                  {'name': 'cold', 'conditions': [{'tag': 'Temp', 'operator': '<', 'value': 25}],
+                   'actions': [props('self', 'Temp: cold', fillColor='#1E88E5')]},
+                  {'name': 'normal', 'conditions': [{'tag': 'Temp', 'operator': 'range', 'value': [25, 80]}],
+                   'actions': [props('self', 'Temp: normal', fillColor='#43A047')]},
+                  {'name': 'hot', 'conditions': [{'operator': 'true', 'tag': 'Temp'}],
+                   'actions': [props('self', 'Temp: hot', fillColor='#E53935')]}]}])})
+    p.text(x + 12, y + 196, W - 24, 80, 'The first matching state is entered and its actions run once '
+           'on entry. The last state has no conditions (or the always true operator).', 9)
+
+    # Media: an audio element plays while MediaOn
+    x, y = pos(2, 1)
+    p.tile(x, y, W, H, 'Media', 'Plays while MediaOn; muted, unmute in the player')
+    p.add(x + 12, y + 40, 220, 50, 'text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;'
+          'overflow=fill;',
+          '<audio controls loop muted style="width:210px;height:40px" src="%s"></audio>' % tone_wav(),
+          {'media': {'expr': 'MediaOn', 'mode': 'play'}}, cid='itd-of-media-audio')
+    p.add(x + 20, y + 110, 98, 44, BUTTON, 'Play / Pause', {
+        'pushDiscrete': {'tag': 'MediaOn', 'action': 'toggle'},
+        'fillColor': {'kind': 'discrete', 'expr': 'MediaOn', 'offColor': '#1E88E5', 'onColor': '#43A047'}},
+        cid='itd-of-media-toggle')
+    p.add(x + 126, y + 110, 98, 44, BUTTON + 'fillColor=#757575;strokeColor=#424242;', 'Stop', {
+        'pushDiscrete': {'tag': 'MediaOn', 'action': 'reset'},
+        'control': {'commands': [{'object': 'itd-of-media-audio', 'command': 'stopMedia'}]}},
+        cid='itd-of-media-stop')
+    p.add(x + 20, y + 170, 204, 36, LABEL, 'MediaOn', {
+        'valueDiscrete': {'expr': 'MediaOn', 'onMessage': 'PLAYING', 'offMessage': 'PAUSED'}},
+        cid='itd-of-media-state')
+    p.text(x + 12, y + 214, W - 24, 70, 'Media link: play while true (mode play) or pause while true '
+           '(mode pause). Stop also rewinds with an Animation/Media Control link.', 9)
+
+    # Page trigger (document config of this page)
+    x, y = pos(3, 1)
+    p.tile(x, y, W, H, 'Page Trigger', 'Temp > 80, deadband 2, delays 500 ms')
+    p.add(x + 20, y + 40, 204, 60, 'rounded=1;html=1;fillColor=#C8E6C9;strokeColor=#455A64;fontStyle=1;'
+          'fontColor=#1B5E20;', 'Temp normal', cid='itd-of-ptrig-banner')
+    p.add(x + 20, y + 120, 204, 44, LABEL, 'Temp ###.# C', {
+        'valueAnalog': {'expr': 'Temp', 'format': {'mode': 'text'}}}, cid='itd-of-ptrig-temp')
+    p.text(x + 12, y + 180, W - 24, 100, 'The trigger belongs to the page, not to an object: it '
+           'changes the banner when Temp passes 80 and back below 78. Edit it in Screen Settings, '
+           'Page Triggers.', 9)
+
+    # Page state machine
+    x, y = pos(4, 1)
+    p.tile(x, y, W, H, 'Page State Machine', 'Level low < 30, high >= 70, else normal')
+    p.add(x + 20, y + 40, 204, 50, 'rounded=1;html=1;fillColor=#CFD8DC;strokeColor=#455A64;fontStyle=1;',
+          'Level band', cid='itd-of-psm-band')
+
+    for i, (name, cid) in enumerate(zip(['Low', 'Normal', 'High'], lamps)):
+        lx = x + 26 + i * 70
+        p.add(lx, y + 110, 50, 50, 'ellipse;html=1;fillColor=#CFD8DC;strokeColor=#455A64;strokeWidth=2;',
+              '', cid=cid)
+        p.text(lx - 10, y + 164, 70, 18, name, 10, True, '#37474F', 'center')
+
+    p.add(x + 20, y + 196, 204, 36, LABEL, 'Level ##.#', {
+        'valueAnalog': {'expr': 'Level', 'format': {'mode': 'text'}}}, cid='itd-of-psm-level')
+    p.text(x + 12, y + 240, W - 24, 50, 'Each state lights its lamp on entry. Edit it in Screen '
+           'Settings, Page Triggers.', 9)
+    return p
+
+
 def window_page(pid, name, wtype, x, y):
     doc = {'version': 1, 'sources': [], 'tags': [], 'triggers': [],
            'window': {'type': wtype, 'x': x, 'y': y, 'width': 360, 'height': 260,
@@ -752,7 +1109,7 @@ def window_page(pid, name, wtype, x, y):
 
 
 def main():
-    pages = [display_page(), touch_page(), meta2d_page(), flowcharting_page(),
+    pages = [display_page(), touch_page(), meta2d_page(), flowcharting_page(), object_features_page(),
              window_page('itd-overlay', 'Overlay Window', 'overlay', 860, 120),
              window_page('itd-popup', 'Popup Window', 'popup', None, None)]
     xml = ('<mxfile host="app.diagrams.net" agent="hmi-template-generator" version="24.0.0" '

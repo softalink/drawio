@@ -1829,7 +1829,8 @@
 	};
 
 	/**
-	 * Returns true if the cell or an ancestor is disabled by a disable link.
+	 * Returns true if the cell or an ancestor is disabled by a disable link,
+	 * Touch Options roles or the roles of the Security link.
 	 */
 	LinkEngine.prototype.isDisabled = function(cell)
 	{
@@ -1839,7 +1840,7 @@
 		{
 			var rec = this.cells[cell.id];
 
-			if (rec != null && (rec.disabled || rec.roleBlocked))
+			if (rec != null && (rec.disabled || rec.roleBlocked || (rec.cfg != null && rec.cfg.disabled)))
 			{
 				return true;
 			}

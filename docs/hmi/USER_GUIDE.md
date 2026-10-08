@@ -691,11 +691,13 @@ The same dialog also edits the generic HMI features of the object. They are stor
 - **Display, States and Properties, Bindings**: tag or expression to any property, with transform and format.
 - **Animation, Keyframe Animations**: named animations (preset or your own frames, autoplay, cycles, then start).
 - **Touch, Actions, Event Handlers**: actions on click, double-click, enter, leave, long press, message, page open and more, with conditions, confirmation and delay.
-- **Touch, Actions, Security**: roles, and whether users without the role do not see (hide) or cannot use (disable) the object.
+- **Touch, Actions, Security**: roles, and whether users without them do not see (hide) or cannot use (disable) the object. A user needs all the roles of the list. Disabled objects ignore their touch links and event handlers.
 - **Touch, Actions, Hover Halo**: halo style, outline shape and colour of this object.
 - **Scripts, Triggers**: object triggers (conditions with AND/OR, actions, else actions, deadband, on and off delay) and object state machines (ordered states with conditions and actions).
 
 List links show one line per item. Click a line to edit the item, use the arrows to reorder. All changes are written with OK as one undoable edit.
+
+The page **Object Features** of the template **InTouch Animation Links** has a tile for each of them, a page trigger and a page state machine. Run it with `&hmi-role=engineer,operator` added to the Run Screen URL to see the Security tile with roles.
 
 ### Smooth changes, blended colours, alarm markers, trends and data age
 
