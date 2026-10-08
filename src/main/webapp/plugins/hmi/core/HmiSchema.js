@@ -288,7 +288,8 @@
 	var LINK_TOUCH = ['inputDiscrete', 'inputAnalog', 'inputString', 'sliderH', 'sliderV',
 		'pushDiscrete', 'pushAction', 'showWindow', 'hideWindow'];
 	var LINK_EXT = ['opacity', 'states', 'properties', 'widgetData', 'animation', 'flow', 'media',
-		'inputChoice', 'pushValue', 'openUrl', 'sendMessage', 'control', 'touchOptions', 'dataChange', 'condition'];
+		'inputChoice', 'pushValue', 'openUrl', 'sendMessage', 'control', 'touchOptions', 'dataChange', 'condition',
+		'smooth', 'alarmMarker'];
 	var COLOR_LINKS = { lineColor: true, fillColor: true, textColor: true };
 	var LINK_CONDITIONS = ['onLeftDown', 'whileLeftDown', 'onLeftUp', 'onLeftDouble', 'onRightDown',
 		'whileRightDown', 'onRightUp', 'onRightDouble', 'onMouseOver', 'whileMouseOver', 'onMouseLeave'];
@@ -311,7 +312,8 @@
 		openUrl: { width: 640, height: 480 },
 		touchOptions: { delay: 0 },
 		dataChange: { deadband: 0 },
-		condition: { period: 1000 }
+		condition: { period: 1000 },
+		smooth: { duration: 500 }
 	};
 
 	/**
@@ -335,7 +337,8 @@
 		media: { mode: ['play', 'pause'] },
 		pushValue: { action: ['set', 'add', 'subtract', 'expression'] },
 		openUrl: { target: ['blank', 'self', 'dialog'] },
-		sendMessage: { to: ['page', 'host', 'both'] }
+		sendMessage: { to: ['page', 'host', 'both'] },
+		alarmMarker: { show: ['show', 'hide'] }
 	};
 	var CONTROL_COMMANDS = ['startAnimation', 'pauseAnimation', 'stopAnimation', 'playMedia', 'pauseMedia', 'stopMedia'];
 
@@ -400,6 +403,7 @@
 
 			case 'tooltip':
 				if (link.mode === 'static' && link.text == null) link.text = '';
+				if (link.trend === true && link.trendSeconds == null) link.trendSeconds = 60;
 				break;
 
 			case 'inputDiscrete':
@@ -1084,10 +1088,27 @@
 		checkBooleans(f, ['fixedWidth'], path, errors);
 	};
 
+	/**
+	 * Data-age fields of colour and Multi-State links (staleSeconds,
+	 * staleColor).
+	 */
+	function validateStale(link, path, errors)
+	{
+		if (link.staleSeconds != null && !(isFiniteNumber(link.staleSeconds) && link.staleSeconds >= 0))
+		{
+			errors.push(path + '.staleSeconds: must be a number >= 0');
+		}
+
+		checkStrings(link, ['staleColor'], path, errors);
+	};
+
 	function validateColorLink(type, link, path, errors)
 	{
 		var kinds = ['discrete', 'analog', 'discreteAlarm', 'analogAlarm'];
 		var i;
+
+		validateStale(link, path, errors);
+		checkBooleans(link, ['blend'], path, errors);
 
 		if (kinds.indexOf(link.kind) < 0)
 		{
@@ -1253,6 +1274,15 @@
 				break;
 
 			case 'tooltip':
+				checkBooleans(link, ['trend'], path, errors);
+				checkStrings(link, ['trendTag'], path, errors);
+
+				if (link.trendSeconds != null && !(isFiniteNumber(link.trendSeconds) &&
+					link.trendSeconds >= 5 && link.trendSeconds <= 3600))
+				{
+					errors.push(path + '.trendSeconds: must be a number 5..3600');
+				}
+
 				if (link.mode === 'expression')
 				{
 					checkRequiredString(link, 'expr', path, errors);
@@ -1390,8 +1420,21 @@
 				checkRequiredString(link, 'expr', path, errors);
 				break;
 
+			case 'smooth':
+				if (!(isFiniteNumber(link.duration) && link.duration >= 0 && link.duration <= 10000))
+				{
+					errors.push(path + '.duration: must be a number 0..10000 (ms)');
+				}
+
+				break;
+
+			case 'alarmMarker':
+				checkStrings(link, ['tag'], path, errors);
+				break;
+
 			case 'states':
 				checkRequiredString(link, 'expr', path, errors);
+				validateStale(link, path, errors);
 
 				if (link.states != null && !isArray(link.states))
 				{

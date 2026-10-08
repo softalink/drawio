@@ -235,7 +235,7 @@
 		return (c == null) ? null : c;
 	};
 
-	function color(link, v, alarm)
+	function color(link, v, alarm, ageMs)
 	{
 		if (link == null)
 		{
@@ -244,6 +244,11 @@
 
 		var kind = link.kind;
 		var c;
+
+		if (isStale(link, ageMs) && link.staleColor != null && link.staleColor !== '')
+		{
+			return link.staleColor;
+		}
 
 		if (kind === 'discrete')
 		{
@@ -277,6 +282,20 @@
 				if (num(sorted[i].value, 0) <= n)
 				{
 					c = sorted[i].color;
+
+					// Blend: mixes towards the next breakpoint's colour
+					if (link.blend === true && i + 1 < sorted.length &&
+						num(sorted[i + 1].value, 0) > n)
+					{
+						var v0 = num(sorted[i].value, 0);
+						var v1 = num(sorted[i + 1].value, 0);
+						var mixed = mixColor(c, sorted[i + 1].color, (n - v0) / (v1 - v0));
+
+						if (mixed != null)
+						{
+							c = mixed;
+						}
+					}
 				}
 				else
 				{
@@ -528,11 +547,27 @@
 	 * True when v matches the State match: a value, a range a..b (a <= v < b,
 	 * either end optional), a comma list of these, or * (default).
 	 */
-	function matchState(match, v)
+	function matchState(match, v, stale)
 	{
 		if (match == null)
 		{
 			return false;
+		}
+
+		var trimmed = String(match).replace(/^\s+|\s+$/g, '');
+
+		// Data age: the reserved match 'stale' holds only for old data
+		if (trimmed.toLowerCase() === 'stale')
+		{
+			return stale === true;
+		}
+
+		// Regular expression /pattern/flags on the text of the value
+		var re = regexOf(trimmed);
+
+		if (re !== undefined)
+		{
+			return re != null && v != null && re.test(String(v));
 		}
 
 		var parts = String(match).split(',');
@@ -551,24 +586,185 @@
 	/**
 	 * First State of link.states that matches v, or null.
 	 */
-	function state(link, v)
+	function state(link, v, ageMs)
 	{
 		if (link == null || !(link.states instanceof Array))
 		{
 			return null;
 		}
 
+		var stale = isStale(link, ageMs);
+
+		// A 'stale' state wins over the value states while the data is old
+		for (var i = 0; stale && i < link.states.length; i++)
+		{
+			var st = link.states[i];
+
+			if (st != null && st.match != null &&
+				String(st.match).replace(/^\s+|\s+$/g, '').toLowerCase() === 'stale')
+			{
+				return st;
+			}
+		}
+
 		for (var i = 0; i < link.states.length; i++)
 		{
 			var st = link.states[i];
 
-			if (st != null && matchState(st.match, v))
+			if (st != null && matchState(st.match, v, stale))
 			{
 				return st;
 			}
 		}
 
 		return null;
+	};
+
+	/**
+	 * RegExp of a /pattern/flags match, null for an invalid pattern and
+	 * undefined when the text is not a regular expression.
+	 */
+	function regexOf(text)
+	{
+		var m = /^\/(.+)\/([gimsuy]*)$/.exec(text);
+
+		if (m == null)
+		{
+			return undefined;
+		}
+
+		try
+		{
+			return new RegExp(m[1], m[2].replace(/g/g, ''));
+		}
+		catch (e)
+		{
+			return null;
+		}
+	};
+
+	/**
+	 * True when link.staleSeconds > 0 and the data is older than that.
+	 */
+	function isStale(link, ageMs)
+	{
+		var sec = (link != null) ? toNum(link.staleSeconds) : NaN;
+
+		return !isNaN(sec) && sec > 0 && ageMs != null && ageMs > sec * 1000;
+	};
+
+	// ---------------------------------------------------------------
+	// Colours and smooth transitions
+	// ---------------------------------------------------------------
+
+	var NAMED_COLORS = {black: '#000000', white: '#ffffff', red: '#ff0000', green: '#008000',
+		blue: '#0000ff', yellow: '#ffff00', orange: '#ffa500', gray: '#808080', grey: '#808080',
+		lime: '#00ff00', cyan: '#00ffff', magenta: '#ff00ff', purple: '#800080',
+		transparent: 'rgba(0,0,0,0)'};
+
+	/**
+	 * Parses #rgb, #rrggbb, #rrggbbaa, rgb() and rgba() and a few colour
+	 * names into [r, g, b, a], or null.
+	 */
+	function parseColor(c)
+	{
+		if (c == null || typeof c !== 'string')
+		{
+			return null;
+		}
+
+		var s = c.replace(/^\s+|\s+$/g, '').toLowerCase();
+
+		if (Object.prototype.hasOwnProperty.call(NAMED_COLORS, s))
+		{
+			s = NAMED_COLORS[s];
+		}
+
+		var m = /^#([0-9a-f]{3})$/.exec(s);
+
+		if (m != null)
+		{
+			return [parseInt(m[1].charAt(0) + m[1].charAt(0), 16), parseInt(m[1].charAt(1) + m[1].charAt(1), 16),
+				parseInt(m[1].charAt(2) + m[1].charAt(2), 16), 1];
+		}
+
+		m = /^#([0-9a-f]{6})([0-9a-f]{2})?$/.exec(s);
+
+		if (m != null)
+		{
+			return [parseInt(m[1].substring(0, 2), 16), parseInt(m[1].substring(2, 4), 16),
+				parseInt(m[1].substring(4, 6), 16), (m[2] != null) ? parseInt(m[2], 16) / 255 : 1];
+		}
+
+		m = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/.exec(s);
+
+		if (m != null)
+		{
+			return [Number(m[1]), Number(m[2]), Number(m[3]), (m[4] != null) ? Number(m[4]) : 1];
+		}
+
+		return null;
+	};
+
+	function hex2(n)
+	{
+		var h = Math.max(0, Math.min(255, Math.round(n))).toString(16);
+
+		return (h.length < 2) ? '0' + h : h;
+	};
+
+	/**
+	 * Mixes two colours, t = 0 gives a and t = 1 gives b. Returns #rrggbb
+	 * (rgba() with transparency) or null when a colour cannot be parsed.
+	 */
+	function mixColor(a, b, t)
+	{
+		var ca = parseColor(a);
+		var cb = parseColor(b);
+
+		if (ca == null || cb == null)
+		{
+			return null;
+		}
+
+		t = Math.max(0, Math.min(1, Number(t) || 0));
+		var r = ca[0] + (cb[0] - ca[0]) * t;
+		var g = ca[1] + (cb[1] - ca[1]) * t;
+		var bl = ca[2] + (cb[2] - ca[2]) * t;
+		var al = ca[3] + (cb[3] - ca[3]) * t;
+
+		if (al < 1)
+		{
+			return 'rgba(' + Math.round(r) + ',' + Math.round(g) + ',' + Math.round(bl) + ',' +
+				(Math.round(al * 1000) / 1000) + ')';
+		}
+
+		return '#' + hex2(r) + hex2(g) + hex2(bl);
+	};
+
+	/**
+	 * Intermediate value of a smooth transition: numbers are interpolated,
+	 * colours mixed. Other values switch at the end (t = 1). Returns
+	 * undefined when the pair cannot be interpolated.
+	 */
+	function tween(from, to, t)
+	{
+		if (t >= 1)
+		{
+			return to;
+		}
+
+		var a = strictNum(from);
+		var b = strictNum(to);
+
+		if (!isNaN(a) && !isNaN(b))
+		{
+			return Math.round((a + (b - a) * t) * 1000) / 1000;
+		}
+
+		var c = mixColor(from, to, t);
+
+		return (c != null) ? c : undefined;
 	};
 
 	/**
@@ -795,6 +991,7 @@
 
 			addExprRefs(out, link.expr);
 			addRef(out, link.tag);
+			addRef(out, link.trendTag);
 
 			if (type === 'properties' && link.items instanceof Array)
 			{
@@ -907,6 +1104,10 @@
 		opacity: opacity,
 		matchState: matchState,
 		state: state,
+		isStale: isStale,
+		parseColor: parseColor,
+		mixColor: mixColor,
+		tween: tween,
 		animationDuration: animationDuration,
 		pushValue: pushValue,
 		changed: changed
